@@ -9,7 +9,7 @@ from common.client import MINIO_CLIENT
 from common.config.app_config import APP_CONFIG
 from common.config.env_config import ENV_CONFIG
 from common.model import VLM
-from common.model.vlm import encode_image
+from common.model.qwen_vl_32b import encode_image
 from common.prompt.load_prompt import load_prompt
 from processor.import_processor.state import ImportNodeState
 from utils.markdown_utils import extract_surrounding_context, find_image_position
