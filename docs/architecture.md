@@ -81,8 +81,12 @@ flowchart TD
 
 ```shell
 shop-assistant/
-├── docker/                 # docker 启动文件
-│   └── services.yaml       # Milvus v3.0.2 standalone + etcd + MinIO + Attu + MongoDB 编排
+├── docker/                 # docker 启动文件与镜像定义
+│   ├── data-services.yaml      # 数据/监控服务 (Milvus + etcd + MinIO + Attu + MongoDB)
+│   ├── web-backend.Dockerfile  # 后端镜像
+│   ├── web-frontend.Dockerfile # 前端镜像
+│   ├── web-backend.yaml        # 后端编排
+│   └── web-frontend.yaml       # 前端编排
 ├── docs/                   # 项目文档与笔记
 │   ├── commit_message.md   # 约定式提交 (Conventional Commits) 规范
 │   ├── node_log.md         # 节点日志装饰器的设计推导笔记

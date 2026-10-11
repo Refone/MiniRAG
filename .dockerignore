@@ -12,8 +12,10 @@
 .pytest_cache
 reports
 
-# 前端 (后端镜像不需要; web 有独立 context 和 .dockerignore)
-web
+# 前端: 前后端镜像共用仓库根作为构建上下文,
+# 仅排除依赖与构建产物 (web 源码需保留, 供 web-frontend.Dockerfile 使用)
+web/node_modules
+web/dist
 
 # 数据 / 运行时产物 / 密钥
 .env

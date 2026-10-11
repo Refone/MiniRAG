@@ -1,0 +1,19 @@
+# 前端服务 (Vite -> nginx) 编排。
+# 通过外部共享网络 milvus 反代 /api 到后端服务 backend (见 web-frontend.Dockerfile)。
+#
+# 部署顺序: 先 `data-services.yaml` + `web-backend.yaml`, 再本文件。
+
+services:
+  web:
+    build:
+      context: ..
+      dockerfile: docker/web-frontend.Dockerfile
+    container_name: shop-assistant-web
+    ports:
+      - "8080:80"
+
+networks:
+  default:
+    # 复用 data-services.yaml 创建的 milvus 网络, 需先启动基础设施与后端
+    name: milvus
+    external: true

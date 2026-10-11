@@ -9,7 +9,7 @@
 - `src/api/` 目前只有一个 `test.py`（返回字符串），**还没有真正的 FastAPI app**
 - LangGraph 图已经写在 `src/processor/{import_processor, query_processor}/main_graph.py`，编译成了 `import_processor` 等图实例
 - `pyproject.toml` 用 `uv` 管理依赖，但**没有 `[build-system]`/包配置**，包不是「安装」出来的，import 依赖 `src` 在 path 上
-- `docker/services.yaml` 目前**只有基础设施**（Milvus / MinIO / MongoDB / Attu），还没有应用容器
+- `docker/data-services.yaml` 目前**只有基础设施**（Milvus / MinIO / MongoDB / Attu），还没有应用容器
 
 ## 推荐的三层结构（依赖方向单向）
 
@@ -63,12 +63,13 @@ shop-assistant/
 │   ├── index.html
 │   ├── package.json
 │   ├── vite.config.ts                #    dev proxy: /api → http://localhost:8000
-│   ├── Dockerfile                    #    多阶段：node build → nginx
 │   └── nginx.conf                    #    静态文件 + /api 反代到 backend:8000
 ├── docker/
-│   ├── services.yaml                 #    基础设施（已存在，保持不动）
-│   └── app.Dockerfile                #    后端镜像（新建）
-├── docker-compose.yml                #    应用编排（backend + web，引用 infra，新建）
+│   ├── data-services.yaml            #    数据/监控服务 (Milvus/MinIO/Mongo/Attu)
+│   ├── web-backend.Dockerfile        #    后端镜像
+│   ├── web-frontend.Dockerfile       #    前端镜像 (node build → nginx)
+│   ├── web-backend.yaml              #    后端编排 (backend)
+│   └── web-frontend.yaml             #    前端编排 (web)
 ├── pyproject.toml
 └── uv.lock
 ```
@@ -119,7 +120,7 @@ uvicorn --app-dir src api.main:app --reload --port 8000
 PYTHONPATH=src uvicorn api.main:app --reload
 ```
 
-Docker 里在 `app.Dockerfile` 固定住：
+Docker 里在 `web-backend.Dockerfile` 固定住：
 
 ```dockerfile
 WORKDIR /app
@@ -136,11 +137,11 @@ CMD ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000"]
 
 ## Docker 封装建议
 
-- `web/Dockerfile`：多阶段 —— `node:22` build → `nginx:alpine` 托管 `dist/` + `/api` 反代到 `backend:8000`
-- `docker/app.Dockerfile`：`python:3.12-slim` + `uv`，COPY `pyproject.toml`、`uv.lock`、`src/`，`uv sync` 后起 uvicorn
-- 根目录 `docker-compose.yml`：`backend` + `web` 两个应用容器，并**引用/合并**现有 `docker/services.yaml` 的基础设施（Milvus 等），统一 network 和 env
+- `docker/web-frontend.Dockerfile`：多阶段 —— `node:22` build → `nginx:alpine` 托管 `dist/` + `/api` 反代到 `backend:8000`
+- `docker/web-backend.Dockerfile`：`python:3.12-slim` + `uv`，COPY `pyproject.toml`、`uv.lock`、`src/`，`uv sync` 后起 uvicorn
+- `docker/web-backend.yaml` + `docker/web-frontend.yaml`：`backend` 与 `web` 两个应用容器，通过外部共享网络 `milvus` 与 `docker/data-services.yaml` 的基础设施（Milvus 等）互通
 - 后端依赖重（torch/transformers/mineru 等），镜像会很大，建议考虑 `--no-cache` 分层缓存依赖层
 
 ---
 
-要不要我接着把骨架真正搭起来？可以按这个顺序：① 在 `web/` 生成 Vite 脚手架 + proxy 配置 → ② 在 `src/api/` 写 `main.py` + 一个最小 `chat` 路由 → ③ 建 `src/service/` 并接上 `import_processor` 图 → ④ 写两个 Dockerfile + `docker-compose.yml`。你确认下「API 逻辑」是否就是我理解的 service 编排层，我就开工。
+要不要我接着把骨架真正搭起来？可以按这个顺序：① 在 `web/` 生成 Vite 脚手架 + proxy 配置 → ② 在 `src/api/` 写 `main.py` + 一个最小 `chat` 路由 → ③ 建 `src/service/` 并接上 `import_processor` 图 → ④ 写两个 Dockerfile + 两个应用 yaml。你确认下「API 逻辑」是否就是我理解的 service 编排层，我就开工。

@@ -1,0 +1,46 @@
+# 后端服务 (FastAPI) 编排。
+# 依赖的基础设施 (Milvus / MinIO / MongoDB) 由 data-services.yaml 单独拉起,
+# 两者通过外部共享网络 milvus 互通 (服务名 standalone / minio / mongodb)。
+#
+# 配置来源: 仓库根 .env 经 env_file 注入容器 (密钥/模型/各服务配置);
+# 此处 environment 仅覆盖 Docker 网络内的基础设施地址 (覆盖 .env 里的 127.0.0.1)。
+#
+# 部署顺序: 先 `data-services.yaml`, 再本文件与 `web-frontend.yaml`。
+
+services:
+  backend:
+    build:
+      context: ..
+      dockerfile: docker/web-backend.Dockerfile
+    container_name: shop-assistant-backend
+    env_file:
+      - path: ../.env
+        required: false
+    environment:
+      PROJECT_ROOT: /app
+      # Docker 网络内基础设施地址 (覆盖 .env 里的 127.0.0.1)
+      MILVUS_ENDPOINT: http://standalone:19530
+      MINIO_ENDPOINT: minio:9000
+      LOG_CONSOLE_ENABLE: "true"
+      LOG_CONSOLE_LEVEL: INFO
+    ports:
+      - "8000:8000"
+    healthcheck:
+      # python:3.12-slim 无 curl, 用 urllib 探活
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
+
+networks:
+  default:
+    # 复用 data-services.yaml 创建的 milvus 网络, 需先启动基础设施
+    name: milvus
+    external: true

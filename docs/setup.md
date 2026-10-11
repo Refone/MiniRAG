@@ -11,11 +11,11 @@
 wget https://github.com/milvus-io/milvus/raw/refs/heads/master/deployments/docker/standalone/docker-compose.yml
 ```
 
-稍加调整, 加上 attn、mangodb 服务, 调配成本项目的 [docker compose file](../docker/services.yaml)
+稍加调整, 加上 attn、mangodb 服务, 调配成本项目的 [docker compose file](../docker/data-services.yaml)
 
 用以启动相关服务
 
 ```
 cd shop-assistant
-docker compose -p shop-assistant-services -f ./docker/services.yaml up -d
+docker compose -p shop-assistant-services -f ./docker/data-services.yaml up -d
 ```

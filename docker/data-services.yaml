@@ -1,3 +1,9 @@
+# 数据 / 监控服务编排: Milvus (etcd + MinIO) + Attu + MongoDB。
+# 应用服务 (web-backend.yaml / web-frontend.yaml) 依赖本文件先拉起,
+# 全部落在名为 milvus 的默认网络里, 应用侧用服务名即可互通。
+#
+# 启动: docker compose -f docker/data-services.yaml up -d
+
 x-milvus-image: &milvus-image milvusdb/milvus:v3.0.2
 
 services:
