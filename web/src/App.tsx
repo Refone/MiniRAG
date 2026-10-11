@@ -1,63 +1,24 @@
-import { useState } from 'react'
-
-interface HealthResponse {
-  status: string
-  version?: string
-}
-
-interface ImportResponse {
-  task_id: string
-  status: string
-}
+import { useState } from 'react';
+import { NavBar } from '@/components/NavBar';
+import { ChatPage } from '@/pages/ChatPage';
+import { ImportPage } from '@/pages/ImportPage';
+import type { PageKey } from '@/lib/types';
 
 export default function App() {
-  const [health, setHealth] = useState('未检测')
-  const [importResult, setImportResult] = useState<ImportResponse | null>(null)
-  const [error, setError] = useState('')
+  const [page, setPage] = useState<PageKey>('chat');
 
-  async function checkHealth() {
-    setError('')
-    try {
-      const res = await fetch('/api/health')
-      const data = (await res.json()) as HealthResponse
-      setHealth(data.status ?? 'ok')
-    } catch (e) {
-      setError(`后端未连接: ${e instanceof Error ? e.message : String(e)}`)
-    }
-  }
-
-  async function handleFile(file: File | undefined) {
-    if (!file) return
-    setError('')
-    setImportResult(null)
-    const form = new FormData()
-    form.append('file', file)
-    try {
-      const res = await fetch('/api/import', { method: 'POST', body: form })
-      const data = (await res.json()) as ImportResponse
-      setImportResult(data)
-    } catch (e) {
-      setError(`上传失败: ${e instanceof Error ? e.message : String(e)}`)
-    }
-  }
+  const handlePageChange = (next: PageKey) => {
+    if (next === page) return;
+    console.log(`[nav] 切换到「${next === 'chat' ? '对话' : '文件导入'}」`);
+    setPage(next);
+  };
 
   return (
-    <main>
-      <h1>MiniRag</h1>
-
-      <section>
-        <h2>后端健康检查</h2>
-        <button onClick={checkHealth}>检测</button>
-        <span>状态: {health}</span>
-      </section>
-
-      <section>
-        <h2>文档导入</h2>
-        <input type="file" onChange={(e) => handleFile(e.target.files?.[0])} />
-        {importResult && <pre>{JSON.stringify(importResult, null, 2)}</pre>}
-      </section>
-
-      {error && <p className="error">{error}</p>}
-    </main>
-  )
+    <div className="app-shell">
+      <NavBar page={page} onPageChange={handlePageChange} />
+      <main className="app-body">
+        {page === 'chat' ? <ChatPage /> : <ImportPage />}
+      </main>
+    </div>
+  );
 }
