@@ -8,7 +8,22 @@ cd web && npm run dev                              # 前端 :5173 (代理 /api �
 # 一键容器化 (按顺序拉起)
 # 后端配置 (密钥/模型等) 由仓库根目录 .env 经 env_file 注入容器,
 # 基础设施地址 (milvus/minio) 在 yaml 内已覆盖为 Docker 服务名。
-docker compose -f docker/data-services.yaml up -d      # ① 数据/监控服务 (Milvus/MinIO/Mongo/Attu)
-docker compose -f docker/web-backend.yaml up -d --build  # ② 后端 :8000
-docker compose -f docker/web-frontend.yaml up -d --build # ③ 前端 :8080 (nginx 反代 /api → backend:8000)
+docker compose -p mini-rag -f docker/data-services.yaml up -d      # ① 数据/监控服务 (Milvus/MinIO/Mongo/Attu)
+docker compose -p mini-rag -f docker/web-backend.yaml up -d --build  # ② 后端 :8000
+docker compose -p mini-rag -f docker/web-frontend.yaml up -d --build # ③ 前端 :8080 (nginx 反代 /api → backend:8000)
+```
+
+若想停止服务
+
+```shell
+docker compose -p mini-rag \
+  -f docker/data-services.yaml \
+  -f docker/web-backend.yaml \
+  -f docker/web-frontend.yaml \
+  down
+
+# milvus 网络不会被 down 删除。
+# 因为 web-backend.yaml / web-frontend.yaml 里把这个网络标成了 external: true
+# compose 不会去删它。如果你想连网络也一起清掉，down 之后再补一句：
+docker network rm milvus
 ```

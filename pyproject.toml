@@ -7,9 +7,9 @@ only-include = ["src"]
 sources = ["src"]
 
 [project]
-name = "shop-assistant"
+name = "mini-rag"
 version = "0.1.0"
-description = "AI Shop Assistant"
+description = "MiniRag - Minimal RAG Demo"
 readme = "README.md"
 authors = [
     { name = "Refone Leo", email = "710196926@qq.com" }

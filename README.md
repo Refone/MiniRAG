@@ -1,4 +1,4 @@
-# Shop Assistant Agent
+# MiniRag
 
 ## 基本架构
 
@@ -25,6 +25,21 @@ test    # pytest 测试目录
 └── test-data       # 测试样例文件
 ```
 
+## Web 应用部署
+
+```shell
+# 本地开发
+uvicorn --app-dir src api.main:app --reload        # 后端 :8000
+cd web && npm run dev                              # 前端 :5173 (代理 /api → :8000)
+
+# 一键容器化 (按顺序拉起)
+# 后端配置 (密钥/模型等) 由仓库根目录 .env 经 env_file 注入容器,
+# 基础设施地址 (milvus/minio) 在 yaml 内已覆盖为 Docker 服务名。
+docker compose -p mini-rag -f docker/data-services.yaml up -d      # ① 数据/监控服务 (Milvus/MinIO/Mongo/Attu)
+docker compose -p mini-rag -f docker/web-backend.yaml up -d --build  # ② 后端 :8000
+docker compose -p mini-rag -f docker/web-frontend.yaml up -d --build # ③ 前端 :8080 (nginx 反代 /api → backend:8000)
+```
+
 ## 测试
 
 统一使用标准 pytest (不再依赖各文件 `__main__` 自测), 配置集中在
@@ -44,10 +59,10 @@ uv run pytest -k doc_type          # 只跑名字匹配的用例
 
 测试分三档 marker, 由 `--run-*` 开关控制:
 
-| marker | 含义 | 默认 | 开启方式 |
-| --- | --- | --- | --- |
-| `unit` | 单元测试, mock 所有外部依赖 | ✅ 运行 | (无需开关) |
-| `smoke` | 冒烟测试, 真实 apikey / 网络请求 | ⏭ 跳过 | `--run-smoke` |
+| marker        | 含义                                    | 默认    | 开启方式            |
+| ------------- | --------------------------------------- | ------- | ------------------- |
+| `unit`        | 单元测试, mock 所有外部依赖             | ✅ 运行 | (无需开关)          |
+| `smoke`       | 冒烟测试, 真实 apikey / 网络请求        | ⏭ 跳过 | `--run-smoke`       |
 | `integration` | 模块耦合集成测试 (Milvus / MinIO / LLM) | ⏭ 跳过 | `--run-integration` |
 
 冒烟测试想看节点过程日志, 加 `-s -v` 关闭输出捕获:
@@ -55,12 +70,3 @@ uv run pytest -k doc_type          # 只跑名字匹配的用例
 ```shell
 uv run pytest test/smoke -s -v --run-smoke
 ```
-
-## 调试脚本 (dev/)
-
-`dev/` 目录存放实验性调试主流程的脚本, 不纳入 pytest 收集范围, 也不要求被测试
-保护。调试某个流程时, 直接运行 `dev/` 下对应脚本即可 (脚本内部已把 `src/` 加入
-`sys.path`, 无需手动设置 `PYTHONPATH`):
-
-- `dev/import_pdf.py` — 调试导入流程 (import_processor) 的 PDF 分支, 以 hak180 PDF
-  为样例走 MinerU 转换, 运行后打印完成节点链与最终 state

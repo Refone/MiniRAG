@@ -8,7 +8,7 @@
 
 ```mermaid
 flowchart TD
-    subgraph Shop_Assistant ["shop-assistant · RAG Agent 架构 (LangGraph)"]
+    subgraph MiniRag ["MiniRag · RAG Agent 架构 (LangGraph)"]
         direction TB
 
         %% ===== 链路1: 文档导入 (import_processor) =====
@@ -80,7 +80,7 @@ flowchart TD
 ## 项目结构介绍
 
 ```shell
-shop-assistant/
+mini-rag/
 ├── docker/                 # docker 启动文件与镜像定义
 │   ├── data-services.yaml      # 数据/监控服务 (Milvus + etcd + MinIO + Attu + MongoDB)
 │   ├── web-backend.Dockerfile  # 后端镜像

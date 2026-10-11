@@ -12,7 +12,7 @@ services:
     build:
       context: ..
       dockerfile: docker/web-backend.Dockerfile
-    container_name: shop-assistant-backend
+    container_name: mini-rag-backend
     env_file:
       - path: ../.env
         required: false

@@ -5,7 +5,7 @@
 ## 当前项目现状（关键事实）
 
 - `src/` 是**扁平源码根**，下面已有 `api/`、`common/`、`processor/`、`utils/` 四个顶层包
-- 现有代码的 import 风格是 `from processor...` / `from utils...` / `from common...` —— 也就是**把 `src/` 本身当 `sys.path` 根**，而不是 `from shop_assistant.processor...` 这种标准 src-layout 单包
+- 现有代码的 import 风格是 `from processor...` / `from utils...` / `from common...` —— 也就是**把 `src/` 本身当 `sys.path` 根**，而不是 `from mini_rag.processor...` 这种标准 src-layout 单包
 - `src/api/` 目前只有一个 `test.py`（返回字符串），**还没有真正的 FastAPI app**
 - LangGraph 图已经写在 `src/processor/{import_processor, query_processor}/main_graph.py`，编译成了 `import_processor` 等图实例
 - `pyproject.toml` 用 `uv` 管理依赖，但**没有 `[build-system]`/包配置**，包不是「安装」出来的，import 依赖 `src` 在 path 上
@@ -33,7 +33,7 @@ src/utils        —— 工具
 ## 完整目录结构
 
 ```
-shop-assistant/
+mini-rag/
 ├── src/                              # Python 后端源码根（sys.path 根）
 │   ├── api/                          # ① FastAPI 框架层（已存在，需填充）
 │   │   ├── __init__.py
@@ -128,7 +128,7 @@ ENV PYTHONPATH=/app/src
 CMD ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000"]
 ```
 
-**方案 B（更规范，但要改代码）**：给 `pyproject.toml` 加 `[build-system]` + 包配置，或干脆迁成标准 src-layout —— `src/shop_assistant/` 单包，import 改成 `from shop_assistant.processor...`。这样无需 PYTHONPATH，最稳，但现有所有 import 都要改一遍。**建议先用 A，等要发 PyPI 包或团队扩大再迁 B。**
+**方案 B（更规范，但要改代码）**：给 `pyproject.toml` 加 `[build-system]` + 包配置，或干脆迁成标准 src-layout —— `src/mini_rag/` 单包，import 改成 `from mini_rag.processor...`。这样无需 PYTHONPATH，最稳，但现有所有 import 都要改一遍。**建议先用 A，等要发 PyPI 包或团队扩大再迁 B。**
 
 ⚠️ 额外两个隐藏坑（和 import 同源，都是「根目录识别」问题）：
 

@@ -10,13 +10,13 @@ from utils.logging_utils import logger
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    logger.info("Shop Assistant API 启动 (version={})", __version__)
+    logger.info("MiniRag API 启动 (version={})", __version__)
     yield
-    logger.info("Shop Assistant API 关闭")
+    logger.info("MiniRag API 关闭")
 
 
 app = FastAPI(
-    title="Shop Assistant API",
+    title="MiniRag API",
     description="前端经 FastAPI 调用 LangGraph 服务的网关",
     version=__version__,
     lifespan=lifespan,

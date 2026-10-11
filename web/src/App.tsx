@@ -43,7 +43,7 @@ export default function App() {
 
   return (
     <main>
-      <h1>Shop Assistant</h1>
+      <h1>MiniRag</h1>
 
       <section>
         <h2>后端健康检查</h2>
