@@ -14,9 +14,9 @@ export default function App() {
   };
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-slate-100 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
+    <div className="app-shell">
       <NavBar page={page} onPageChange={handlePageChange} />
-      <main className="flex min-h-0 flex-1 p-4">
+      <main className="app-body">
         {page === 'chat' ? <ChatPage /> : <ImportPage />}
       </main>
     </div>
