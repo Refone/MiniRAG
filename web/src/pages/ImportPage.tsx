@@ -25,37 +25,46 @@ const STATUS_LABELS: Record<ImportStatus, string> = {
 };
 
 const STATUS_CLASSES: Record<ImportStatus, string> = {
-  uploading: 'status-uploading',
-  processing: 'status-processing',
-  completed: 'status-completed',
-  error: 'status-error',
+  uploading: 'bg-amber-400',
+  processing: 'bg-sky-500',
+  completed: 'bg-emerald-500',
+  error: 'bg-rose-500',
 };
 
 function FileItem({ file }: { file: ImportFile }) {
   const lines = [...file.done.map(normalizeDoneLog), ...file.running.map(normalizeRunningLog)];
 
   return (
-    <div className="file-item">
-      <div className="file-info">
-        <span className="file-name">{file.name}</span>
-        <span className="file-size">{file.sizeKB}</span>
-        <div className="progress-bar-container">
+    <div className="flex items-center justify-between rounded-md border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-800/50">
+      <div className="mr-5 flex min-w-0 flex-1 flex-col">
+        <span className="font-semibold break-all text-slate-900 dark:text-slate-100">{file.name}</span>
+        <span className="mt-1 text-xs text-slate-500 dark:text-slate-400">{file.sizeKB}</span>
+        <div className="mt-2 h-1 w-full overflow-hidden rounded-sm bg-slate-200 dark:bg-slate-700">
           <div
-            className="progress-bar"
-            style={{
-              width: `${file.progress}%`,
-              backgroundColor: file.progress >= 100 ? 'var(--info)' : 'var(--warning)',
-            }}
+            className={`h-full transition-[width,background-color] duration-300 ${file.progress >= 100 ? 'bg-sky-500' : 'bg-amber-500'}`}
+            style={{ width: `${file.progress}%` }}
           />
         </div>
-        <details className="log-details">
-          <summary>{`日志（已完成${file.done.length}，进行中${file.running.length}，点击展开）`}</summary>
-          <ul className="log-list">
-            {lines.length === 0 ? <li>暂无日志</li> : lines.map((line, i) => <li key={i}>{line}</li>)}
+        <details className="mt-2 text-xs text-slate-500 dark:text-slate-400">
+          <summary className="cursor-pointer select-none text-slate-500 dark:text-slate-400">
+            {`日志（已完成${file.done.length}，进行中${file.running.length}，点击展开）`}
+          </summary>
+          <ul className="ml-4 mt-1.5">
+            {lines.length === 0 ? (
+              <li className="my-0.5 leading-snug text-slate-600 dark:text-slate-400">暂无日志</li>
+            ) : (
+              lines.map((line, i) => (
+                <li key={i} className="my-0.5 leading-snug text-slate-600 dark:text-slate-400">
+                  {line}
+                </li>
+              ))
+            )}
           </ul>
         </details>
       </div>
-      <div className={`status-badge ${STATUS_CLASSES[file.status]}`}>{STATUS_LABELS[file.status]}</div>
+      <div className={`min-w-[80px] shrink-0 rounded-full px-2.5 py-1 text-center text-xs font-bold text-white ${STATUS_CLASSES[file.status]}`}>
+        {STATUS_LABELS[file.status]}
+      </div>
     </div>
   );
 }
@@ -173,11 +182,15 @@ export function ImportPage() {
   };
 
   return (
-    <div className="import-page">
-      <h1 className="import-title">📄 知识库文件导入</h1>
+    <div className="mx-auto flex min-h-0 w-full max-w-3xl flex-col overflow-y-auto rounded-xl border border-slate-200 bg-white p-7 shadow-lg dark:border-slate-800 dark:bg-slate-900">
+      <h1 className="mb-7 text-center text-2xl font-semibold text-slate-900 dark:text-slate-100">
+        📄 知识库文件导入
+      </h1>
 
       <div
-        className={`upload-area${dragging ? ' dragging' : ''}`}
+        className={`mb-5 cursor-pointer rounded-lg border-2 border-dashed border-sky-400 p-10 text-center transition-colors ${
+          dragging ? 'bg-sky-50 dark:bg-sky-500/10' : 'hover:bg-sky-50 dark:hover:bg-sky-500/10'
+        }`}
         onClick={() => fileInputRef.current?.click()}
         onDragOver={(e) => {
           e.preventDefault();
@@ -189,19 +202,19 @@ export function ImportPage() {
         }}
         onDrop={onDrop}
       >
-        <div className="upload-icon">☁️</div>
-        <p>点击或拖拽文件到此处 (PDF/MD)</p>
+        <div className="mb-2.5 text-5xl text-sky-400">☁️</div>
+        <p className="text-slate-900 dark:text-slate-100">点击或拖拽文件到此处 (PDF/MD)</p>
         <input
           ref={fileInputRef}
           type="file"
-          className="file-input"
+          className="hidden"
           multiple
           accept=".pdf,.md"
           onChange={onInputChange}
         />
       </div>
 
-      <div className="file-list">
+      <div className="flex flex-col gap-2.5">
         {files.map((f) => (
           <FileItem key={f.id} file={f} />
         ))}

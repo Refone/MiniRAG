@@ -70,9 +70,9 @@ function AnswerContent({ text, images, showPlaceholder }: AnswerContentProps) {
 
   return (
     <>
-      {display && <div className="answer-text">{display}</div>}
+      {display && <div className="whitespace-pre-wrap break-words">{display}</div>}
       {parsed.images.length > 0 && (
-        <div className="answer-images">
+        <div className="mt-2.5 flex flex-col gap-2.5">
           {parsed.images.map((url) => (
             <Fragment key={url}>
               <img
@@ -80,6 +80,7 @@ function AnswerContent({ text, images, showPlaceholder }: AnswerContentProps) {
                 alt="参考图片"
                 loading="lazy"
                 referrerPolicy="no-referrer"
+                className="block max-h-[600px] w-auto max-w-full rounded-xl border border-slate-200 bg-white shadow-lg dark:border-slate-700"
                 onError={(e) => {
                   e.currentTarget.style.display = "none";
                 }}
@@ -88,6 +89,7 @@ function AnswerContent({ text, images, showPlaceholder }: AnswerContentProps) {
                 href={normalizeUrl(url)}
                 target="_blank"
                 rel="noopener noreferrer"
+                className="text-xs text-slate-500 no-underline break-all dark:text-slate-400"
               >
                 {url}
               </a>
@@ -114,13 +116,19 @@ function ProgressDetails({ progress }: { progress: ProgressView }) {
   ];
 
   return (
-    <details className="progress" open>
-      <summary>{`阶段进度（已完成${progress.done.length}，进行中${progress.running.length}，状态：${status}）`}</summary>
-      <ul>
+    <details className="mt-2 rounded-xl border border-dashed border-slate-300 bg-slate-50 p-2.5 dark:border-slate-600 dark:bg-slate-800/50" open>
+      <summary className="cursor-pointer select-none text-xs text-slate-500 dark:text-slate-400">
+        {`阶段进度（已完成${progress.done.length}，进行中${progress.running.length}，状态：${status}）`}
+      </summary>
+      <ul className="ml-4 mt-2">
         {lines.length === 0 ? (
-          <li>暂无进度</li>
+          <li className="my-1 text-xs text-slate-600 dark:text-slate-400">暂无进度</li>
         ) : (
-          lines.map((line, i) => <li key={i}>{line}</li>)
+          lines.map((line, i) => (
+            <li key={i} className="my-1 text-xs text-slate-600 dark:text-slate-400">
+              {line}
+            </li>
+          ))
         )}
       </ul>
     </details>
@@ -130,12 +138,16 @@ function ProgressDetails({ progress }: { progress: ProgressView }) {
 function MessageBubble({ message }: { message: ChatMessage }) {
   if (message.role === "user") {
     return (
-      <div className="msg user">
-        <div>
-          <div className="bubble">{message.text}</div>
-          <div className="meta">{message.time}</div>
+      <div className="flex items-end justify-end gap-2.5">
+        <div className="flex min-w-0 flex-col items-end">
+          <div className="inline-block max-w-[min(720px,76%)] rounded-2xl border border-transparent bg-indigo-600 px-3 py-2.5 text-sm leading-relaxed whitespace-pre-wrap break-words text-white">
+            {message.text}
+          </div>
+          <div className="mt-1.5 text-[11px] text-indigo-100">{message.time}</div>
         </div>
-        <div className="avatar">我</div>
+        <div className="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-xl bg-slate-200 text-sm text-slate-600 dark:bg-slate-700 dark:text-slate-300">
+          我
+        </div>
       </div>
     );
   }
@@ -144,7 +156,7 @@ function MessageBubble({ message }: { message: ChatMessage }) {
   if (message.error) {
     content = (
       <>
-        <div className="answer">
+        <div className="whitespace-pre-wrap">
           抱歉，本次处理失败：{"\n"}
           {message.error}
         </div>
@@ -154,10 +166,10 @@ function MessageBubble({ message }: { message: ChatMessage }) {
   } else if (message.typing) {
     content = (
       <>
-        <span className="typing">
-          <span className="dot" />
-          <span className="dot" />
-          <span className="dot" />
+        <span className="inline-flex items-center gap-1.5">
+          <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-slate-400" />
+          <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-slate-400 [animation-delay:0.15s]" />
+          <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-slate-400 [animation-delay:0.3s]" />
         </span>
         {message.progress && <ProgressDetails progress={message.progress} />}
       </>
@@ -176,11 +188,17 @@ function MessageBubble({ message }: { message: ChatMessage }) {
   }
 
   return (
-    <div className="msg bot">
-      <div className="avatar bot">🧠</div>
-      <div>
-        <div className="bubble">{content}</div>
-        <div className="meta">{message.hint ?? message.time}</div>
+    <div className="flex items-end gap-2.5">
+      <div className="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-violet-500 text-sm text-white">
+        🧠
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="inline-block max-w-[min(720px,76%)] rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-sm leading-relaxed whitespace-pre-wrap break-words text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100">
+          {content}
+        </div>
+        <div className="mt-1.5 text-[11px] text-slate-500 dark:text-slate-400">
+          {message.hint ?? message.time}
+        </div>
       </div>
     </div>
   );
@@ -498,49 +516,60 @@ export function ChatPage() {
   }, [sessionId]);
 
   return (
-    <div className="chat-page">
-      <div className="chat-toolbar">
-        <label className="stream-toggle">
+    <div className="mx-auto flex min-h-0 w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-lg dark:border-slate-800 dark:bg-slate-900">
+      <div className="flex items-center gap-3 border-b border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-800 dark:bg-slate-800/50">
+        <label className="flex cursor-pointer select-none items-center gap-1 text-xs text-slate-500 dark:text-slate-400">
           <input
             type="checkbox"
+            className="cursor-pointer accent-indigo-600"
             checked={isStream}
             onChange={(e) => setIsStream(e.target.checked)}
           />
           流式输出
         </label>
-        <span className="pill">API: {apiConnected ? "已连接" : "未连接"}</span>
-        <button type="button" className="btn" onClick={clearHistory}>
+        <span className="ml-auto rounded-full border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400">
+          API: {apiConnected ? "已连接" : "未连接"}
+        </span>
+        <button
+          type="button"
+          className="rounded-lg bg-indigo-600 px-3 py-2 text-xs text-white transition hover:bg-indigo-500"
+          onClick={clearHistory}
+        >
           清空对话
         </button>
       </div>
 
-      <div className="chat" ref={chatRef}>
-        <div className="dayline">今天</div>
+      <div className="min-h-0 flex-1 overflow-y-auto px-3.5 py-4" ref={chatRef}>
+        <div className="mb-3.5 mt-1.5 text-center text-xs text-slate-500 dark:text-slate-400">
+          今天
+        </div>
         {messages.map((m) => (
           <MessageBubble key={m.id} message={m} />
         ))}
       </div>
 
-      <div className="composer">
+      <div className="flex items-end gap-2.5 border-t border-slate-200 bg-white p-3.5 dark:border-slate-800 dark:bg-slate-900">
         <textarea
           ref={inputRef}
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={onKeyDown}
           placeholder="请输入问题（Enter 发送，Shift+Enter 换行）"
+          className="min-h-[44px] max-h-[140px] flex-1 resize-none rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm leading-6 text-slate-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
         />
         <button
           type="button"
-          className="send"
+          className="h-11 w-[88px] rounded-xl bg-indigo-600 text-sm text-white transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-60"
           onClick={onSend}
           disabled={sending}
         >
           发送
         </button>
       </div>
-      <div className="hint">
-        快捷键：<span className="kbd">Enter</span> 发送，
-        <span className="kbd">Shift</span>+<span className="kbd">Enter</span>{" "}
+      <div className="bg-white px-3.5 pb-3 text-xs text-slate-500 dark:bg-slate-900 dark:text-slate-400">
+        快捷键：<span className="rounded-md border border-slate-200 bg-slate-50 px-1.5 py-0.5 font-mono text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">Enter</span> 发送，
+        <span className="rounded-md border border-slate-200 bg-slate-50 px-1.5 py-0.5 font-mono text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">Shift</span>+
+        <span className="rounded-md border border-slate-200 bg-slate-50 px-1.5 py-0.5 font-mono text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">Enter</span>{" "}
         换行
       </div>
     </div>
