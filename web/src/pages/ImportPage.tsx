@@ -101,6 +101,12 @@ function normalizeRunningLog(text: unknown): string {
   return `⏳ ${t}`;
 }
 
+/** 把「失败节点名」包装成失败日志文案 */
+function normalizeFailedLog(text: unknown): string {
+  const t = typeof text === "string" ? text : String(text);
+  return `❌ ${t}`;
+}
+
 /**
  * 根据文件名后缀推断导入链路的「总步数」（含最前面的「上传文件」步骤）。
  *   - PDF：1(上传) + 6(节点) = 7 步
@@ -128,24 +134,37 @@ function calcProgress(doneCount: number, totalSteps: number): number {
 /* ------------------------------------------------------------------ */
 
 function FileItem({ file }: { file: ImportFile }) {
-  // 上传是导入链路的第一步，但后端节点不包含它，这里在前端手动补一条：
-  //   上传中 → 作为「进行中」；离开上传态后 → 作为「已完成」
   const uploading = file.status === "uploading";
-  const uploadLog = [
-    uploading
-      ? normalizeRunningLog(UPLOAD_STEP)
-      : normalizeDoneLog(UPLOAD_STEP),
-  ];
+  const failed = file.status === "error";
 
-  // 顺序：上传步骤 → 已完成节点 → 进行中节点
+  // 后端在节点抛异常时，finally 仍会把该节点写进 done_nodes（而不是留在 running_nodes），
+  // 因此「失败节点」会混在 done 列表里。按顺序识别：失败时最后一个 done 节点即失败节点。
+  const failedNode =
+    failed && file.done.length > 0 ? file.done[file.done.length - 1] : null;
+
+  // 真正成功完成的节点 = done 去掉最后一个失败节点
+  const doneNodes = failedNode ? file.done.slice(0, -1) : file.done;
+
+  // 上传步骤的符号：上传中 ⏳ / 上传失败 ❌（error 且无任何节点）/ 其余 ✅
+  let uploadLog: string;
+  if (uploading) {
+    uploadLog = normalizeRunningLog(UPLOAD_STEP);
+  } else if (failed && file.done.length === 0) {
+    uploadLog = normalizeFailedLog(UPLOAD_STEP);
+  } else {
+    uploadLog = normalizeDoneLog(UPLOAD_STEP);
+  }
+
+  // 顺序：上传步骤 → 已完成节点 → 失败节点 → 进行中节点
   const lines = [
-    ...uploadLog,
-    ...file.done.map(normalizeDoneLog),
+    uploadLog,
+    ...doneNodes.map(normalizeDoneLog),
+    ...(failedNode ? [normalizeFailedLog(failedNode)] : []),
     ...file.running.map(normalizeRunningLog),
   ];
 
-  // 汇总计数（含手动补的「上传文件」这一项）
-  const doneCount = (uploading ? 0 : 1) + file.done.length;
+  // 已完成计数：上传（若已完成）+ 成功节点数（不含失败节点）
+  const doneCount = (uploading ? 0 : 1) + doneNodes.length;
   const totalSteps = inferTotalSteps(file.name);
 
   // 完成后（completed）自动收起；上传/处理/失败保持展开，失败时方便查看出错节点
