@@ -1,4 +1,4 @@
-export type PageKey = 'chat' | 'import';
+export type PageKey = "chat" | "import";
 
 export interface ProgressView {
   done: string[];
@@ -8,7 +8,7 @@ export interface ProgressView {
 
 export interface ChatMessage {
   id: string;
-  role: 'user' | 'bot';
+  role: "user" | "bot";
   text: string;
   time: string;
   hint?: string;
@@ -34,20 +34,7 @@ export interface QueryResponse {
   message?: string;
 }
 
-export interface StatusResponse {
-  status: string;
-  done_list?: string[];
-  running_list?: string[];
-  answer?: string;
-  error?: string;
-  image_urls?: string[];
-}
-
-export interface UploadResponse {
-  task_ids: string[];
-}
-
-export type ImportStatus = 'uploading' | 'processing' | 'completed' | 'error';
+export type ImportStatus = "uploading" | "processing" | "completed" | "error";
 
 export interface ImportFile {
   id: string;

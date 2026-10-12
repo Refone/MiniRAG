@@ -4,13 +4,15 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from api import __version__
-from api.routers import chat, health, import_doc
+from api.routers import chat_page, health, import_page
+from api.setup import setup
 from utils.logging_utils import logger
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("MiniRag API 启动 (version={})", __version__)
+    setup()
     yield
     logger.info("MiniRag API 关闭")
 
@@ -33,5 +35,5 @@ app.add_middleware(
 
 # 挂载路由 (路由前缀统一为 /api, 与 Vite dev proxy 和 nginx 反代保持一致)
 app.include_router(health.router)
-app.include_router(import_doc.router)
-app.include_router(chat.router)
+app.include_router(import_page.router)
+app.include_router(chat_page.router)

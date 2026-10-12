@@ -32,19 +32,25 @@ def node_log(desc: str | None = None):
         description = desc or func.__name__
 
         @wraps(func)
-        def wrapper(state, *args, **kwargs):    # 明确装饰函数要有一个 state 参数
+        def wrapper(state, *args, **kwargs):  # 明确装饰函数要有一个 state 参数
             task_id = _task_id(state)
             start_ts = time.time()
             _log.info(f"节点开始 [{description}] <task_id = {task_id}>")
             try:
                 result = func(state, *args, **kwargs)
                 cost_ms = int((time.time() - start_ts) * 1000)
-                _log.info(f"节点完成 [{description}] <task_id = {task_id}>, 耗时={cost_ms}ms")
+                _log.info(
+                    f"节点完成 [{description}] <task_id = {task_id}>, 耗时={cost_ms}ms"
+                )
                 return result
             except Exception:
-                _log.opt(exception=True).error(f"节点异常 [{description}] <task_id = {task_id}>")
+                _log.opt(exception=True).error(
+                    f"节点异常 [{description}] <task_id = {task_id}>"
+                )
                 raise
+
         return wrapper
+
     return deco
 
 
@@ -71,7 +77,9 @@ def step_log(desc: str | None = None):
             except Exception:
                 _log.opt(exception=True).error(f"步骤异常 [{description}]")
                 raise
+
         return wrapper
+
     return deco
 
 
@@ -128,7 +136,7 @@ def trace_node(
         if log_trace:
             func = node_log(desc=description)(func)
         if task_trace:
-            func = _task_trace(func.__name__, need_push=need_push)(func)
+            func = _task_trace(description, need_push=need_push)(func)
 
         return func
 
@@ -157,6 +165,7 @@ if __name__ == "__main__":
     @step_log("test step")
     def step_test(a: int, b: int):
         return a + b
+
     logger.info(step_test(2, 3))
 
     # trace_node: 日志 + 任务追踪
@@ -168,4 +177,6 @@ if __name__ == "__main__":
 
     clear_task("demo")
     demo_node({"task_id": "demo"})
-    logger.info(f"running={get_task_running_nodes('demo')} done={get_task_done_nodes('demo')}")
+    logger.info(
+        f"running={get_task_running_nodes('demo')} done={get_task_done_nodes('demo')}"
+    )

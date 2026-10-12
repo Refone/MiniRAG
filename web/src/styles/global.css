@@ -29,7 +29,7 @@
   --danger: #e74c3c;
 }
 
-[data-theme='dark'] {
+[data-theme="dark"] {
   color-scheme: dark;
 
   --bg: #0e1219;
@@ -72,7 +72,13 @@ body,
 
 body {
   margin: 0;
-  font-family: 'Segoe UI', 'Microsoft YaHei', system-ui, -apple-system, Arial, sans-serif;
+  font-family:
+    "Segoe UI",
+    "Microsoft YaHei",
+    system-ui,
+    -apple-system,
+    Arial,
+    sans-serif;
   background:
     radial-gradient(1200px 600px at 20% 0%, var(--bg-grad-1), transparent 60%),
     radial-gradient(1000px 500px at 90% 10%, var(--bg-grad-2), transparent 55%),
@@ -108,7 +114,11 @@ button {
   gap: 16px;
   padding: 12px 20px;
   border-bottom: 1px solid var(--border);
-  background: linear-gradient(90deg, rgba(26, 167, 255, 0.1), rgba(91, 124, 250, 0.1));
+  background: linear-gradient(
+    90deg,
+    rgba(26, 167, 255, 0.1),
+    rgba(91, 124, 250, 0.1)
+  );
 }
 
 .brand {
@@ -167,7 +177,10 @@ button {
   border-radius: 999px;
   font-size: 13px;
   cursor: pointer;
-  transition: color 0.15s, border-color 0.15s, background 0.15s;
+  transition:
+    color 0.15s,
+    border-color 0.15s,
+    background 0.15s;
 }
 
 .tab:hover {
@@ -197,7 +210,9 @@ button {
   border-radius: 999px;
   font-size: 13px;
   cursor: pointer;
-  transition: border-color 0.15s, background 0.15s;
+  transition:
+    border-color 0.15s,
+    background 0.15s;
 }
 
 .theme-toggle:hover {
@@ -235,7 +250,9 @@ button {
 }
 
 .kbd {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
+  font-family:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+    monospace;
   border: 1px solid var(--border);
   padding: 1px 6px;
   border-radius: 6px;
@@ -264,7 +281,11 @@ button {
   gap: 12px;
   padding: 12px 16px;
   border-bottom: 1px solid var(--border);
-  background: linear-gradient(90deg, rgba(26, 167, 255, 0.1), rgba(91, 124, 250, 0.1));
+  background: linear-gradient(
+    90deg,
+    rgba(26, 167, 255, 0.1),
+    rgba(91, 124, 250, 0.1)
+  );
 }
 
 .stream-toggle {
@@ -338,7 +359,11 @@ button {
 }
 
 .avatar.bot {
-  background: linear-gradient(135deg, rgba(26, 167, 255, 0.18), rgba(91, 124, 250, 0.18));
+  background: linear-gradient(
+    135deg,
+    rgba(26, 167, 255, 0.18),
+    rgba(91, 124, 250, 0.18)
+  );
   color: var(--text);
 }
 
@@ -584,7 +609,7 @@ details.progress summary {
   padding: 15px;
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
 }
 
 .file-info {
@@ -646,7 +671,9 @@ details.progress summary {
 .progress-bar {
   height: 100%;
   width: 0%;
-  transition: width 0.3s, background-color 0.3s;
+  transition:
+    width 0.3s,
+    background-color 0.3s;
 }
 
 .log-details {

@@ -1,9 +1,9 @@
 from fastapi import APIRouter, HTTPException
+from api.schemas.all_schema import ChatRequest, ChatResponse
 
-from api.schemas.chat import ChatRequest, ChatResponse
 from service.chat_service import achat
 
-router = APIRouter(prefix="/api/chat", tags=["chat"])
+router = APIRouter(prefix="/chat", tags=["chat"])
 
 
 @router.post("", response_model=ChatResponse)
