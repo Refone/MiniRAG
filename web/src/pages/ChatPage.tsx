@@ -396,35 +396,27 @@ export function ChatPage() {
         }
       });
 
-      const finalize = (finalText: string, imageUrls: string[]) => {
-        console.log(
-          `[chat] 回答完成（${finalText.length} 字，${imageUrls.length} 张图）`,
-        );
-        updateMessage(botId, {
-          typing: false,
-          text: finalText,
-          images: imageUrls,
-        });
-        setSending(false);
-        close();
-      };
-
       es.addEventListener("final", (e) => {
         const d = parseEventData<StatusResponse>((e as MessageEvent).data);
         const finalText =
           d && typeof d.answer === "string" && d.answer.trim().length > 0
             ? d.answer
             : rawAnswerText || "";
-        finalize(finalText, d?.image_urls || []);
+        console.log(
+          `[chat] 回答完成（${finalText.length} 字，${d?.image_urls?.length || 0} 张图）`,
+        );
+        updateMessage(botId, {
+          typing: false,
+          text: finalText,
+          images: d?.image_urls || [],
+        });
+        setSending(false);
       });
 
-      es.addEventListener("final_answer", (e) => {
-        const d = parseEventData<StatusResponse>((e as MessageEvent).data);
-        const finalText =
-          d && typeof d.answer === "string" && d.answer.trim().length > 0
-            ? d.answer
-            : rawAnswerText || "";
-        finalize(finalText, d?.image_urls || []);
+      // 不在 final 时关流，等收到服务端 __close__ 信号再关闭连接
+      es.addEventListener("__close__", () => {
+        console.log(`[chat] SSE 收到 __close__，关闭连接`);
+        close();
       });
 
       es.addEventListener("error", (e) => {
