@@ -93,12 +93,17 @@ def _task_trace(node_name: str, *, need_push: bool = False) -> Callable[..., Any
     def deco(func):
         @wraps(func)
         def wrapper(state, *args, **kwargs):
-            task_id = state.get("task_id", "-")
-            add_running_node(task_id, node_name, need_push=need_push)
+            if "task_id" in state:
+                trace_id = state["task_id"]
+            elif "session_id" in state:
+                trace_id = state["session_id"]
+            else:
+                trace_id = "-"
+            add_running_node(trace_id, node_name, need_push=need_push)
             try:
                 return func(state, *args, **kwargs)
             finally:
-                add_done_node(task_id, node_name, need_push=need_push)
+                add_done_node(trace_id, node_name, need_push=need_push)
 
         return wrapper
 
