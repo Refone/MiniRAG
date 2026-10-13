@@ -32,6 +32,9 @@ import {
   UploadStatusResponse,
 } from "@/lib/api";
 import type { ImportFile, ImportStatus } from "@/lib/types";
+import { CompleteIcon } from "@/components/CompleteIcon";
+import { FailedIcon } from "@/components/FailedIcon";
+import { LoadingIcon } from "@/components/LoadingIcon";
 
 /* ------------------------------------------------------------------ */
 /* 常量 & 状态映射                                                      */
@@ -89,23 +92,8 @@ function makeId(): string {
   return "file-" + Math.random().toString(36).slice(2, 11);
 }
 
-/** 把后端返回的「已完成节点名」（如 node_entry）包装成中文日志文案 */
-function normalizeDoneLog(text: unknown): string {
-  const t = typeof text === "string" ? text : String(text);
-  return `✅ ${t}`;
-}
-
-/** 把后端返回的「进行中节点名」包装成中文日志文案 */
-function normalizeRunningLog(text: unknown): string {
-  const t = typeof text === "string" ? text : String(text);
-  return `⏳ ${t}`;
-}
-
-/** 把「失败节点名」包装成失败日志文案 */
-function normalizeFailedLog(text: unknown): string {
-  const t = typeof text === "string" ? text : String(text);
-  return `❌ ${t}`;
-}
+/** 日志行类型：kind 决定使用哪个状态图标，text 是节点名 */
+type LogLine = { kind: "done" | "running" | "failed"; text: string };
 
 /**
  * 根据文件名后缀推断导入链路的「总步数」（含最前面的「上传文件」步骤）。
@@ -145,22 +133,22 @@ function FileItem({ file }: { file: ImportFile }) {
   // 真正成功完成的节点 = done 去掉最后一个失败节点
   const doneNodes = failedNode ? file.done.slice(0, -1) : file.done;
 
-  // 上传步骤的符号：上传中 ⏳ / 上传失败 ❌（error 且无任何节点）/ 其余 ✅
-  let uploadLog: string;
+  // 上传步骤的状态：上传中 running / 上传失败 failed（error 且无任何节点）/ 其余 done
+  let uploadLog: LogLine;
   if (uploading) {
-    uploadLog = normalizeRunningLog(UPLOAD_STEP);
+    uploadLog = { kind: "running", text: UPLOAD_STEP };
   } else if (failed && file.done.length === 0) {
-    uploadLog = normalizeFailedLog(UPLOAD_STEP);
+    uploadLog = { kind: "failed", text: UPLOAD_STEP };
   } else {
-    uploadLog = normalizeDoneLog(UPLOAD_STEP);
+    uploadLog = { kind: "done", text: UPLOAD_STEP };
   }
 
   // 顺序：上传步骤 → 已完成节点 → 失败节点 → 进行中节点
-  const lines = [
+  const lines: LogLine[] = [
     uploadLog,
-    ...doneNodes.map(normalizeDoneLog),
-    ...(failedNode ? [normalizeFailedLog(failedNode)] : []),
-    ...file.running.map(normalizeRunningLog),
+    ...doneNodes.map((n) => ({ kind: "done" as const, text: n })),
+    ...(failedNode ? [{ kind: "failed" as const, text: failedNode }] : []),
+    ...file.running.map((n) => ({ kind: "running" as const, text: n })),
   ];
 
   // 已完成计数：上传（若已完成）+ 成功节点数（不含失败节点）
@@ -188,8 +176,19 @@ function FileItem({ file }: { file: ImportFile }) {
         <details className="log-details" open={isOpen}>
           <summary>{`任务已完成 [${doneCount}/${totalSteps}]，点击收起 / 展开`}</summary>
           <ul className="log-list">
-            {lines.map((line, i) => (
-              <li key={i}>{line}</li>
+            {lines.map((line) => (
+              <li key={line.text} className="status-line">
+                <span className={`status-line__icon status-line__icon--${line.kind}`}>
+                  {line.kind === "done" ? (
+                    <CompleteIcon />
+                  ) : line.kind === "failed" ? (
+                    <FailedIcon />
+                  ) : (
+                    <LoadingIcon />
+                  )}
+                </span>
+                <span className="status-line__text">{line.text}</span>
+              </li>
             ))}
           </ul>
         </details>

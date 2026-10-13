@@ -8,6 +8,8 @@ import {
   type KeyboardEvent,
   type ReactNode,
 } from "react";
+import { CompleteIcon } from "@/components/CompleteIcon";
+import { LoadingIcon } from "@/components/LoadingIcon";
 import { API_BASE } from "@/lib/api";
 import {
   formatTime,
@@ -108,19 +110,26 @@ const STATUS_LABELS: Record<string, string> = {
 
 function ProgressDetails({ progress }: { progress: ProgressView }) {
   const status = STATUS_LABELS[progress.status] || progress.status || "unknown";
-  const lines = [
-    ...progress.done.map((x) => `✅ ${x}`),
-    ...progress.running.map((x) => `⏳ ${x}`),
+  const items = [
+    ...progress.done.map((text) => ({ kind: "done" as const, text })),
+    ...progress.running.map((text) => ({ kind: "running" as const, text })),
   ];
 
   return (
     <details className="progress" open>
       <summary>{`阶段进度（已完成${progress.done.length}，进行中${progress.running.length}，状态：${status}）`}</summary>
       <ul>
-        {lines.length === 0 ? (
+        {items.length === 0 ? (
           <li>暂无进度</li>
         ) : (
-          lines.map((line, i) => <li key={i}>{line}</li>)
+          items.map((item) => (
+            <li key={item.text} className="status-line">
+              <span className={`status-line__icon status-line__icon--${item.kind}`}>
+                {item.kind === "done" ? <CompleteIcon /> : <LoadingIcon />}
+              </span>
+              <span className="status-line__text">{item.text}</span>
+            </li>
+          ))
         )}
       </ul>
     </details>

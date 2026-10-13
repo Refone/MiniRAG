@@ -1,0 +1,101 @@
+/* ============ 节点状态图标 (Loading / Complete / Failed) ============ */
+
+.status-icon {
+  display: inline-block;
+  flex: 0 0 auto;
+  vertical-align: -0.18em;
+}
+
+/* ---- 关键帧 ---- */
+@keyframes icon-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes icon-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+/* ---- Loading：无限循环 ---- */
+.status-icon-loading {
+  animation: icon-spin 0.9s linear infinite;
+}
+
+.status-icon-loading__track {
+  stroke: currentColor;
+  stroke-width: 2.6;
+  opacity: 0.25;
+}
+
+.status-icon-loading__arc {
+  stroke: currentColor;
+  stroke-width: 2.6;
+  stroke-linecap: round;
+  stroke-dasharray: 40 16.55;
+}
+
+/* ---- Complete：播放一次后保持 ---- */
+.status-icon-complete__ring {
+  stroke: currentColor;
+  stroke-width: 2;
+  opacity: 0.9;
+}
+
+.status-icon-complete__check {
+  stroke: currentColor;
+  stroke-width: 2.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 100;
+  stroke-dashoffset: 100;
+  animation: icon-draw 0.4s ease-out 0.1s forwards;
+}
+
+/* ---- Failed：播放一次后保持 ---- */
+.status-icon-failed__ring {
+  stroke: currentColor;
+  stroke-width: 2;
+  opacity: 0.9;
+}
+
+.status-icon-failed__cross {
+  stroke: currentColor;
+  stroke-width: 2.6;
+  stroke-linecap: round;
+  stroke-dasharray: 100;
+  stroke-dashoffset: 100;
+  animation: icon-draw 0.4s ease-out 0.1s forwards;
+}
+
+/* ---- 行内布局（图标 + 文本）---- */
+.status-line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.status-line__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+}
+
+.status-line__icon--running {
+  color: var(--warning);
+}
+
+.status-line__icon--done {
+  color: var(--success);
+}
+
+.status-line__icon--failed {
+  color: var(--danger);
+}
+
+.status-line__text {
+  min-width: 0;
+}
