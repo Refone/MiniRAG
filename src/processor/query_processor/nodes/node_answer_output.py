@@ -5,7 +5,7 @@ from processor.query_processor.state import QueryGraphState
 from utils.sse_utils import SSEEvent, sse_push
 
 
-@trace_node(desc="答案输出")
+@trace_node(desc="答案输出", need_push=True)
 def node_answer_output(state: QueryGraphState) -> QueryGraphState:
 
     # FAKE:

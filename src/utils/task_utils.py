@@ -1,7 +1,8 @@
-
 from collections import defaultdict
 from enum import StrEnum
 from typing import Dict, List
+
+from utils.sse_utils import sse_push
 
 """
 任务管理器: 维护四个任务字典
@@ -136,11 +137,16 @@ def get_task_running_nodes(task_id: str) -> List[str]:
 
 
 def task_push_sse(task_id: str) -> None:
-    """将任务快照推送给 SSE 模块。
-
-    TODO: 未来对接 sse 模块, 目前为空实现(pass)。
-    """
-    pass
+    """将任务快照推送给 SSE 模块。"""
+    sse_push(
+        sse_id=task_id,
+        event="progress",
+        data={
+            "status": get_task_status(task_id),
+            "done_list": get_task_done_nodes(task_id),
+            "running_list": get_task_running_nodes(task_id),
+        },
+    )
 
 
 def clear_task(task_id: str) -> None:

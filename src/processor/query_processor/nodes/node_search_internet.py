@@ -2,7 +2,7 @@ from utils.node_utils import trace_node
 from processor.query_processor.state import QueryGraphState
 
 
-@trace_node(desc="互联网搜索")
+@trace_node(desc="互联网搜索", need_push=True)
 def node_search_internet(state: QueryGraphState) -> QueryGraphState:
 
     import time
