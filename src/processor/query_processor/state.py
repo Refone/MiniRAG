@@ -8,11 +8,13 @@ from utils.path_utils import PROJECT_ROOT
 class QueryGraphState(TypedDict):
     session_id: str  # 会话 ID
     original_query: str  # 原始查询
+    web_search: bool  # 是否进行网络搜索
 
 
 _DEFAULT_STATE: QueryGraphState = {
     "session_id": "",
     "original_query": "",
+    "web_search": True,
 }
 
 

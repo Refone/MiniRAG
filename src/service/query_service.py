@@ -5,12 +5,20 @@ from utils.logging_utils import logger
 from processor.query_processor.state import create_state
 
 
-async def arun_query(session_id: str, query: str) -> dict:
+async def arun_query(
+    session_id: str,
+    query: str,
+    web_search: bool = True,
+) -> dict:
     try:
         clear_task(session_id=session_id)
         set_task_status(session_id=session_id, status=TaskStatus.PROCESSING)
 
-        start_state = create_state(session_id=session_id, query=query)
+        start_state = create_state(
+            session_id=session_id,
+            original_query=query,
+            web_search=web_search,
+        )
         end_state = query_processor.invoke(start_state)
 
         sse_push(

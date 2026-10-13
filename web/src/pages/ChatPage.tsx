@@ -20,7 +20,6 @@ import type {
   HistoryItem,
   ProgressView,
   QueryResponse,
-  StatusResponse,
 } from "@/lib/types";
 
 const WELCOME_TEXT =
