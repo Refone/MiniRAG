@@ -1,8 +1,5 @@
-function resolveApiBase(
-  envKey: "VITE_QUERY_API_BASE" | "VITE_IMPORT_API_BASE",
-  fallbackPort: number,
-): string {
-  const explicit = import.meta.env[envKey] as string | undefined;
+function resolveApiBase(fallbackPort: number): string {
+  const explicit = import.meta.env["VITE_API_BASE"] as string | undefined;
   if (explicit) return explicit.replace(/\/+$/, "");
   if (
     !import.meta.env.DEV &&
@@ -14,11 +11,7 @@ function resolveApiBase(
   return `http://127.0.0.1:${fallbackPort}`;
 }
 
-/** 查询服务（对话/历史/流式输出） */
-export const QUERY_API_BASE = resolveApiBase("VITE_QUERY_API_BASE", 8000);
-
-/** 导入服务（文件上传与状态轮询） */
-export const IMPORT_API_BASE = resolveApiBase("VITE_IMPORT_API_BASE", 8000);
+export const API_BASE = resolveApiBase(8000);
 
 /**
  * 上传任务状态响应 /import/upload/status/{task_id}

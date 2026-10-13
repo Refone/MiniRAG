@@ -16,3 +16,11 @@ class UploadStatusResponse(BaseModel):
     running_nodes: list[str]
     done_nodes: list[str]
     result: dict[str, str]
+
+
+class QueryRequest(BaseModel):
+    """POST /query 的请求体 (前端 ChatPage.tsx 以 JSON body 提交)。"""
+
+    query: str
+    session_id: str
+    web_search: bool = True

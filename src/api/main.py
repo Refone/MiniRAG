@@ -12,7 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 
 from api import __version__
-from api.schemas import UploadResponse, UploadStatusResponse
+from api.schemas import QueryRequest, UploadResponse, UploadStatusResponse
 import uuid
 from pathlib import Path
 from service.import_service import arun_import
@@ -110,24 +110,27 @@ async def import_status(
 def query(
     request: Request,
     background_tasks: BackgroundTasks,
-    query: str,
-    session_id: str,
-    web_search: bool = True,
+    payload: QueryRequest,
 ):
     logger.info(
-        f"[{str(request.url)}], session_id={session_id}, query={query}, web_search={web_search}"
+        f"[{str(request.url)}], session_id={payload.session_id}, "
+        f"query={payload.query}, web_search={payload.web_search}"
     )
 
-    sse_create_queue(session_id)
+    sse_create_queue(payload.session_id)
 
     background_tasks.add_task(
         arun_query,
-        session_id=session_id,
-        query=query,
-        web_search=web_search,
+        session_id=payload.session_id,
+        query=payload.query,
+        web_search=payload.web_search,
     )
 
-    return {"status": "ok", "msg": "查询已异步启动"}
+    return {
+        "status": "ok",
+        "msg": "查询已异步启动",
+        "session_id": payload.session_id,
+    }
 
 
 @app.get("/query/sse/{session_id}")
@@ -139,7 +142,7 @@ async def query_sse(
 
     return StreamingResponse(
         sse_generator(
-            session_id=session_id,
+            sse_id=session_id,
             request=request,
         ),
         media_type="text/event-stream",

@@ -45,3 +45,12 @@ export interface ImportFile {
   done: string[];
   running: string[];
 }
+
+export interface StatusResponse {
+  status: string;
+  done_list?: string[];
+  running_list?: string[];
+  answer?: string;
+  error?: string;
+  image_urls?: string[];
+}

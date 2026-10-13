@@ -11,32 +11,32 @@ async def arun_query(
     web_search: bool = True,
 ) -> dict:
     try:
-        clear_task(session_id=session_id)
-        set_task_status(session_id=session_id, status=TaskStatus.PROCESSING)
+        clear_task(session_id)
+        set_task_status(session_id, TaskStatus.PROCESSING.value)
 
         start_state = create_state(
             session_id=session_id,
             original_query=query,
             web_search=web_search,
         )
-        end_state = query_processor.invoke(start_state)
+        end_state = await query_processor.ainvoke(start_state)
 
         sse_push(
-            session_id=session_id,
-            event=SSEEvent.FINAL,
-            data={},
+            session_id,
+            SSEEvent.FINAL,
+            data={"answer": end_state.get("answer", "")},
         )
+        sse_push(session_id, SSEEvent.CLOSE, data={})
 
-        set_task_status(session_id=session_id, status=TaskStatus.COMPLETED)
+        set_task_status(session_id, TaskStatus.COMPLETE.value)
 
         return end_state
     except Exception as e:
         # 处理异常, 例如记录日志
-        set_task_status(session_id=session_id, status=TaskStatus.FAILED)
-        sse_push(
-            session_id=session_id,
-            event=SSEEvent.ERROR,
-            data={},
-        )
+        set_task_status(session_id, TaskStatus.FAILED.value)
+        try:
+            sse_push(session_id, SSEEvent.ERROR, data={"error": str(e)})
+        except Exception:
+            pass
         logger.error(f"查询处理失败: {str(e)}")
         return {"reply": f"查询处理失败: {str(e)}"}

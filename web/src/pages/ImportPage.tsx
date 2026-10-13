@@ -27,7 +27,7 @@ import {
   type DragEvent,
 } from "react";
 import {
-  IMPORT_API_BASE,
+  API_BASE,
   ImportUploadResponse,
   UploadStatusResponse,
 } from "@/lib/api";
@@ -246,7 +246,7 @@ export function ImportPage() {
   const pollStatus = (taskId: string, fileId: string, totalSteps: number) => {
     const interval = window.setInterval(async () => {
       try {
-        const res = await fetch(`${IMPORT_API_BASE}/upload/status/${taskId}`);
+        const res = await fetch(`${API_BASE}/upload/status/${taskId}`);
         const data: UploadStatusResponse = await res.json();
 
         // 1) 同步节点进度（后端字段是 done_nodes / running_nodes）
@@ -308,7 +308,7 @@ export function ImportPage() {
     formData.append("file", file);
 
     try {
-      const response = await fetch(`${IMPORT_API_BASE}/upload`, {
+      const response = await fetch(`${API_BASE}/upload`, {
         method: "POST",
         body: formData,
       });

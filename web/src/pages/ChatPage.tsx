@@ -8,7 +8,7 @@ import {
   type KeyboardEvent,
   type ReactNode,
 } from "react";
-import { QUERY_API_BASE } from "@/lib/api";
+import { API_BASE } from "@/lib/api";
 import {
   formatTime,
   normalizeUrl,
@@ -20,6 +20,7 @@ import type {
   HistoryItem,
   ProgressView,
   QueryResponse,
+  StatusResponse,
 } from "@/lib/types";
 
 const WELCOME_TEXT =
@@ -200,7 +201,7 @@ export function ChatPage() {
     },
   ]);
   const [input, setInput] = useState("");
-  const [isStream, setIsStream] = useState(true);
+  const [webSearch, setWebSearch] = useState(true);
   const [apiConnected, setApiConnected] = useState(false);
   const [sending, setSending] = useState(false);
   const [sessionId] = useState(getSessionId);
@@ -231,7 +232,7 @@ export function ChatPage() {
     let connected = false;
     let failure: unknown = null;
     try {
-      const res = await fetch(`${QUERY_API_BASE}/health`);
+      const res = await fetch(`${API_BASE}/health`);
       if (!res.ok) throw new Error(`health 返回 ${res.status}`);
       connected = true;
     } catch (err) {
@@ -254,7 +255,7 @@ export function ChatPage() {
   // 加载历史记录
   const loadHistory = useCallback(async () => {
     try {
-      const res = await fetch(`${QUERY_API_BASE}/history/${sessionId}`);
+      const res = await fetch(`${API_BASE}/history/${sessionId}`);
       if (!res.ok) return;
       const data = await res.json();
       const items: HistoryItem[] = Array.isArray(data.items) ? data.items : [];
@@ -299,15 +300,15 @@ export function ChatPage() {
   async function submitQuery(
     text: string,
     session: string,
-    stream: boolean,
+    webSearch: boolean,
   ): Promise<QueryResponse> {
-    const res = await fetch(`${QUERY_API_BASE}/query`, {
+    const res = await fetch(`${API_BASE}/query`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         query: text,
         session_id: session,
-        is_stream: stream,
+        web_search: webSearch,
       }),
     });
     if (!res.ok) {
@@ -346,40 +347,20 @@ export function ChatPage() {
     };
     setMessages((prev) => [...prev, userMsg, botMsg]);
 
-    const stream = isStream;
-    console.log(
-      `[chat] 发送问题（${stream ? "流式" : "非流式"}，${text.length} 字）`,
-    );
+    console.log(`[chat] 发送问题（网络搜索=${webSearch}，${text.length} 字）`);
 
     try {
-      const data = await submitQuery(text, sessionId, stream);
+      const data = await submitQuery(text, sessionId, webSearch);
       updateMessage(botId, {
         progress: { done: [], running: [], status: "pending" },
       });
 
-      if (!stream) {
-        // 非流式：直接拿到结果
-        updateMessage(botId, {
-          progress: {
-            done: data.done_list || [],
-            running: [],
-            status: "completed",
-          },
-          typing: false,
-          text: data.answer || "",
-          images: data.image_urls || [],
-          error: (data.error || "").trim() || null,
-        });
-        setSending(false);
-        return;
-      }
-
       // 流式：SSE
       const { session_id } = data;
-      const es = new EventSource(`${QUERY_API_BASE}/stream/${session_id}`);
+      const es = new EventSource(`${API_BASE}/query/sse/${session_id}`);
       esRef.current = es;
       es.addEventListener("open", () =>
-        console.log(`[chat] SSE 已连接（/stream/${session_id}）`),
+        console.log(`[chat] SSE 已连接（/query/sse/${session_id}）`),
       );
       let rawAnswerText = "";
       let closed = false;
@@ -466,7 +447,7 @@ export function ChatPage() {
       updateMessage(botId, { typing: false, progress: null, error: msg });
       setSending(false);
     }
-  }, [input, sending, isStream, sessionId, updateMessage]);
+  }, [input, sending, webSearch, sessionId, updateMessage]);
 
   const onKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -481,7 +462,7 @@ export function ChatPage() {
 
     try {
       console.log(`[chat] 清空会话历史（${sessionId}）`);
-      const res = await fetch(`${QUERY_API_BASE}/history/${sessionId}`, {
+      const res = await fetch(`${API_BASE}/history/${sessionId}`, {
         method: "DELETE",
       });
       if (!res.ok) {
@@ -502,10 +483,10 @@ export function ChatPage() {
         <label className="stream-toggle">
           <input
             type="checkbox"
-            checked={isStream}
-            onChange={(e) => setIsStream(e.target.checked)}
+            checked={webSearch}
+            onChange={(e) => setWebSearch(e.target.checked)}
           />
-          流式输出
+          网络搜索
         </label>
         <span className="pill">API: {apiConnected ? "已连接" : "未连接"}</span>
         <button type="button" className="btn" onClick={clearHistory}>
