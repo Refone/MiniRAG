@@ -392,7 +392,7 @@ export function ChatPage() {
         const delta = d?.delta || "";
         if (delta) {
           rawAnswerText += delta;
-          updateMessage(botId, { text: rawAnswerText });
+          updateMessage(botId, { text: rawAnswerText, typing: false });
         }
       });
 
