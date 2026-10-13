@@ -22,11 +22,10 @@ async def arun_query(
         end_state = await query_processor.ainvoke(start_state)
 
         sse_push(
-            session_id,
-            SSEEvent.FINAL,
-            data={"answer": end_state.get("answer", "")},
+            sse_id=session_id,
+            event=SSEEvent.CLOSE,
+            data={},
         )
-        sse_push(session_id, SSEEvent.CLOSE, data={})
 
         set_task_status(session_id, TaskStatus.COMPLETE.value)
 
@@ -35,7 +34,11 @@ async def arun_query(
         # 处理异常, 例如记录日志
         set_task_status(session_id, TaskStatus.FAILED.value)
         try:
-            sse_push(session_id, SSEEvent.ERROR, data={"error": str(e)})
+            sse_push(
+                sse_id=session_id,
+                event=SSEEvent.ERROR,
+                data={"error": str(e)},
+            )
         except Exception:
             pass
         logger.error(f"查询处理失败: {str(e)}")

@@ -30,4 +30,13 @@ def node_answer_output(state: QueryGraphState) -> QueryGraphState:
 
     logger.info(f"流式输出完成, 总长度: {len(final_text)}")
 
+    sse_push(
+        sse_id=state.get("session_id"),
+        event=SSEEvent.FINAL,
+        data={
+            "answer": final_text,
+            "image_urls": image_urls,
+        },
+    )
+
     return {}
