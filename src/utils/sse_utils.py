@@ -15,7 +15,13 @@ class SSEEvent:
     CLOSE = "__close__"  # 关闭连接信号
 
 
+__DEBUG__ = False
 _session_stream: dict[str, queue.Queue] = {}
+
+
+def __debug_print(msg: str) -> None:
+    if __DEBUG__:
+        print(msg)
 
 
 def sse_get_queue(sse_id: str) -> queue.Queue | None:
@@ -23,13 +29,13 @@ def sse_get_queue(sse_id: str) -> queue.Queue | None:
 
 
 def sse_create_queue(sse_id: str) -> queue.Queue:
-    print(f"[SSE] queue created for sse_id: {sse_id}")
+    __debug_print(f"[SSE] queue created for sse_id: {sse_id}")
     _session_stream[sse_id] = queue.Queue()
     return _session_stream[sse_id]
 
 
 def sse_remove_queue(sse_id: str) -> None:
-    print(f"[SSE] queue removed for sse_id: {sse_id}")
+    __debug_print(f"[SSE] queue removed for sse_id: {sse_id}")
     _session_stream.pop(sse_id, None)
 
 
@@ -38,7 +44,7 @@ def _sse_pack(event: str, data: dict[str, Any]) -> str:
 
 
 def sse_push(sse_id: str, event: str, data: dict[str, Any]) -> None:
-    print(f"[SSE] Pushing to SSE queue for sse_id: {sse_id}")
+    __debug_print(f"[SSE] Pushing to SSE queue for sse_id: {sse_id}")
     sse_queue = sse_get_queue(sse_id)
     if sse_queue:
         sse_queue.put({"event": event, "data": data})
@@ -54,12 +60,12 @@ async def sse_generator(sse_id: str, request: Request):
     loop = asyncio.get_event_loop()
     try:
         yield _sse_pack(SSEEvent.READY, {})
-        print(f"[SSE] {sse_id}: sending ready signal")
+        __debug_print(f"[SSE] {sse_id}: sending ready signal")
 
         while True:
             if await request.is_disconnected():
                 # 前端调用 es.close() 断开连接
-                print(f"[SSE] {sse_id}: client disconnected")
+                __debug_print(f"[SSE] {sse_id}: client disconnected")
                 break
 
             try:
@@ -72,19 +78,19 @@ async def sse_generator(sse_id: str, request: Request):
             event = msg["event"]
             data = msg["data"]
 
-            print(f"[SSE] {sse_id}: sending event: {event}, data: {data}")
+            __debug_print(f"[SSE] {sse_id}: sending event: {event}, data: {data}")
             yield _sse_pack(event, data)
 
             if event == SSEEvent.CLOSE:
-                print(f"[SSE] {sse_id}: received close signal")
+                __debug_print(f"[SSE] {sse_id}: received close signal")
                 break
 
     except (asyncio.CancelledError, ConnectionResetError, BrokenPipeError) as e:
-        print(f"[SSE] {sse_id}: client disconnected: {e}")
+        __debug_print(f"[SSE] {sse_id}: client disconnected: {e}")
     except Exception as e:
-        print(f"[SSE] {sse_id}: encountered exception: {e}")
+        __debug_print(f"[SSE] {sse_id}: encountered exception: {e}")
     finally:
-        print(f"[SSE] {sse_id}: closing SSE generator")
+        __debug_print(f"[SSE] {sse_id}: closing SSE generator")
         sse_remove_queue(sse_id)
 
 
