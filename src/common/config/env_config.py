@@ -1,5 +1,4 @@
 from enum import StrEnum
-from functools import lru_cache
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -100,6 +99,13 @@ class LargeLanguageModelSettings(BaseSettings):
     rpm: int = 500
 
 
+class MongoDBSettings(BaseSettings):
+    model_config = SettingsConfigDict(**BASE_CONFIG, env_prefix="MONGODB_")
+
+    uri: str = "mongodb://localhost:27017"
+    db_name: str = "minirag"
+
+
 class EnvConfig(BaseSettings):
     log: LogSettings = Field(default_factory=LogSettings)
     mineru: MineruSettings = Field(default_factory=MineruSettings)
@@ -108,6 +114,7 @@ class EnvConfig(BaseSettings):
     embedding: EmbeddingSettings = Field(default_factory=EmbeddingSettings)
     milvus: MilvusSettings = Field(default_factory=MilvusSettings)
     qwen: QwenSettings = Field(default_factory=QwenSettings)
+    mongodb: MongoDBSettings = Field(default_factory=MongoDBSettings)
     llm: LargeLanguageModelSettings = Field(default_factory=LargeLanguageModelSettings)
 
 

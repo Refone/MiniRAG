@@ -1,5 +1,7 @@
-from .milvus_client import RagMilvusClient
-from .minio_client import RagMinioClient
+from .milvus_client import MiniRagMilvusClient
+from .minio_client import MiniRagMinioClient
+from .mongodb_client import MiniRagMongoClient
 
-MILVUS_CLIENT = RagMilvusClient()
-MINIO_CLIENT = RagMinioClient()
+MILVUS_CLIENT = MiniRagMilvusClient()
+MINIO_CLIENT = MiniRagMinioClient()
+MONGODB_CLIENT = MiniRagMongoClient()

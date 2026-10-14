@@ -3,7 +3,7 @@ from common.config.env_config import ENV_CONFIG
 from pymilvus import DataType, MilvusClient
 
 
-class RagMilvusClient(MilvusClient):
+class MiniRagMilvusClient(MilvusClient):
     def __init__(self):
         super().__init__(uri=ENV_CONFIG.milvus.endpoint)
 
@@ -124,6 +124,6 @@ class RagMilvusClient(MilvusClient):
 
 
 if __name__ == "__main__":
-    milvus_client = RagMilvusClient()
+    milvus_client = MiniRagMilvusClient()
     milvus_client.prepare_item_name_collection()
     milvus_client.prepare_chunks_collection()

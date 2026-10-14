@@ -6,7 +6,7 @@ from utils.logging_utils import logger
 from common.config.env_config import ENV_CONFIG
 
 
-class RagMinioClient:
+class MiniRagMinioClient:
     def __init__(self):
         self.bucket_name = ENV_CONFIG.minio.bucket_name
         self.endpoint = ENV_CONFIG.minio.endpoint
@@ -95,5 +95,5 @@ class RagMinioClient:
 if __name__ == "__main__":
     from rich import print as rprint
 
-    client = RagMinioClient()
+    client = MiniRagMinioClient()
     rprint(client._minio.list_buckets())
