@@ -11,7 +11,7 @@ class ChatMessage(TypedDict):
     session_id: str
     role: str
     text: str
-    item_names: list[str]
+    key_words: list[str]
     image_urls: list[str]
     timestamp: float
 
@@ -36,7 +36,7 @@ class ChatHistoryManager:
         session_id: str,  # 会话 ID
         role: str,  # 角色
         text: str,  # 文本内容
-        item_names: list[str] = [],  # 项目名称列表
+        key_words: list[str] = [],  # 关键字列表
         image_urls: list[str] = [],  # 图片 URL 列表
     ) -> str | None:
         ts = datetime.now().timestamp()
@@ -45,7 +45,7 @@ class ChatHistoryManager:
             "session_id": session_id,
             "role": role,
             "text": text,
-            "item_names": item_names,
+            "key_words": key_words,
             "image_urls": image_urls,
             "timestamp": ts,
         }
@@ -84,7 +84,7 @@ class ChatHistoryManager:
             return []
 
 
-chat_history_manager = ChatHistoryManager()
+chat_history_manager: ChatHistoryManager = ChatHistoryManager()
 
 if __name__ == "__main__":
     session_id = "test_session"
@@ -94,21 +94,21 @@ if __name__ == "__main__":
         session_id=session_id,
         role="user",
         text="Hello, world!",
-        item_names=[],
+        key_words=[],
         image_urls=[],
     )
     chat_history_manager.save_message(
         session_id=session_id,
         role="assistant",
         text="你好我的朋友, 很高兴见到你!",
-        item_names=["item1", "item2"],
+        key_words=["item1", "item2"],
         image_urls=["http://example.com/image1.jpg", "http://example.com/image2.jpg"],
     )
     chat_history_manager.save_message(
         session_id=session_id,
         role="user",
         text="这个 item1 怎么退货?",
-        item_names=["item1", "item3"],
+        key_words=["item1", "item3"],
         image_urls=["http://example.com/image1.jpg", "http://example.com/image2.jpg"],
     )
     latest_messages = chat_history_manager.get_latest_messages(session_id)
