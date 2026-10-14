@@ -2,6 +2,7 @@ from dataclasses import dataclass
 import os
 from typing import Final
 
+
 @dataclass(frozen=True)
 class _AppConfig:
     # 支持的图片格式
@@ -11,7 +12,7 @@ class _AppConfig:
         "png",
         "gif",
         "bmp",
-        "webp"
+        "webp",
     )
 
     # 解释 Markdown 中图片时, 最大探测前后的字符数
@@ -28,5 +29,9 @@ class _AppConfig:
     overlap_size: int = 100
 
     max_concurrent_requests: int = os.cpu_count() - 1
+
+    # 聊天记录回溯限制，综合分析过去多少条消息
+    chat_message_lookback_count: int = 10
+
 
 APP_CONFIG: Final[_AppConfig] = _AppConfig()
