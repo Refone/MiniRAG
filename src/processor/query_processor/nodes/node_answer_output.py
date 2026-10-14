@@ -1,3 +1,4 @@
+from processor.query_processor.chat_history import chat_history_manager
 from utils.node_utils import trace_node
 from utils.logging_utils import logger
 import time
@@ -29,6 +30,13 @@ def node_answer_output(state: QueryGraphState) -> QueryGraphState:
     ]
 
     logger.info(f"流式输出完成, 总长度: {len(final_text)}")
+
+    chat_history_manager.save_message(
+        session_id=state.get("session_id"),
+        role="bot",
+        text=final_text,
+        image_urls=image_urls,
+    )
 
     sse_push(
         sse_id=state.get("session_id"),

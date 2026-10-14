@@ -124,7 +124,9 @@ function ProgressDetails({ progress }: { progress: ProgressView }) {
         ) : (
           items.map((item) => (
             <li key={item.text} className="status-line">
-              <span className={`status-line__icon status-line__icon--${item.kind}`}>
+              <span
+                className={`status-line__icon status-line__icon--${item.kind}`}
+              >
                 {item.kind === "done" ? <CompleteIcon /> : <LoadingIcon />}
               </span>
               <span className="status-line__text">{item.text}</span>
@@ -267,7 +269,11 @@ export function ChatPage() {
       const res = await fetch(`${API_BASE}/history/${sessionId}`);
       if (!res.ok) return;
       const data = await res.json();
-      const items: HistoryItem[] = Array.isArray(data.items) ? data.items : [];
+      // 返回格式见 src/api/main.py
+      // { status: string, history: HistoryItem[] }
+      const items: HistoryItem[] = Array.isArray(data.history)
+        ? data.history
+        : [];
       if (items.length === 0) return;
       console.log(`[chat] 已加载历史记录 ${items.length} 条`);
 
@@ -275,10 +281,10 @@ export function ChatPage() {
         .slice()
         .reverse()
         .map((item, idx) => ({
-          id: `hist-${idx}-${item.ts ?? Date.now()}`,
+          id: `hist-${idx}-${item.timestamp ?? Date.now()}`,
           role: item.role === "user" ? "user" : "bot",
           text: item.text || "",
-          time: formatTime(item.ts),
+          time: formatTime(item.timestamp),
           images: item.image_urls || [],
           typing: false,
           progress: null,

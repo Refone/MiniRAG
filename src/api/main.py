@@ -22,6 +22,7 @@ from api.setup import setup
 from utils.logging_utils import logger
 from utils.path_utils import PROJECT_ROOT
 from utils.sse_utils import sse_create_queue, sse_generator
+from processor.query_processor.chat_history import ChatMessage, chat_history_manager
 
 
 @asynccontextmanager
@@ -156,7 +157,11 @@ def history(
 ):
     logger.info(f"[{str(request.url)}], session_id={session_id}")
 
-    return {"status": "ok", "history": ""}
+    message_list: list[ChatMessage] = chat_history_manager.get_latest_messages(
+        session_id
+    )
+
+    return {"status": "ok", "history": message_list}
 
 
 @app.delete("/history/{session_id}")
@@ -166,4 +171,8 @@ def delete_history(
 ):
     logger.info(f"[{str(request.url)}], session_id={session_id}")
 
-    return {"status": "ok", "msg": f"历史记录已删除: {session_id}"}
+    deleted_count = chat_history_manager.clear_history(session_id)
+    return {
+        "status": "ok",
+        "msg": f"历史记录已删除: {session_id}, 删除条数: {deleted_count}",
+    }

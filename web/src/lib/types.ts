@@ -21,8 +21,9 @@ export interface ChatMessage {
 export interface HistoryItem {
   role: string;
   text: string;
-  ts: number;
-  image_urls?: string[];
+  item_names: string[];
+  image_urls: string[];
+  timestamp: number;
 }
 
 export interface QueryResponse {
