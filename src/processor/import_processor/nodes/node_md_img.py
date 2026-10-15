@@ -10,7 +10,7 @@ from common.config.app_config import APP_CONFIG
 from common.config.env_config import ENV_CONFIG
 from common.model import VLM
 from common.model.qwen_vl_32b import encode_image
-from common.prompt.load_prompt import load_prompt
+from common.prompt.prompt_image_summary import PromptImageSummary
 from processor.import_processor.state import ImportNodeState
 from utils.markdown_utils import extract_surrounding_context, find_image_position
 from utils.path_utils import PROJECT_ROOT
@@ -129,12 +129,11 @@ def step_3_image_summary(
     async def process_all() -> dict[str, str]:
         async def process_image(image_info: ImageInfo) -> tuple[str, str]:
             image_path = image_info["path"]
-            prompt = load_prompt(
-                prompt_template="image_summary",
+            prompt = PromptImageSummary(
                 md_title=file_title,
                 pre_text=image_info["pre_text"],
                 post_text=image_info["post_text"],
-            )
+            ).prompt
             image_data = encode_image(image_path)
             message = HumanMessage(
                 content=[

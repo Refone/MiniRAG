@@ -9,9 +9,7 @@ class ConcludeQueryResult(BaseModel):
     key_words: list[str] = Field(
         description="询问主体列表，若无法确定询问主体则为空列表"
     )
-    conclude_query: str = Field(
-        description="重写后的、包含询问主体的独立完整问题"
-    )
+    conclude_query: str = Field(description="重写后的、包含询问主体的独立完整问题")
 
 
 _PROMPT_TEMPLATE = dedent("""\
