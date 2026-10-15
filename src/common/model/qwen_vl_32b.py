@@ -3,29 +3,36 @@ import base64
 from mimetypes import guess_type
 
 from langchain.messages import HumanMessage
-from langchain.chat_models import init_chat_model
+from langchain_openai import ChatOpenAI
 
 from common.config.env_config import ENV_CONFIG
 from common.config.app_config import APP_CONFIG
 from common.model.rate_limiter import SlidingWindowRateLimiter
 
 
-class Qwen_VL_32B:
-    def __init__(self):
-        self._rate_limiter = SlidingWindowRateLimiter(ENV_CONFIG.vlm.rpm)
-        self._model = init_chat_model(
-            model_provider="openai",
-            model=ENV_CONFIG.vlm.model_name,
-            base_url=ENV_CONFIG.vlm.base_url,
-            api_key=ENV_CONFIG.vlm.api_key,
-        ).with_retry(
-            wait_exponential_jitter=True,  # 指数退避 + 抖动
-            stop_after_attempt=APP_CONFIG.vlm_request_retry_attempts,  # 最多尝试 3 次
-        )
+class Qwen_VL_32B(ChatOpenAI):
+    """Qwen3-VL-32B 视觉语言模型封装：原生限速 + 原生重试。
 
-    async def ainvoke(self, *args, **kwargs):
-        await self._rate_limiter.aacquire()
-        return await self._model.ainvoke(*args, **kwargs)
+    继承自 ChatOpenAI（即 BaseChatModel），限速由 LangChain 在每条调用路径上
+    自动执行；重试使用 OpenAI SDK 原生 max_retries（指数退避）。
+    """
+
+    def __init__(
+        self,
+        model: str = ENV_CONFIG.vlm.model_name,
+        base_url: str = ENV_CONFIG.vlm.base_url,
+        api_key: str = ENV_CONFIG.vlm.api_key,
+        **kwargs,
+    ):
+        kwargs.setdefault("rate_limiter", SlidingWindowRateLimiter(ENV_CONFIG.vlm.rpm))
+        kwargs.setdefault("max_retries", APP_CONFIG.vlm_request_retry_attempts)
+        kwargs.setdefault("timeout", APP_CONFIG.vlm_request_timeout)
+        super().__init__(
+            model=model,
+            base_url=base_url,
+            api_key=api_key,
+            **kwargs,
+        )
 
 
 def encode_image(image_path: str) -> str:
