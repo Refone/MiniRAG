@@ -49,7 +49,7 @@ def sse_push(sse_id: str, event: str, data: dict[str, Any]) -> None:
     if sse_queue:
         sse_queue.put({"event": event, "data": data})
     else:
-        raise ValueError(f"No SSE queue found for sse_id: {sse_id}")
+        __debug_print(f"[SSE] No SSE queue found for sse_id: {sse_id}")
 
 
 async def sse_generator(sse_id: str, request: Request):

@@ -35,7 +35,6 @@ def node_answer_output(state: QueryGraphState) -> QueryGraphState:
         session_id=state.get("session_id"),
         role=MessageRole.ASSISTANT,
         text=final_text,
-        key_words=[],
         image_urls=image_urls,
     )
 
