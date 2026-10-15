@@ -100,7 +100,7 @@ def step_2_vect_chunks(chunks_list: list[Chunk]) -> list[dict[str, Any]]:
     ]
 
     with ThreadPoolExecutor(max_workers=ENV_CONFIG.embedding.concurrency) as pool:
-        vecs_list = list(pool.map(EMBEDDING.embed, batches))
+        vecs_list = list(pool.map(EMBEDDING.embed_document_hybrid, batches))
 
     embedded: list[dict[str, Any]] = []
     for batch_texts, batch_vecs in zip(batches, vecs_list):

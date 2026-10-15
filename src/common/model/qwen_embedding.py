@@ -1,41 +1,54 @@
+from typing import TypedDict
+
 from dashscope import TextEmbedding
+
 from common.config.env_config import ENV_CONFIG
-from typing import Any
 from common.model.rate_limiter import SlidingWindowRateLimiter
+
+
+class HybridVector(TypedDict):
+    """稠密 + 稀疏混合向量。"""
+
+    dense: list[float]
+    sparse: dict[int, float]
 
 
 # https://www.qianwenai.com/models/text-embedding-v4
 class QwenEmbedding:
+    """Qwen text-embedding-v4 嵌入模型（稠密 + 稀疏混合）。
+
+    供 Milvus 稠密 + 稀疏混合检索使用。
+    text_type 区分 document(适合被匹配) 与 query(适合去匹配)。
+
+    (没有继承 Embeddings 因为 Embeddings 只支持稠密向量)
+    """
+
     def __init__(self):
-        self.model = ENV_CONFIG.embedding.model
-        self.rpm = ENV_CONFIG.embedding.rpm
-        self.dense_dimension = ENV_CONFIG.embedding.dense_dimension
-        self.__api_key = ENV_CONFIG.qwen.api_key
+        self._model = ENV_CONFIG.embedding.model
+        self._dense_dimension = ENV_CONFIG.embedding.dense_dimension
+        self._api_key = ENV_CONFIG.qwen.api_key
+        self._limiter = SlidingWindowRateLimiter(ENV_CONFIG.embedding.rpm)
 
-        self.__limiter = SlidingWindowRateLimiter(self.rpm)
+    # ---- 项目自定义：混合向量（稠密 + 稀疏） ----
+    def embed_document_hybrid(self, texts: list[str]) -> list[HybridVector]:
+        """嵌入文本列表，返回稠密 + 稀疏混合向量（默认按 document）。"""
+        return self._embed(texts, text_type="document")
 
-    def embed(self, texts: list[str]) -> list[dict[str, Any]]:
-        """
-        将文本列表嵌入为稠密和稀疏向量。
+    def embed_query_hybrid(self, texts: list[str]) -> list[HybridVector]:
+        """查询文本的混合向量（text_type=query）。"""
+        return self._embed(texts, text_type="query")
 
-        Args:
-            texts (list[str]): 文本列表
-
-        Returns:
-            list[dict[str, Any]]: 包含稠密和稀疏向量的字典列表。
-            其中每个字典包含两个键：
-                - "dense": 稠密向量列表
-                - "sparse": 稀疏向量字典，键为索引，值为对应的浮点数
-        """
-        self.__limiter.acquire()  # 在调用嵌入接口前进行速率限制
+    # ---- 内部实现 ----
+    def _embed(self, texts: list[str], *, text_type: str) -> list[HybridVector]:
+        self._limiter.acquire()  # 在调用嵌入接口前进行速率限制
 
         resp = TextEmbedding.call(
-            model=self.model,
-            api_key=self.__api_key,
+            model=self._model,
+            api_key=self._api_key,
             input=texts,
             output_type="dense&sparse",  # 同时返回稠密和稀疏向量
-            text_type="document",  # 文档场景用 document，查询场景用 query
-            dimension=self.dense_dimension,  # 稠密向量的维度（不影响稀疏向量）
+            text_type=text_type,  # document / query
+            dimension=self._dense_dimension,  # 稠密向量的维度（不影响稀疏向量）
         )
 
         if resp.status_code != 200:
@@ -44,13 +57,17 @@ class QwenEmbedding:
                 f"message={getattr(resp, 'message', resp)}"
             )
 
-        embeddings = resp["output"]["embeddings"]
-        result: list[dict[str, Any]] = []
-        for emb in embeddings:
-            dense = emb["embedding"]
+        result: list[HybridVector] = []
+        for emb in resp["output"]["embeddings"]:
             sparse_obj = emb.get("sparse_embedding") or {}
-            sparse = {int(item["index"]): float(item["value"]) for item in sparse_obj}
-            result.append({"dense": dense, "sparse": sparse})
+            result.append(
+                {
+                    "dense": emb["embedding"],
+                    "sparse": {
+                        int(item["index"]): float(item["value"]) for item in sparse_obj
+                    },
+                }
+            )
 
         return result
 
@@ -59,7 +76,7 @@ if __name__ == "__main__":
     from rich import print as rprint
 
     embedding = QwenEmbedding()
-    result = embedding.embed(["Hello World", "Hello RAG", "你好, 朋友"])
+    result = embedding.embed_document_hybrid(["Hello World", "Hello RAG", "你好, 朋友"])
     for i, r in enumerate(result):
         rprint(f"Text {i}:")
         rprint(f"  Dense: {r['dense'][0:5]}")

@@ -54,7 +54,7 @@ def step_3_insert_item_name(item_name: str, file_title: str) -> None:
         filter=f"file_title == '{file_title}'",
     )
 
-    vecs = EMBEDDING.embed([item_name])
+    vecs = EMBEDDING.embed_document_hybrid([item_name])
     dense_vector = vecs[0]["dense"]
     sparse_vector = vecs[0]["sparse"]
 
