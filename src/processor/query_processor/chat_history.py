@@ -1,4 +1,5 @@
 from datetime import datetime
+from enum import StrEnum
 from typing import TypedDict
 
 from common.client import MONGODB_CLIENT
@@ -14,6 +15,11 @@ class ChatMessage(TypedDict):
     key_words: list[str]
     image_urls: list[str]
     timestamp: float
+
+
+class MessageRole(StrEnum):
+    USER = "user"
+    ASSISTANT = "assistant"
 
 
 class ChatHistoryManager:
@@ -34,7 +40,7 @@ class ChatHistoryManager:
     def save_message(
         self,
         session_id: str,  # 会话 ID
-        role: str,  # 角色
+        role: MessageRole,  # 角色
         text: str,  # 文本内容
         key_words: list[str] = [],  # 关键字列表
         image_urls: list[str] = [],  # 图片 URL 列表
@@ -43,7 +49,7 @@ class ChatHistoryManager:
 
         document: ChatMessage = {
             "session_id": session_id,
-            "role": role,
+            "role": role.value,
             "text": text,
             "key_words": key_words,
             "image_urls": image_urls,
@@ -76,7 +82,7 @@ class ChatHistoryManager:
             )
             messages: list[ChatMessage] = list(cursor)
 
-            logger.debug(f"获取 {session_id} 会话的最新 {limit} 条记录: {messages}")
+            # logger.debug(f"获取 {session_id} 会话的最新 {limit} 条记录: {messages}")
 
             return messages
         except Exception as e:
@@ -92,21 +98,21 @@ if __name__ == "__main__":
     # chat_history_manager.clear_history(session_id)
     chat_history_manager.save_message(
         session_id=session_id,
-        role="user",
+        role=MessageRole.USER,
         text="Hello, world!",
         key_words=[],
         image_urls=[],
     )
     chat_history_manager.save_message(
         session_id=session_id,
-        role="assistant",
+        role=MessageRole.ASSISTANT,
         text="你好我的朋友, 很高兴见到你!",
         key_words=["item1", "item2"],
         image_urls=["http://example.com/image1.jpg", "http://example.com/image2.jpg"],
     )
     chat_history_manager.save_message(
         session_id=session_id,
-        role="user",
+        role=MessageRole.USER,
         text="这个 item1 怎么退货?",
         key_words=["item1", "item3"],
         image_urls=["http://example.com/image1.jpg", "http://example.com/image2.jpg"],

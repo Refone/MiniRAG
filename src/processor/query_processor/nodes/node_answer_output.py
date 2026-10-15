@@ -1,4 +1,4 @@
-from processor.query_processor.chat_history import chat_history_manager
+from processor.query_processor.chat_history import chat_history_manager, MessageRole
 from utils.node_utils import trace_node
 from utils.logging_utils import logger
 import time
@@ -33,8 +33,9 @@ def node_answer_output(state: QueryGraphState) -> QueryGraphState:
 
     chat_history_manager.save_message(
         session_id=state.get("session_id"),
-        role="bot",
+        role=MessageRole.ASSISTANT,
         text=final_text,
+        key_words=[],
         image_urls=image_urls,
     )
 
