@@ -28,7 +28,7 @@ from pathlib import Path
 
 import pytest
 
-from common.enum.doc_type import DocType
+from common.types.doc_types import DocType
 from processor.import_processor.main_graph import import_processor
 from processor.import_processor.state import create_state
 from utils import task_utils

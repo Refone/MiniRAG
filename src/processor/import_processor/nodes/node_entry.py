@@ -1,9 +1,10 @@
 from pathlib import Path
 
-from common.enum.doc_type import DocType
+from common.types.doc_types import DocType
 from processor.import_processor.state import ImportNodeState
 from utils.logging_utils import logger
 from utils.node_utils import trace_node
+
 
 @trace_node(desc="入口节点")
 def node_entry(state: ImportNodeState) -> ImportNodeState:
@@ -25,7 +26,9 @@ def node_entry(state: ImportNodeState) -> ImportNodeState:
     if doc_type == DocType.MARKDOWN:
         state["markdown_file_path"] = str(origin_file_path)
 
-    logger.info(f"文件校验通过: {origin_file_path} 文件类型: {DocType.to_str(doc_type)}")
+    logger.info(
+        f"文件校验通过: {origin_file_path} 文件类型: {DocType.to_str(doc_type)}"
+    )
 
     return state
 

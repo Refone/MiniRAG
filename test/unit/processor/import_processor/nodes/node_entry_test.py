@@ -15,7 +15,7 @@ from pathlib import Path
 
 import pytest
 
-from common.enum.doc_type import DocType
+from common.types.doc_types import DocType
 from processor.import_processor.nodes.node_entry import node_entry
 from processor.import_processor.state import ImportNodeState, create_state
 

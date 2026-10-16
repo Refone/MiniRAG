@@ -44,12 +44,15 @@ query_processor = builder.compile()
 
 if __name__ == "__main__":
     from utils.logging_utils import logger
-    from processor.query_processor.state import get_default_state
+    from processor.query_processor.state import create_state
     from rich import print as rprint
 
     logger.info("Starting query processor...")
 
-    start = get_default_state()
+    start = create_state(
+        session_id="test-flow-session-id",
+        original_query="使用 HAK180 时，有什么注意事项？",
+    )
     end = query_processor.invoke(start)
     rprint(end)
 

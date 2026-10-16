@@ -36,18 +36,29 @@ class _AppConfig:
     # ==== 查询阶段主体识别参数 ======
     # 向量数据库召回条数
     item_name_recall_limit: int = 5
-    # 稠密+稀疏融合排序, 稠密向量权重
-    item_name_dense_vector_weight: float = 0.3
     # Milvus 向量检索超时时间 (秒)
     milvus_search_timeout: int = 30
     # 融合相似分数 确认阈值
-    item_name_confirm_threshold: float = 0.85
+    item_name_confirm_threshold: float = 0.9
     # 融合相似分数 疑似阈值
-    item_name_suspect_threshold: float = 0.1
+    item_name_suspect_threshold: float = 0.8
     # 确认 topk
     item_name_confirm_topk: int = 5
     # 疑似 topk
     item_name_suspect_topk: int = 5
+    # item_name 混合检索融合权重 (dense_weight, sparse_weight)
+    # 短文本以稀疏为主(0.7)，稠密为辅(0.3)
+    item_name_hybrid_weight: tuple[float, float] = (0.3, 0.7)
+
+    # chunks 召回条数
+    chunks_recall_limit: int = 20
+    # chunks 混合检索融合权重 (dense_weight, sparse_weight)
+    # 长文本稀疏信号区分度低, 故以稠密为主(0.7)，稀疏为辅(0.3)
+    chunks_hybrid_weight: tuple[float, float] = (0.7, 0.3)
+    # chunks 融合相似分数阈值: 低于该分数的切片视为无关, 直接过滤
+    chunks_recall_threshold: float = 0.85
+    # chunks 过滤后最终保留的 top-k 条数
+    chunks_recall_topk: int = 8
 
 
 APP_CONFIG: Final[_AppConfig] = _AppConfig()

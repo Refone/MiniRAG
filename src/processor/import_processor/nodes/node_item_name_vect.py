@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from common.types.milvus_types import MilvusItemNameItem
 from utils.node_utils import trace_node, step_log
 from utils.logging_utils import logger, brief_list, brief_dict
 from processor.import_processor.state import ImportNodeState
@@ -61,12 +62,12 @@ def step_3_insert_item_name(item_name: str, file_title: str) -> None:
     ret = MILVUS_CLIENT.insert(
         collection_name=collection_name,
         data=[
-            {
-                "file_title": file_title,
-                "item_name": item_name,
-                "dense_vector": dense_vector,
-                "sparse_vector": sparse_vector,
-            }
+            MilvusItemNameItem(
+                file_title=file_title,
+                item_name=item_name,
+                dense_vector=dense_vector,
+                sparse_vector=sparse_vector,
+            )
         ],
     )
 

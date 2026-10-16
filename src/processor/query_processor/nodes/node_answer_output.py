@@ -9,8 +9,12 @@ from utils.sse_utils import SSEEvent, sse_push
 @trace_node(desc="答案输出", need_push=True)
 def node_answer_output(state: QueryGraphState) -> QueryGraphState:
 
+    answer = state.get("answer")
     # FAKE:
-    base_answer = f"这是关于 \"{state.get('original_query')}\" 的测试回答，正在演示打字机流式输出效果"
+    base_answer = (
+        answer
+        or f"这是关于 \"{state.get('original_query')}\" 的测试回答，正在演示打字机流式输出效果"
+    )
 
     final_text = ""
     for ch in base_answer:
@@ -47,4 +51,4 @@ def node_answer_output(state: QueryGraphState) -> QueryGraphState:
         },
     )
 
-    return {}
+    return state

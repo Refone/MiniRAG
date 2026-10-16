@@ -31,7 +31,6 @@ class DeepSeekFlash(ChatDeepSeek):
 
 if __name__ == "__main__":
     import asyncio
-    from common.prompt.prompt_conclude_query import ConcludeQueryResult
     from rich import print as rprint
 
     async def test_ainvoke():
@@ -39,13 +38,4 @@ if __name__ == "__main__":
         response = await DeepSeekFlash().ainvoke("你好")
         rprint(response.content)
 
-    async def test_with_structured_output():
-        response = (
-            await DeepSeekFlash()
-            .with_structured_output(ConcludeQueryResult)
-            .ainvoke("我想咨询一下 Iphone 17 Pro Max 的售价")
-        )
-        rprint(response)
-
     asyncio.run(test_ainvoke())
-    asyncio.run(test_with_structured_output())

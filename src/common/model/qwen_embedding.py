@@ -29,16 +29,34 @@ class QwenEmbedding:
         self._api_key = ENV_CONFIG.qwen.api_key
         self._limiter = SlidingWindowRateLimiter(ENV_CONFIG.embedding.rpm)
 
-    # ---- 项目自定义：混合向量（稠密 + 稀疏） ----
     def embed_document_hybrid(self, texts: list[str]) -> list[HybridVector]:
-        """嵌入文本列表，返回稠密 + 稀疏混合向量（默认按 document）。"""
+        """嵌入文本混合向量
+
+        输出格式:
+        [
+            {
+                "dense": [...],  # 稠密向量
+                "sparse": {index: value, ...},  # 稀疏向量
+            },
+            ...
+        ]
+        """
         return self._embed(texts, text_type="document")
 
     def embed_query_hybrid(self, texts: list[str]) -> list[HybridVector]:
-        """查询文本的混合向量（text_type=query）。"""
+        """查询文本的混合向量
+
+        输出格式:
+        [
+            {
+                "dense": [...],  # 稠密向量
+                "sparse": {index: value, ...},  # 稀疏向量
+            },
+            ...
+        ]
+        """
         return self._embed(texts, text_type="query")
 
-    # ---- 内部实现 ----
     def _embed(self, texts: list[str], *, text_type: str) -> list[HybridVector]:
         self._limiter.acquire()  # 在调用嵌入接口前进行速率限制
 

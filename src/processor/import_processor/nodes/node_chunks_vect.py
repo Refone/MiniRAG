@@ -5,6 +5,7 @@ from typing import Any
 
 from pymilvus.orm.constants import BATCH_SIZE
 
+from common.types.milvus_types import MilvusChunksItem
 from utils.logging_utils import logger
 from utils.node_utils import trace_node, step_log
 from utils.markdown_splitter import Chunk
@@ -155,13 +156,15 @@ def step_3_chunk_upsert_milvus(
     ret = MILVUS_CLIENT.insert(
         collection_name=collection_name,
         data=[
-            {
-                "file_title": file_title,
-                "item_name": item_name,
-                "chunk_content": chunk["content"],
-                "dense_vector": chunk["dense"],
-                "sparse_vector": chunk["sparse"],
-            }
+            MilvusChunksItem(
+                {
+                    "file_title": file_title,
+                    "item_name": item_name,
+                    "chunk_content": chunk["content"],
+                    "dense_vector": chunk["dense"],
+                    "sparse_vector": chunk["sparse"],
+                }
+            )
             for chunk in embedded
         ],
     )

@@ -107,6 +107,7 @@ def test_query(text: str):
         collection_name=collection_name,
         dense_vectors=[dense_vector],
         sparse_vectors=[sparse_vector],
+        limit=10,
     )
 
     return results

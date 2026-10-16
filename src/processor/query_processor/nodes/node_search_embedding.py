@@ -1,12 +1,75 @@
-from utils.node_utils import trace_node
+from common.client import MILVUS_CLIENT
+from common.config.app_config import APP_CONFIG
+from utils.brief_utils import brief
+from utils.node_utils import step_log, trace_node
+from utils.logging_utils import logger
 from processor.query_processor.state import QueryGraphState
+
+
+@step_log(desc="校验并获取数据")
+def step_1_validate_and_get_data(state: QueryGraphState):
+    milvus_items: list[str] = state.get("confirm_list", [])
+    rewritten_query: str = state.get("rewritten_query", "")
+    return milvus_items, rewritten_query
+
+
+@step_log(desc="向量化查询")
+def step_2_vectorize_query(
+    rewritten_query: str,
+    milvus_items: list[str],
+):
+    """
+    根据 rewritten_query 在 Milvus 中进行向量化查询，
+    限制搜索范围为已 item_name in [已确定实体](milvus_items) 中的条目
+    """
+
+    # 仅有一个 query_text, 因此取第一个结果列表
+    chunks = MILVUS_CLIENT.hybrid_search_chunks(
+        query_text=[rewritten_query],
+        item_names=milvus_items,
+    )[0]
+
+    return chunks
+
+
+def step_3_process_chunks(chunk_matches: list[dict]):
+    embedding_matches: list[dict] = []
+    for hit in chunk_matches:
+        chunk = hit.get("entity", {})
+        chunk["score"] = hit.get("distance", 0.0)
+        embedding_matches.append(chunk)
+    return embedding_matches
 
 
 @trace_node(desc="向量化查询", need_push=True)
 def node_search_embedding(state: QueryGraphState) -> QueryGraphState:
 
-    import time
+    milvus_items, rewritten_query = step_1_validate_and_get_data(state)
+    logger.info(f"Milvus 确认主体: {milvus_items}, 查询概括: {rewritten_query}")
+    if not milvus_items or not rewritten_query:
+        # 没有在文库中找到匹配项, 那向量化查询意义也不大了
+        # 全库搜索太耗时，且可能返回大量无关结果, 因此直接跳过
+        logger.warning("没有在文库中找到匹配项, 跳过向量化查询")
+        return {}
 
-    time.sleep(1)  # 模拟处理时间
+    chunk_matches = step_2_vectorize_query(rewritten_query, milvus_items)
 
-    return {}
+    embedding_matches = step_3_process_chunks(chunk_matches)
+
+    return {"embedding_matches": embedding_matches}
+
+
+if __name__ == "__main__":
+    from rich import print as rprint
+    from processor.query_processor.state import load_state, save_state
+    from utils.path_utils import PROJECT_ROOT
+
+    prev_state = load_state(PROJECT_ROOT / "output/tmp/query_01_intent_recognize.json")
+    next_state = node_search_embedding(prev_state)
+    rprint(next_state)
+
+    new_state_json = str(PROJECT_ROOT / "output/tmp/query_02_search_embedding.json")
+
+    save_state(next_state, new_state_json)
+    logger.info(f"向量化查询处理完成")
+    logger.info(f"状态保存路径: {new_state_json}")

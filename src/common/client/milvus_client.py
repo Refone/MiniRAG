@@ -1,20 +1,9 @@
+from common.types.milvus_types import *
 from common.config.app_config import APP_CONFIG
+from common.model import EMBEDDING
 from utils.logging_utils import logger
 from common.config.env_config import ENV_CONFIG
 from pymilvus import AnnSearchRequest, DataType, MilvusClient, WeightedRanker
-
-
-class FieldName:
-    ID = "id"
-    FILE_TITLE = "file_title"
-    ITEM_NAME = "item_name"
-    DENSE_VECTOR = "dense_vector"
-    SPARSE_VECTOR = "sparse_vector"
-
-
-class IndexName:
-    DENSE_VECTOR_INDEX = "dense_vector_index"
-    SPARSE_VECTOR_INDEX = "sparse_vector_index"
 
 
 class MiniRagMilvusClient(MilvusClient):
@@ -23,28 +12,79 @@ class MiniRagMilvusClient(MilvusClient):
 
     def hybrid_search_item_name(
         self,
-        dense_vectors: list[list[float]],
-        sparse_vectors: list[dict[int, float]],
+        texts: list[str],
+        limit: int = APP_CONFIG.item_name_recall_limit,
     ) -> list[list[dict]] | None:
         collection_name = ENV_CONFIG.milvus.collection_item_name
-        output_fields = [FieldName.ITEM_NAME]
+        output_fields = [MilvusItemNameField.ITEM_NAME]
+
+        texts_vectors = EMBEDDING.embed_query_hybrid(texts)
+        """
+        texts_vectors:
+        [
+            {'dense':[...], 'sparse':[...]},
+            {'dense':[...], 'sparse':[...]},
+            ...
+        ]
+        """
+        dense_vectors = [vec["dense"] for vec in texts_vectors]
+        sparse_vectors = [vec["sparse"] for vec in texts_vectors]
 
         return self.minirag_hybrid_search(
             collection_name=collection_name,
             dense_vectors=dense_vectors,
             sparse_vectors=sparse_vectors,
             output_fields=output_fields,
+            weight=APP_CONFIG.item_name_hybrid_weight,
+            limit=limit,
+        )
+
+    def hybrid_search_chunks(
+        self,
+        query_text: list[str],
+        item_names: list[str] = None,
+        limit: int = APP_CONFIG.chunks_recall_limit,
+    ) -> list[list[dict]] | None:
+        collection_name = ENV_CONFIG.milvus.collection_chunks
+        output_fields = [
+            MilvusChunksField.ITEM_NAME,
+            MilvusChunksField.FILE_TITLE,
+            MilvusChunksField.CHUNK_CONTENT,
+        ]
+
+        vectors = EMBEDDING.embed_query_hybrid(query_text)
+        """
+        vectors:
+        [
+            {'dense':[...], 'sparse':[...]},
+            {'dense':[...], 'sparse':[...]},
+            ...
+        ]
+        """
+        dense_vector = [vec["dense"] for vec in vectors]
+        sparse_vector = [vec["sparse"] for vec in vectors]
+
+        return self.minirag_hybrid_search(
+            collection_name=collection_name,
+            dense_vectors=dense_vector,
+            sparse_vectors=sparse_vector,
+            limit=limit,
+            weight=APP_CONFIG.chunks_hybrid_weight,
+            filter=f"item_name in {item_names}" if item_names else None,
+            output_fields=output_fields,
         )
 
     # Milvus 混合搜索 (稠密向量 + 稀疏向量)
     # https://milvus.io/docs/multi-vector-search.md
     # https://milvus.io/api-reference/pymilvus/v3.0.x/MilvusClient/Vector/hybrid_search.md
+    # 反省: anns_field 封在这里面其实不算好的设计, 未来可能出现多向量字段的场景
     def minirag_hybrid_search(
         self,
         collection_name: str,
         dense_vectors: list[list[float]],
         sparse_vectors: list[dict[int, float]],
-        limit: int = APP_CONFIG.item_name_recall_limit,
+        limit: int,
+        weight: tuple[float, float],
         filter: str | None = None,
         output_fields: list[str] = ["*"],
     ) -> list[list[dict]] | None:
@@ -52,6 +92,23 @@ class MiniRagMilvusClient(MilvusClient):
 
         返回 list[list[dict]]: 外层长度 = 查询向量个数 (nq),
         内层是该查询融合后按得分排序的 top-k 命中; 搜索失败返回 None。
+        返回格式：
+        [
+            [  # 第一个查询向量的命中
+                {
+                    "id": 469734951640943804,
+                    "distance": 0.8866561651229858,
+                    "entity": {
+                        "item_name": ...
+                    }
+                },
+                ...
+            ],
+            [  # 第二个查询向量的命中
+                ...
+            ],
+            ...
+        ]
         """
         if not dense_vectors:
             raise ValueError("dense_vectors 不能为空")
@@ -67,7 +124,7 @@ class MiniRagMilvusClient(MilvusClient):
         # 稠密/稀疏两侧的查询向量数量必须一致, 否则服务端会报错。
         dense_req = AnnSearchRequest(
             data=dense_vectors,
-            anns_field=FieldName.DENSE_VECTOR,
+            anns_field=MilvusItemNameField.DENSE_VECTOR,
             param={
                 "metric_type": "COSINE",
             },  # 更多 ANN 参数设置也是在这个字典里
@@ -76,7 +133,7 @@ class MiniRagMilvusClient(MilvusClient):
         )
         sparse_req = AnnSearchRequest(
             data=sparse_vectors,
-            anns_field=FieldName.SPARSE_VECTOR,
+            anns_field=MilvusItemNameField.SPARSE_VECTOR,
             param={
                 "metric_type": "IP",
             },
@@ -88,8 +145,7 @@ class MiniRagMilvusClient(MilvusClient):
         # 2. 定义 Ranker 策略
         # https://milvus.io/docs/multi-vector-search.md#Step-2-Configure-a-reranking-strategy
         # https://milvus.io/docs/weighted-ranker.md#Create-a-Weighted-Ranker
-        dense_weight = APP_CONFIG.item_name_dense_vector_weight
-        sparse_weight = 1.0 - dense_weight
+        dense_weight, sparse_weight = weight
         ranker = WeightedRanker(dense_weight, sparse_weight)
 
         try:
@@ -120,23 +176,23 @@ class MiniRagMilvusClient(MilvusClient):
         # https://milvus.io/docs/schema.md#Create-Schema
         schema = self.create_schema(auto_id=True)
         schema.add_field(
-            field_name=FieldName.ID,
+            field_name=MilvusItemNameField.ID,
             datatype=DataType.INT64,
             is_primary=True,
         ).add_field(
-            field_name=FieldName.FILE_TITLE,
+            field_name=MilvusItemNameField.FILE_TITLE,
             datatype=DataType.VARCHAR,
             max_length=0xFFFF,
         ).add_field(
-            field_name=FieldName.ITEM_NAME,
+            field_name=MilvusItemNameField.ITEM_NAME,
             datatype=DataType.VARCHAR,
             max_length=0xFFFF,
         ).add_field(
-            field_name=FieldName.DENSE_VECTOR,
+            field_name=MilvusItemNameField.DENSE_VECTOR,
             datatype=DataType.FLOAT_VECTOR,
             dim=1024,
         ).add_field(
-            field_name=FieldName.SPARSE_VECTOR,
+            field_name=MilvusItemNameField.SPARSE_VECTOR,
             datatype=DataType.SPARSE_FLOAT_VECTOR,
         )
 
@@ -147,8 +203,8 @@ class MiniRagMilvusClient(MilvusClient):
         # 稠密向量索引：dense_vector
         # =========================
         index_params.add_index(
-            field_name=FieldName.DENSE_VECTOR,  # 与 schema 中的字段一致, 需要建索引的字段
-            index_name=IndexName.DENSE_VECTOR_INDEX,  # 自定义索引名称
+            field_name=MilvusItemNameField.DENSE_VECTOR,  # 与 schema 中的字段一致, 需要建索引的字段
+            index_name=MilvusItemNameIndex.DENSE_VECTOR_INDEX,  # 自定义索引名称
             metric_type="COSINE",  # 距离度量方式，COSINE 表示余弦相似度
             index_type="HNSW",  # 索引算法类型，HNSW 分层导航小世界
             params={  # HNSW 算法专属参数
@@ -159,8 +215,8 @@ class MiniRagMilvusClient(MilvusClient):
 
         # 稀疏字段
         index_params.add_index(
-            field_name=FieldName.SPARSE_VECTOR,  # 与 schema 中的字段一致, 需要建索引的字段
-            index_name=IndexName.SPARSE_VECTOR_INDEX,  # 自定义索引名称
+            field_name=MilvusItemNameField.SPARSE_VECTOR,  # 与 schema 中的字段一致, 需要建索引的字段
+            index_name=MilvusItemNameIndex.SPARSE_VECTOR_INDEX,  # 自定义索引名称
             metric_type="IP",  # 距离度量方式，IP 表示内积
             index_type="SPARSE_INVERTED_INDEX",  # 索引算法类型，稀疏向量使用倒排索引
             params={
@@ -187,27 +243,27 @@ class MiniRagMilvusClient(MilvusClient):
         # 创建 schema
         schema = self.create_schema(auto_id=True)
         schema.add_field(
-            field_name=FieldName.ID,
+            field_name=MilvusChunksField.ID,
             datatype=DataType.INT64,
             is_primary=True,
         ).add_field(
-            field_name=FieldName.FILE_TITLE,
+            field_name=MilvusChunksField.FILE_TITLE,
             datatype=DataType.VARCHAR,
             max_length=0xFFFF,
         ).add_field(
-            field_name=FieldName.ITEM_NAME,
+            field_name=MilvusChunksField.ITEM_NAME,
             datatype=DataType.VARCHAR,
             max_length=0xFFFF,
         ).add_field(
-            field_name=FieldName.CHUNK_CONTENT,
+            field_name=MilvusChunksField.CHUNK_CONTENT,
             datatype=DataType.VARCHAR,
             max_length=0xFFFF,
         ).add_field(
-            field_name=FieldName.DENSE_VECTOR,
+            field_name=MilvusChunksField.DENSE_VECTOR,
             datatype=DataType.FLOAT_VECTOR,
             dim=1024,
         ).add_field(
-            field_name=FieldName.SPARSE_VECTOR,
+            field_name=MilvusChunksField.SPARSE_VECTOR,
             datatype=DataType.SPARSE_FLOAT_VECTOR,
         )
 
@@ -216,8 +272,8 @@ class MiniRagMilvusClient(MilvusClient):
 
         # 稠密向量索引：dense_vector
         index_params.add_index(
-            field_name=FieldName.DENSE_VECTOR,
-            index_name=IndexName.DENSE_VECTOR_INDEX,
+            field_name=MilvusChunksField.DENSE_VECTOR,
+            index_name=MilvusChunksIndex.DENSE_VECTOR_INDEX,
             metric_type="COSINE",
             index_type="HNSW",
             params={
@@ -228,8 +284,8 @@ class MiniRagMilvusClient(MilvusClient):
 
         # 稀疏字段
         index_params.add_index(
-            field_name=FieldName.SPARSE_VECTOR,
-            index_name=IndexName.SPARSE_VECTOR_INDEX,
+            field_name=MilvusChunksField.SPARSE_VECTOR,
+            index_name=MilvusChunksIndex.SPARSE_VECTOR_INDEX,
             metric_type="IP",
             index_type="SPARSE_INVERTED_INDEX",
             params={"inverted_index_algo": "DAAT_MAXSCORE"},

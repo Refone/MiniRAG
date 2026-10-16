@@ -3,8 +3,12 @@ from collections import defaultdict
 from common.client import MILVUS_CLIENT
 from common.config.app_config import APP_CONFIG
 from common.model import EMBEDDING, LLM
-from common.prompt.prompt_conclude_query import ConcludeQueryResult, PromptConcludeQuery
-from utils.logging_utils import brief_list, logger
+from common.prompt.prompt_conclude_keywords import (
+    PromptConcludeKeywords,
+    ConcludeKeywordsPydantic,
+)
+from common.prompt.prompt_query_rewrite import PromptQueryRewrite
+from utils.logging_utils import logger
 from processor.query_processor.chat_history import chat_history_manager, MessageRole
 from utils.node_utils import step_log, trace_node
 from processor.query_processor.state import QueryGraphState
@@ -42,22 +46,33 @@ def step_2_summary_history(session_id: str) -> str:
     return history_summary
 
 
-@step_log(desc="总结原始查询并提取关键词")
-def step_3_conclude_query_and_key_words(
+@step_log(desc="重写查询")
+def step_3_rewrite_query(
     history_summary: str,
     original_query: str,
-) -> tuple[str, list[str]]:
-    prompt = PromptConcludeQuery(history_summary, original_query)
+) -> str:
+    prompt = PromptQueryRewrite(history_summary, original_query)
 
-    response = LLM.with_structured_output(ConcludeQueryResult).invoke(prompt.prompt)
-    key_words = response.key_words
-    conclude_query = response.conclude_query
+    response = LLM.invoke(prompt.prompt)
 
-    return conclude_query, key_words
+    return response.content
+
+
+@step_log(desc="总结关键词")
+def step_4_conclude_key_words(
+    query: str,
+) -> list[str]:
+    prompt = PromptConcludeKeywords(query)
+
+    response = LLM.with_structured_output(ConcludeKeywordsPydantic).invoke(
+        prompt.prompt
+    )
+
+    return response.key_words
 
 
 @step_log(desc="从 Milvus item_name 表中选择匹配的主体")
-def step_4_select_item_from_milvus(
+def step_5_select_item_from_milvus(
     key_words: list[str],
 ) -> dict[str, list[tuple[str, float]]]:
     result_dict: dict[str, list[tuple[str, float]]] = defaultdict(list)
@@ -74,25 +89,7 @@ def step_4_select_item_from_milvus(
     if not key_words:
         return result_dict
 
-    key_words_vector = EMBEDDING.embed_query_hybrid(
-        key_words
-    )  # 假设有一个 EMBEDDING_MODEL 用于将关键词转换为向量
-    """
-    key_words_vector:
-    [
-        {'dense':[...], 'sparse':[...]},
-        {'dense':[...], 'sparse':[...]},
-        ...
-    ]
-    """
-
-    dense_vectors = [vec["dense"] for vec in key_words_vector]
-    sparse_vectors = [vec["sparse"] for vec in key_words_vector]
-
-    reqs_list = MILVUS_CLIENT.hybrid_search_item_name(
-        dense_vectors=dense_vectors,
-        sparse_vectors=sparse_vectors,
-    )
+    reqs_list = MILVUS_CLIENT.hybrid_search_item_name(texts=key_words)
     """
     reqs_list 的结构 (list[list[dict]] | None):
     外层 list 对应查询向量 (批量查询时长度为 len(key_words)),
@@ -138,7 +135,7 @@ def step_4_select_item_from_milvus(
 
 
 @step_log(desc="根据关键词匹配结果生成确认主体和疑似主体列表")
-def step_5_keywords_match_results(result_dict):
+def step_6_keywords_match_results(result_dict):
 
     confirm_set = set()
     suspect_set = set()
@@ -169,7 +166,7 @@ def step_5_keywords_match_results(result_dict):
 
 
 @step_log(desc="将聊天消息落库 mongodb")
-def step_6_save_chat_message(
+def step_7_save_chat_message(
     original_query: str,
     session_id: str,
 ) -> None:
@@ -188,18 +185,18 @@ def node_intent_recognize(state: QueryGraphState) -> QueryGraphState:
     history_summary = step_2_summary_history(session_id=session_id)
     logger.info(f"历史记录摘要:\n{history_summary}")
 
-    query_conclude, key_words = step_3_conclude_query_and_key_words(
-        history_summary,
-        original_query,
-    )
-    logger.info(f"重写后的问题: {query_conclude}, 关键词: {', '.join(key_words)}")
-    state["query_conclude"] = query_conclude if query_conclude else original_query
-    state["key_words"] = key_words if key_words else []
+    rewritten_query = step_3_rewrite_query(history_summary, original_query)
+    state["rewritten_query"] = rewritten_query if rewritten_query else original_query
+    logger.info(f"重写后的查询: {state['rewritten_query']}")
 
-    result_dict = step_4_select_item_from_milvus(key_words)
+    key_words = step_4_conclude_key_words(rewritten_query)
+    state["key_words"] = key_words if key_words else []
+    logger.info(f"提取的关键词: {key_words}")
+
+    result_dict = step_5_select_item_from_milvus(key_words)
     logger.info(f"从 Milvus 中选取的结果: {result_dict}")
 
-    confirm_list, suspect_list = step_5_keywords_match_results(result_dict)
+    confirm_list, suspect_list = step_6_keywords_match_results(result_dict)
     logger.info(f"确认匹配: {confirm_list}")
     logger.info(f"疑似匹配: {suspect_list}")
     state["confirm_list"] = confirm_list if confirm_list else []
@@ -212,7 +209,7 @@ def node_intent_recognize(state: QueryGraphState) -> QueryGraphState:
         else:
             state["answer"] = "未能在文库中找到相关匹配"
 
-    step_6_save_chat_message(
+    step_7_save_chat_message(
         original_query=original_query,
         session_id=session_id,
     )
@@ -227,7 +224,7 @@ if __name__ == "__main__":
 
     init_state = create_state(
         session_id="test-flow-session-id",
-        original_query="请问一下, HAK180 和 RS-12 哪个性价比更高？",
+        original_query="RS-12 多功能表如何测量电阻？",
     )
     next_state = node_intent_recognize(init_state)
     rprint(next_state)

@@ -10,12 +10,15 @@ class QueryGraphState(TypedDict):
     original_query: str  # 原始查询
     web_search: bool  # 是否进行网络搜索
 
-    query_conclude: str  # 重写后的问题
+    rewritten_query: str  # 重写后的问题
     key_words: list[str]  # 关键词
 
     # Milvus item_name 匹配结果
     confirm_list: list[str]  # 确认匹配的列表
     suspect_list: list[str]  # 疑似匹配的列表
+
+    embedding_matches: list[dict]  # 向量化查询匹配结果
+    hyde_matches: list[dict]  # 海德搜索匹配结果
 
     answer: str  # 最终回答
 
@@ -24,10 +27,12 @@ _DEFAULT_STATE: QueryGraphState = {
     "session_id": "",
     "original_query": "",
     "web_search": True,
-    "query_conclude": "",
+    "rewritten_query": "",
     "key_words": [],
     "confirm_list": [],
     "suspect_list": [],
+    "embedding_matches": [],
+    "hyde_matches": [],
     "answer": "",
 }
 
