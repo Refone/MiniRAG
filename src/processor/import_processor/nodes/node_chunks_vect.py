@@ -5,12 +5,12 @@ from typing import Any
 
 from pymilvus.orm.constants import BATCH_SIZE
 
-from common.schemas.external_schemas.milvus_schemas import MilvusChunksItem
 from utils.logging_utils import logger
 from utils.node_utils import trace_node, step_log
 from utils.markdown_splitter import Chunk
 from common.model import EMBEDDING
 from common.client import MILVUS_CLIENT
+from common.client.milvus_client import MilvusChunksItem
 from common.config.env_config import ENV_CONFIG
 from processor.import_processor.state import ImportNodeState
 

@@ -1,18 +1,16 @@
 from common.client import MILVUS_CLIENT
+from common.client.milvus_client import HybridSearchHits
 from common.model import LLM
 from common.prompt.prompt_hypo_answer import PromptHypoAnswer
 from utils.brief_utils import brief
 from utils.node_utils import trace_node
 from utils.logging_utils import logger
-from processor.query_processor.state import QueryGraphState
+from processor.query_processor.state import StateChunkHits, QueryGraphState
 
 
-def step_1_validate_and_get_data(state: QueryGraphState) -> tuple[str, str]:
-    milvus_items = state.get("confirm_list")
-    if not milvus_items:
-        raise ValueError("主体名称未找到")
-
-    rewritten_query = state.get("rewritten_query")
+def step_1_validate_and_get_data(state: QueryGraphState) -> tuple[list[str], str]:
+    milvus_items: list[str] = state.get("confirm_list", [])
+    rewritten_query: str = state.get("rewritten_query", "")
     if not rewritten_query:
         raise ValueError("重写后的查询未找到")
 
@@ -30,7 +28,7 @@ def step_2_generate_hypothetical_answer(
 def step_3_hypo_match_in_milvus(
     milvus_items: list[str],
     hypo_answer: str,
-) -> list[str]:
+) -> list[HybridSearchHits]:
 
     chunks = MILVUS_CLIENT.hybrid_search_chunks(
         query_text=[hypo_answer],
@@ -40,10 +38,14 @@ def step_3_hypo_match_in_milvus(
     return chunks[0]
 
 
-def step_4_process_hyde_chunks(chunk_matches: list[dict]):
-    hyde_matches: list[dict] = []
+def step_4_process_hyde_chunks(
+    chunk_matches: list[HybridSearchHits],
+) -> list[StateChunkHits]:
+    hyde_matches: list[StateChunkHits] = []
     for hit in chunk_matches:
         chunk = hit.get("entity", {})
+        # entity 中不含主键 id, 需从 hit 顶层单独取出, 供后续 RRF 融合按 id 去重
+        chunk["id"] = hit.get("id")
         chunk["score"] = hit.get("distance", 0.0)
         hyde_matches.append(chunk)
     return hyde_matches
@@ -62,10 +64,12 @@ def node_search_hyde(state: QueryGraphState) -> QueryGraphState:
     hypo_answer = step_2_generate_hypothetical_answer(rewritten_query)
     logger.info(f"生成的假设性回答: {hypo_answer}")
 
-    chunks = step_3_hypo_match_in_milvus(milvus_items, hypo_answer)
+    chunks: list[HybridSearchHits] = step_3_hypo_match_in_milvus(
+        milvus_items, hypo_answer
+    )
     logger.info(f"匹配到的文档块: {brief(chunks)}")
 
-    hyde_matches = step_4_process_hyde_chunks(chunks)
+    hyde_matches: list[StateChunkHits] = step_4_process_hyde_chunks(chunks)
 
     return {"hyde_matches": hyde_matches}
 

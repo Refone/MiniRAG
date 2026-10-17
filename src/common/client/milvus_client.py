@@ -1,9 +1,62 @@
-from common.schemas.external_schemas.milvus_schemas import *
+from typing import TypedDict
+from common.model.qwen_embedding import HybridVector
 from common.config.app_config import APP_CONFIG
 from common.model import EMBEDDING
 from utils.logging_utils import logger
 from common.config.env_config import ENV_CONFIG
 from pymilvus import AnnSearchRequest, DataType, MilvusClient, WeightedRanker
+
+
+# kb_item_name 表相关类型定义
+class MilvusItemNameField:
+    ID = "id"
+    FILE_TITLE = "file_title"
+    ITEM_NAME = "item_name"
+    DENSE_VECTOR = "dense_vector"
+    SPARSE_VECTOR = "sparse_vector"
+
+
+class MilvusItemNameIndex:
+    DENSE_VECTOR_INDEX = "dense_vector_index"
+    SPARSE_VECTOR_INDEX = "sparse_vector_index"
+
+
+class MilvusItemNameItem(TypedDict):
+    id: str
+    file_title: str
+    item_name: str
+    dense_vector: list[float]
+    sparse_vector: dict[int, float]
+
+
+# kb_chunks 表相关类型定义
+class MilvusChunksField:
+    ID = "id"
+    FILE_TITLE = "file_title"
+    ITEM_NAME = "item_name"
+    CHUNK_CONTENT = "chunk_content"
+    DENSE_VECTOR = "dense_vector"
+    SPARSE_VECTOR = "sparse_vector"
+
+
+class MilvusChunksIndex:
+    DENSE_VECTOR_INDEX = "dense_vector_index"
+    SPARSE_VECTOR_INDEX = "sparse_vector_index"
+
+
+class MilvusChunksItem(TypedDict):
+    id: str
+    file_title: str
+    item_name: str
+    chunk_content: str
+    dense_vector: list[float]
+    sparse_vector: dict[int, float]
+
+
+class HybridSearchHits(TypedDict):
+    id: int
+    distance: float
+    entity: dict  # 取决于 output_field
 
 
 class MiniRagMilvusClient(MilvusClient):
@@ -14,7 +67,7 @@ class MiniRagMilvusClient(MilvusClient):
         self,
         texts: list[str],
         limit: int = APP_CONFIG.item_name_recall_limit,
-    ) -> list[list[dict]] | None:
+    ) -> list[list[HybridSearchHits]] | None:
         collection_name = ENV_CONFIG.milvus.collection_item_name
         output_fields = [MilvusItemNameField.ITEM_NAME]
 
@@ -44,7 +97,7 @@ class MiniRagMilvusClient(MilvusClient):
         query_text: list[str],
         item_names: list[str] = None,
         limit: int = APP_CONFIG.chunks_recall_limit,
-    ) -> list[list[dict]] | None:
+    ) -> list[list[HybridSearchHits]] | None:
         collection_name = ENV_CONFIG.milvus.collection_chunks
         output_fields = [
             MilvusChunksField.ITEM_NAME,
@@ -52,15 +105,7 @@ class MiniRagMilvusClient(MilvusClient):
             MilvusChunksField.CHUNK_CONTENT,
         ]
 
-        vectors = EMBEDDING.embed_query_hybrid(query_text)
-        """
-        vectors:
-        [
-            {'dense':[...], 'sparse':[...]},
-            {'dense':[...], 'sparse':[...]},
-            ...
-        ]
-        """
+        vectors: list[HybridVector] = EMBEDDING.embed_query_hybrid(query_text)
         dense_vector = [vec["dense"] for vec in vectors]
         sparse_vector = [vec["sparse"] for vec in vectors]
 
@@ -87,21 +132,16 @@ class MiniRagMilvusClient(MilvusClient):
         weight: tuple[float, float],
         filter: str | None = None,
         output_fields: list[str] = ["*"],
-    ) -> list[list[dict]] | None:
+    ) -> list[list[HybridSearchHits]] | None:
         """稠密 + 稀疏混合搜索, 支持批量查询 (nq > 1)。
 
-        返回 list[list[dict]]: 外层长度 = 查询向量个数 (nq),
-        内层是该查询融合后按得分排序的 top-k 命中; 搜索失败返回 None。
-        返回格式：
+        返回 list[list[HybridSearchHits]]
+        外层长度 = 查询向量个数 (nq),
+        内层长度 = top-k 命中数 (limit),
         [
             [  # 第一个查询向量的命中
-                {
-                    "id": 469734951640943804,
-                    "distance": 0.8866561651229858,
-                    "entity": {
-                        "item_name": ...
-                    }
-                },
+                HybridSearchHits,
+                HybridSearchHits,
                 ...
             ],
             [  # 第二个查询向量的命中

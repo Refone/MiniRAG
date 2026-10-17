@@ -1,12 +1,12 @@
 from pathlib import Path
 
-from common.schemas.external_schemas.milvus_schemas import MilvusItemNameItem
 from utils.node_utils import trace_node, step_log
 from utils.logging_utils import logger, brief_list, brief_dict
 from processor.import_processor.state import ImportNodeState
 from common.prompt.prompt_recognize_item_name import PromptRecognizeItemName
 from common.model import LLM, EMBEDDING
 from common.client import MILVUS_CLIENT
+from common.client.milvus_client import MilvusItemNameItem
 from common.config.env_config import ENV_CONFIG
 
 

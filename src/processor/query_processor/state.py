@@ -5,6 +5,13 @@ import json
 from utils.path_utils import PROJECT_ROOT
 
 
+class StateChunkHits(TypedDict):
+    id: int
+    score: float
+    # 取决于 entity 的具体结构
+    ...
+
+
 class QueryGraphState(TypedDict):
     session_id: str  # 会话 ID
     original_query: str  # 原始查询
@@ -17,8 +24,9 @@ class QueryGraphState(TypedDict):
     confirm_list: list[str]  # 确认匹配的列表
     suspect_list: list[str]  # 疑似匹配的列表
 
-    embedding_matches: list[dict]  # 向量化查询匹配结果
-    hyde_matches: list[dict]  # 海德搜索匹配结果
+    embedding_matches: list[StateChunkHits]  # 向量化查询匹配结果
+    hyde_matches: list[StateChunkHits]  # 海德搜索匹配结果
+    rrf_matches: list[StateChunkHits]  # RRF 融合排序结果
     internet_matches: list[dict]  # 互联网搜索匹配结果
 
     answer: str  # 最终回答
@@ -34,6 +42,7 @@ _DEFAULT_STATE: QueryGraphState = {
     "suspect_list": [],
     "embedding_matches": [],
     "hyde_matches": [],
+    "rrf_matches": [],
     "internet_matches": [],
     "answer": "",
 }

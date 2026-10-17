@@ -58,12 +58,15 @@ class _AppConfig:
     # chunks 融合相似分数阈值: 低于该分数的切片视为无关, 直接过滤
     chunks_recall_threshold: float = 0.85
     # chunks 过滤后最终保留的 top-k 条数
-    chunks_recall_topk: int = 8
+    chunks_recall_topk: int = 10
 
     # mcp web search 配置
     mcp_web_search_count: int = 5
     # MCP 超时 (秒)
     mcp_timeout: int = 60
+
+    # RRF (Reciprocal Rank Fusion) 参数
+    rrf_k: int = 60
 
 
 APP_CONFIG: Final[_AppConfig] = _AppConfig()
