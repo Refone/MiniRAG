@@ -1,5 +1,5 @@
 from common.client import MILVUS_CLIENT
-from common.model import EMBEDDING, LLM
+from common.model import LLM
 from common.prompt.prompt_hypo_answer import PromptHypoAnswer
 from utils.brief_utils import brief
 from utils.node_utils import trace_node
@@ -35,9 +35,9 @@ def step_3_hypo_match_in_milvus(
     chunks = MILVUS_CLIENT.hybrid_search_chunks(
         query_text=[hypo_answer],
         item_names=milvus_items,
-    )[0]
+    )
 
-    return chunks
+    return chunks[0]
 
 
 def step_4_process_hyde_chunks(chunk_matches: list[dict]):
@@ -75,7 +75,7 @@ if __name__ == "__main__":
     from processor.query_processor.state import load_state, save_state
     from utils.path_utils import PROJECT_ROOT
 
-    prev_state = load_state(PROJECT_ROOT / "output/tmp/query_02_search_embedding.json")
+    prev_state = load_state(PROJECT_ROOT / "output/tmp/query_01_intent_recognize.json")
     next_state = node_search_hyde(prev_state)
     rprint(next_state)
 

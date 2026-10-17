@@ -28,7 +28,7 @@ from pathlib import Path
 
 import pytest
 
-from common.types.doc_types import DocType
+from common.schemas.internal_schemas.enum_types import DocTypeEnum
 from processor.import_processor.main_graph import import_processor
 from processor.import_processor.state import create_state
 from utils import task_utils
@@ -70,7 +70,7 @@ def test_markdown_import_flow(sample_md: Path):
     final = _invoke(sample_md)
 
     # 已实现功能: 入口识别为 markdown, 并把原文件路径写回 markdown_file_path
-    assert final["doc_type"] == DocType.MARKDOWN
+    assert final["doc_type"] == DocTypeEnum.MARKDOWN
     assert final["markdown_file_path"] == str(sample_md)
 
     # 未实现节点均为 stub, 不应擅自改动其余字段
@@ -92,7 +92,7 @@ def test_pdf_import_flow(sample_pdf: Path):
     final = _invoke(sample_pdf)
 
     # 已实现功能: 入口识别为 pdf, node_pdf_to_md 产出真实的 md 文件
-    assert final["doc_type"] == DocType.PDF
+    assert final["doc_type"] == DocTypeEnum.PDF
     assert final["file_title"] == sample_pdf.stem
 
     md_path = final["markdown_file_path"]

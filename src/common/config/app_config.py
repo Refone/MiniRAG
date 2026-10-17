@@ -60,5 +60,10 @@ class _AppConfig:
     # chunks 过滤后最终保留的 top-k 条数
     chunks_recall_topk: int = 8
 
+    # mcp web search 配置
+    mcp_web_search_count: int = 5
+    # MCP 超时 (秒)
+    mcp_timeout: int = 60
+
 
 APP_CONFIG: Final[_AppConfig] = _AppConfig()

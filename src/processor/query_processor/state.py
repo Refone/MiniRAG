@@ -19,6 +19,7 @@ class QueryGraphState(TypedDict):
 
     embedding_matches: list[dict]  # 向量化查询匹配结果
     hyde_matches: list[dict]  # 海德搜索匹配结果
+    internet_matches: list[dict]  # 互联网搜索匹配结果
 
     answer: str  # 最终回答
 
@@ -33,6 +34,7 @@ _DEFAULT_STATE: QueryGraphState = {
     "suspect_list": [],
     "embedding_matches": [],
     "hyde_matches": [],
+    "internet_matches": [],
     "answer": "",
 }
 

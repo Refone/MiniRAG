@@ -106,6 +106,14 @@ class MongoDBSettings(BaseSettings):
     db_name: str = "minirag"
 
 
+class DashscopeSettings(BaseSettings):
+    model_config = SettingsConfigDict(**BASE_CONFIG, env_prefix="DASHSCOPE_")
+
+    api_key: str = ""
+    web_search_mcp_url: str = "https://dashscope.aliyuncs.com/api/v1/mcps/WebSearch/mcp"
+    web_search_mcp_tool_name: str = "bailian_web_search"
+
+
 class EnvConfig(BaseSettings):
     log: LogSettings = Field(default_factory=LogSettings)
     mineru: MineruSettings = Field(default_factory=MineruSettings)
@@ -116,6 +124,7 @@ class EnvConfig(BaseSettings):
     qwen: QwenSettings = Field(default_factory=QwenSettings)
     mongodb: MongoDBSettings = Field(default_factory=MongoDBSettings)
     llm: LargeLanguageModelSettings = Field(default_factory=LargeLanguageModelSettings)
+    dashscope: DashscopeSettings = Field(default_factory=DashscopeSettings)
 
 
 ENV_CONFIG = EnvConfig()

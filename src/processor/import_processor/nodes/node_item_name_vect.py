@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from common.types.milvus_types import MilvusItemNameItem
+from common.schemas.external_schemas.milvus_schemas import MilvusItemNameItem
 from utils.node_utils import trace_node, step_log
 from utils.logging_utils import logger, brief_list, brief_dict
 from processor.import_processor.state import ImportNodeState

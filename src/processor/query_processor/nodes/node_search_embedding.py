@@ -1,6 +1,4 @@
 from common.client import MILVUS_CLIENT
-from common.config.app_config import APP_CONFIG
-from utils.brief_utils import brief
 from utils.node_utils import step_log, trace_node
 from utils.logging_utils import logger
 from processor.query_processor.state import QueryGraphState
@@ -27,9 +25,9 @@ def step_2_vectorize_query(
     chunks = MILVUS_CLIENT.hybrid_search_chunks(
         query_text=[rewritten_query],
         item_names=milvus_items,
-    )[0]
+    )
 
-    return chunks
+    return chunks[0]
 
 
 def step_3_process_chunks(chunk_matches: list[dict]):

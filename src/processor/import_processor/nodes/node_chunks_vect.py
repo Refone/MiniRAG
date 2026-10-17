@@ -5,7 +5,7 @@ from typing import Any
 
 from pymilvus.orm.constants import BATCH_SIZE
 
-from common.types.milvus_types import MilvusChunksItem
+from common.schemas.external_schemas.milvus_schemas import MilvusChunksItem
 from utils.logging_utils import logger
 from utils.node_utils import trace_node, step_log
 from utils.markdown_splitter import Chunk

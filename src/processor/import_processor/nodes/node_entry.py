@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from common.types.doc_types import DocType
+from common.schemas.internal_schemas.enum_types import DocTypeEnum
 from processor.import_processor.state import ImportNodeState
 from utils.logging_utils import logger
 from utils.node_utils import trace_node
@@ -16,18 +16,18 @@ def node_entry(state: ImportNodeState) -> ImportNodeState:
         raise FileNotFoundError(f"文件不存在: {origin_file_path}, 流程终止")
 
     # 2. 识别文档类型
-    doc_type = DocType.from_filename(origin_file_path.name)
-    if doc_type == DocType.UNKNOWN:
+    doc_type = DocTypeEnum.from_filename(origin_file_path.name)
+    if doc_type == DocTypeEnum.UNKNOWN:
         raise ValueError(f"未知文件类型: {origin_file_path}, 流程终止")
 
     # 3. 更新 state 对应字段
     state["file_title"] = origin_file_path.stem
 
-    if doc_type == DocType.MARKDOWN:
+    if doc_type == DocTypeEnum.MARKDOWN:
         state["markdown_file_path"] = str(origin_file_path)
 
     logger.info(
-        f"文件校验通过: {origin_file_path} 文件类型: {DocType.to_str(doc_type)}"
+        f"文件校验通过: {origin_file_path} 文件类型: {DocTypeEnum.to_str(doc_type)}"
     )
 
     return state

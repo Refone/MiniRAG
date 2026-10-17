@@ -1,4 +1,4 @@
-from common.types.milvus_types import *
+from common.schemas.external_schemas.milvus_schemas import *
 from common.config.app_config import APP_CONFIG
 from common.model import EMBEDDING
 from utils.logging_utils import logger
