@@ -10,6 +10,7 @@ import {
 } from "react";
 import { CompleteIcon } from "@/components/CompleteIcon";
 import { LoadingIcon } from "@/components/LoadingIcon";
+import { MarkdownContent } from "@/components/Markdown";
 import { API_BASE } from "@/lib/api";
 import {
   formatTime,
@@ -72,7 +73,7 @@ function AnswerContent({ text, images, showPlaceholder }: AnswerContentProps) {
 
   return (
     <>
-      {display && <div className="answer-text">{display}</div>}
+      {display && <MarkdownContent text={display} />}
       {parsed.images.length > 0 && (
         <div className="answer-images">
           {parsed.images.map((url) => (

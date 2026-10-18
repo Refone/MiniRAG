@@ -10,6 +10,7 @@ dist-ssr/
 .vite/
 .cache/
 .eslintcache
+.npm-cache/
 
 # ---- 环境变量（保留 .env.example 以便提交模板）----
 .env
