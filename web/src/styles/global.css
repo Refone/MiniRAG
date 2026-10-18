@@ -501,30 +501,38 @@ details.progress summary {
   color: var(--log-line);
 }
 
-.answer-images {
-  margin-top: 10px;
+/* ---- AI 回复的图片画廊（紧凑分行排版，不显示 URL）---- */
+/* 间距与 galleryLayout.ts 的 GALLERY_GAP 保持一致 */
+.answer-gallery {
+  margin-top: 12px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
+  min-width: 0;
 }
 
-.answer-images img {
+/* 行：水平居中，行内图片垂直居中（受限宽图居中、同高图基线对齐） */
+.gallery-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.gallery-row img {
   display: block;
-  max-width: min(100%, 600px);
-  max-height: 600px;
-  width: auto;
-  height: auto;
-  border-radius: 12px;
+  flex: 0 0 auto;
+  border-radius: 10px;
   border: 1px solid var(--border);
-  box-shadow: 0 10px 24px rgba(31, 45, 61, 0.1);
-  background: var(--panel);
-}
-
-.answer-images a {
-  font-size: 12px;
-  color: var(--muted);
-  text-decoration: none;
-  word-break: break-all;
+  background: var(--panel-2);
+  box-shadow: 0 6px 16px rgba(31, 45, 61, 0.08);
+  /* contain 兜底：避免亚像素舍入导致的拉伸/裁切 */
+  object-fit: contain;
+  transition:
+    opacity 0.25s ease,
+    width 0.2s ease,
+    height 0.2s ease;
 }
 
 .typing {

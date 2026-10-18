@@ -1,5 +1,4 @@
 import {
-  Fragment,
   useCallback,
   useEffect,
   useMemo,
@@ -8,13 +7,13 @@ import {
   type KeyboardEvent,
   type ReactNode,
 } from "react";
+import { AnswerGallery } from "@/components/AnswerGallery";
 import { CompleteIcon } from "@/components/CompleteIcon";
 import { LoadingIcon } from "@/components/LoadingIcon";
 import { MarkdownContent } from "@/components/Markdown";
 import { API_BASE } from "@/lib/api";
 import {
   formatTime,
-  normalizeUrl,
   nowTime,
   parseAnswerWithImages,
 } from "@/lib/chatUtils";
@@ -74,30 +73,7 @@ function AnswerContent({ text, images, showPlaceholder }: AnswerContentProps) {
   return (
     <>
       {display && <MarkdownContent text={display} />}
-      {parsed.images.length > 0 && (
-        <div className="answer-images">
-          {parsed.images.map((url) => (
-            <Fragment key={url}>
-              <img
-                src={normalizeUrl(url)}
-                alt="参考图片"
-                loading="lazy"
-                referrerPolicy="no-referrer"
-                onError={(e) => {
-                  e.currentTarget.style.display = "none";
-                }}
-              />
-              <a
-                href={normalizeUrl(url)}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                {url}
-              </a>
-            </Fragment>
-          ))}
-        </div>
-      )}
+      {parsed.images.length > 0 && <AnswerGallery images={parsed.images} />}
     </>
   );
 }
