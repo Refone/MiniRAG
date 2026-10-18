@@ -85,16 +85,17 @@ def step_4_collecte_images(
     # ---- 1. 粗筛: 只看 Milvus 且切片分数达标的候选, 按切片分数降序 ----
     pre_filtered = sorted(
         (
-            doc for doc in rerank_results
+            doc
+            for doc in rerank_results
             if doc["data_from"] == DataFrom.MILVUS
             and doc.get("score", 0.0) >= APP_CONFIG.image_min_chunk_score
         ),
         key=lambda doc: doc.get("score", 0.0),
         reverse=True,
     )
-    dropped = sum(
-        1 for d in rerank_results if d["data_from"] == DataFrom.MILVUS
-    ) - len(pre_filtered)
+    dropped = sum(1 for d in rerank_results if d["data_from"] == DataFrom.MILVUS) - len(
+        pre_filtered
+    )
     if dropped:
         logger.info(
             f"图片粗筛: {dropped} 个切片低于分数门槛 "
@@ -137,7 +138,9 @@ def step_4_collecte_images(
     for idx, (desc, url, chunk_score) in enumerate(images):
         image_score = score_by_image.get(idx, chunk_score)
         if image_score < threshold:
-            logger.debug(f"图片描述 rerank {image_score:.4f} 低于阈值 {threshold}, 丢弃: {desc[:40]}")
+            logger.debug(
+                f"图片描述 rerank {image_score:.4f} 低于阈值 {threshold}, 丢弃: {desc[:40]}"
+            )
             continue
         scored.append((url, image_score))
     scored.sort(key=lambda x: x[1], reverse=True)
@@ -175,7 +178,9 @@ def node_answer_output(state: QueryGraphState) -> QueryGraphState:
         rerank_results,
     ) = step_1_validate_and_get_data(state)
 
-    if not answer:
+    if answer:
+        step_5_save_message_and_push_final(session_id, answer, [])
+    else:
         answer_prompt = step_2_format_prompt(
             rewritten_query, session_id, rerank_results
         )
