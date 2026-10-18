@@ -755,10 +755,11 @@ details.progress summary {
   padding: 8px 10px 10px;
 }
 
-.composer-tools {
+/* 底部工具栏：左下网络搜索；右侧依次为服务状态、清空历史会话、发送 */
+.composer-footer {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
 }
 
 .tool-pill {
@@ -787,11 +788,6 @@ details.progress summary {
   color: var(--brand);
   border-color: rgba(26, 167, 255, 0.5);
   background: rgba(26, 167, 255, 0.08);
-}
-
-.tool-icon {
-  font-size: 13px;
-  line-height: 1;
 }
 
 .api-status {
@@ -834,8 +830,8 @@ details.progress summary {
 }
 
 /* 输入框本体无内框：卡片本身就是唯一的圆角矩形框。
-   右侧 padding 给悬浮发送按钮让位，文字不会被过早截断。
-   高度由 JS 随内容动态伸缩（上限为聊天区 75%），达到上限后内部滚动且不显示滚动条 */
+   高度由 JS 随内容动态伸缩（composer 总高上限为页面 50%），
+   达到上限后内部滚动，滚动条可见（细样式） */
 .composer textarea {
   flex: none;
   width: 100%;
@@ -848,26 +844,32 @@ details.progress summary {
   line-height: 1.6;
   font-family: inherit;
   min-height: 40px;
-  padding: 4px 44px 4px 8px;
+  padding: 4px 8px;
   overflow-y: auto;
-  scrollbar-width: none; /* Firefox：可滚动但不显示滚动条 */
+  scrollbar-width: thin; /* Firefox */
+  scrollbar-color: var(--border) transparent;
 }
 
 .composer textarea::-webkit-scrollbar {
-  width: 0;
-  height: 0;
-  display: none;
+  width: 8px;
+}
+
+.composer textarea::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 4px;
+}
+
+.composer textarea::-webkit-scrollbar-thumb:hover {
+  background: var(--muted);
 }
 
 .composer textarea::placeholder {
   color: var(--muted);
 }
 
-/* 发送按钮：独立悬浮在卡片右下角，不占用纵向布局 */
+/* 发送按钮：footer 右侧圆形按钮 */
 .send {
-  position: absolute;
-  right: 10px;
-  bottom: 10px;
+  flex: 0 0 auto;
   width: 32px;
   height: 32px;
   border: none;

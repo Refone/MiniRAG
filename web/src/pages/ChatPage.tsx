@@ -197,8 +197,10 @@ export function ChatPage() {
 
   const chatRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
-  /** 聊天页容器：用于计算 composer 的动态高度上限（75% 聊天区） */
+  /** 聊天页容器：用于计算 composer 的动态高度上限（页面高度 50%） */
   const pageRef = useRef<HTMLDivElement>(null);
+  /** composer 卡片：测量 footer 等固定开销 */
+  const composerRef = useRef<HTMLDivElement>(null);
   const esRef = useRef<EventSource | null>(null);
   /** 上一次的健康检查结果：只在「已连接/不可用」变化时打日志，否则 5 秒一次会刷屏 */
   const healthRef = useRef<boolean | null>(null);
@@ -287,13 +289,16 @@ export function ChatPage() {
     return () => clearTimeout(timer);
   }, []);
 
-  // textarea 高度随内容动态伸缩：上限为聊天区高度的 75%（预留工具行与内边距）
+  // textarea 高度随内容动态伸缩：composer 总高上限为页面高度的 50%
   const autoResize = useCallback(() => {
     const ta = inputRef.current;
     const page = pageRef.current;
-    if (!ta || !page) return;
-    const maxH = Math.max(80, Math.round(page.clientHeight * 0.75) - 48);
+    const composer = composerRef.current;
+    if (!ta || !page || !composer) return;
     ta.style.height = "auto";
+    // 卡内除 textarea 外的固定开销（内边距/gap/footer）
+    const chrome = composer.clientHeight - ta.clientHeight;
+    const maxH = Math.max(80, Math.round(page.clientHeight * 0.5) - chrome);
     ta.style.maxHeight = `${maxH}px`;
     ta.style.height = `${Math.min(ta.scrollHeight, maxH)}px`;
   }, []);
@@ -308,6 +313,20 @@ export function ChatPage() {
     window.addEventListener("resize", autoResize);
     return () => window.removeEventListener("resize", autoResize);
   }, [autoResize]);
+
+  // 会话区底部留白跟随 composer 实际高度，保证最后一条消息能滚到输入框上方
+  useEffect(() => {
+    const composer = composerRef.current;
+    const chat = chatRef.current;
+    if (!composer || !chat) return;
+    const update = () => {
+      chat.style.paddingBottom = `${composer.offsetHeight + 28}px`;
+    };
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(composer);
+    return () => ro.disconnect();
+  }, []);
 
   // 卸载时关闭 EventSource
   useEffect(() => {
@@ -498,31 +517,7 @@ export function ChatPage() {
       </div>
 
       <div className="composer-wrap">
-        <div className="composer">
-          <div className="composer-tools">
-            <button
-              type="button"
-              className={`tool-pill${webSearch ? " active" : ""}`}
-              onClick={() => setWebSearch(!webSearch)}
-              aria-pressed={webSearch}
-              title="开启后回答会结合网络搜索结果"
-            >
-              <span className="tool-icon">🌐</span>
-              网络搜索
-            </button>
-            <span className="api-status" title="查询服务连接状态">
-              <span className={`api-dot${apiConnected ? " ok" : " bad"}`} />
-              {apiConnected ? "服务已连接" : "服务未连接"}
-            </span>
-            <button
-              type="button"
-              className="composer-clear"
-              onClick={clearHistory}
-            >
-              清空对话
-            </button>
-          </div>
-
+        <div className="composer" ref={composerRef}>
           <textarea
             ref={inputRef}
             value={input}
@@ -535,30 +530,55 @@ export function ChatPage() {
             placeholder="给智能知识库小助手发送消息"
           />
 
-          <button
-            type="button"
-            className="send"
-            onClick={onSend}
-            disabled={sending}
-            aria-label="发送"
-            title="发送（Enter）"
-          >
-            <svg
-              width="18"
-              height="18"
-              viewBox="0 0 24 24"
-              fill="none"
-              aria-hidden="true"
+          <div className="composer-footer">
+            <button
+              type="button"
+              className={`tool-pill${webSearch ? " active" : ""}`}
+              onClick={() => setWebSearch(!webSearch)}
+              aria-pressed={webSearch}
+              title="开启后回答会结合网络搜索结果"
             >
-              <path
-                d="M12 19V5M5 12l7-7 7 7"
-                stroke="currentColor"
-                strokeWidth="2.2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-          </button>
+              网络搜索
+            </button>
+
+            <span className="api-status" title="查询服务连接状态">
+              <span className={`api-dot${apiConnected ? " ok" : " bad"}`} />
+              {apiConnected ? "服务已连接" : "服务未连接"}
+            </span>
+
+            <button
+              type="button"
+              className="composer-clear"
+              onClick={clearHistory}
+            >
+              清空历史会话
+            </button>
+
+            <button
+              type="button"
+              className="send"
+              onClick={onSend}
+              disabled={sending}
+              aria-label="发送"
+              title="发送（Enter）"
+            >
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                aria-hidden="true"
+              >
+                <path
+                  d="M12 19V5M5 12l7-7 7 7"
+                  stroke="currentColor"
+                  strokeWidth="2.2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </button>
+          </div>
         </div>
 
         <div className="hint">
