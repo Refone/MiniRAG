@@ -529,32 +529,30 @@ export function ChatPage() {
             placeholder="给智能知识库小助手发送消息"
           />
 
-          <div className="composer-footer">
-            <button
-              type="button"
-              className="send"
-              onClick={onSend}
-              disabled={sending}
-              aria-label="发送"
-              title="发送（Enter）"
+          <button
+            type="button"
+            className="send"
+            onClick={onSend}
+            disabled={sending}
+            aria-label="发送"
+            title="发送（Enter）"
+          >
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              aria-hidden="true"
             >
-              <svg
-                width="18"
-                height="18"
-                viewBox="0 0 24 24"
-                fill="none"
-                aria-hidden="true"
-              >
-                <path
-                  d="M12 19V5M5 12l7-7 7 7"
-                  stroke="currentColor"
-                  strokeWidth="2.2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            </button>
-          </div>
+              <path
+                d="M12 19V5M5 12l7-7 7 7"
+                stroke="currentColor"
+                strokeWidth="2.2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </button>
         </div>
 
         <div className="hint">

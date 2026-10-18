@@ -254,7 +254,7 @@ button {
   max-width: 800px;
   margin: 0 auto;
   /* 底部留白：给悬浮输入卡片腾出空间 */
-  padding: 26px 20px 240px;
+  padding: 26px 20px 190px;
 }
 
 .dayline {
@@ -572,7 +572,7 @@ details.progress summary {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 0 16px 14px;
+  padding: 0 16px 12px;
   pointer-events: none;
 }
 
@@ -595,18 +595,18 @@ details.progress summary {
   max-width: 768px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: 20px;
   box-shadow: var(--shadow);
-  padding: 10px 12px 12px;
+  padding: 8px 10px 10px;
 }
 
 .composer-tools {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
 }
 
 .tool-pill {
@@ -617,7 +617,7 @@ details.progress summary {
   background: var(--panel-2);
   color: var(--muted);
   border-radius: 999px;
-  padding: 5px 12px;
+  padding: 4px 10px;
   font-size: 12px;
   cursor: pointer;
   transition:
@@ -681,7 +681,8 @@ details.progress summary {
   background: rgba(231, 76, 60, 0.08);
 }
 
-/* 输入框本体无内框：卡片本身就是唯一的圆角矩形框 */
+/* 输入框本体无内框：卡片本身就是唯一的圆角矩形框。
+   右侧 padding 给悬浮发送按钮让位，文字不会被过早截断 */
 .composer textarea {
   flex: none;
   width: 100%;
@@ -693,24 +694,22 @@ details.progress summary {
   font-size: 15px;
   line-height: 1.6;
   font-family: inherit;
-  min-height: 44px;
-  max-height: 160px;
-  padding: 4px 6px;
+  min-height: 40px;
+  max-height: 120px;
+  padding: 4px 44px 4px 8px;
 }
 
 .composer textarea::placeholder {
   color: var(--muted);
 }
 
-.composer-footer {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-}
-
+/* 发送按钮：独立悬浮在卡片右下角，不占用纵向布局 */
 .send {
-  width: 36px;
-  height: 36px;
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  width: 32px;
+  height: 32px;
   border: none;
   border-radius: 50%;
   cursor: pointer;
@@ -737,7 +736,7 @@ details.progress summary {
 
 .hint {
   pointer-events: auto;
-  margin-top: 10px;
+  margin-top: 8px;
   font-size: 12px;
   color: var(--muted);
   text-align: center;
@@ -931,7 +930,7 @@ details.progress summary {
   }
 
   .chat {
-    padding: 20px 14px 230px;
+    padding: 20px 14px 180px;
   }
 
   .user-row {
