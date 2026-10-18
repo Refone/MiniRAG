@@ -135,6 +135,57 @@ def step_3_rerank(
     return rerank_results
 
 
+@step_log(desc="动态TopK")
+def step_4_dynamic_topk(rerank_results: list[RerankResult]) -> list[RerankResult]:
+    """断崖检测实现动态 TopK。
+
+    输入已按相关性得分降序排列的重排序结果, 从 min_topk 位置起向后扫描相邻
+    两条的得分差。一旦发现“断崖”(绝对差值或相对降幅超过阈值), 即认为其后的
+    召回片段相关度偏低, 予以剔除, 避免低质量片段污染最终答案。
+
+    参数:
+        rerank_results: 重排序结果列表 (已按 score 降序)
+
+    返回:
+        截断后的重排序结果列表
+    """
+    total = len(rerank_results)
+    if total == 0:
+        return rerank_results
+
+    # 硬上限: 最多保留前 N 条 (不超过候选总数)
+    max_top_k = min(APP_CONFIG.rerank_max_topk, total)
+    # 硬下限: 至少保留前 N 条 (至少 1 条, 且不超过硬上限)
+    min_top_k = max(1, min(APP_CONFIG.rerank_min_topk, max_top_k))
+
+    top_k = max_top_k
+
+    # 只有硬上限 > 硬下限时才可能发生截断
+    if max_top_k > min_top_k:
+        for index in range(min_top_k - 1, max_top_k - 1):
+            current = rerank_results[index]
+            nxt = rerank_results[index + 1]
+
+            current_score = current.get("score", 0.0)
+            next_score = nxt.get("score", 0.0)
+
+            # 相邻两条得分差: 绝对差 + 相对降幅 (当前得分为 0 时避免除零)
+            abs_gap = current_score - next_score
+            ratio_gap = abs_gap / current_score if current_score > 0 else 0.0
+
+            if (abs_gap > APP_CONFIG.rerank_gap_abs) or (
+                ratio_gap > APP_CONFIG.rerank_gap_ratio
+            ):
+                top_k = index + 1
+                logger.debug(
+                    f"下标 {index} 处发生断崖: 当前得分={current_score}, "
+                    f"下一条得分={next_score}, 截断 TopK={top_k}"
+                )
+                break
+
+    return rerank_results[:top_k]
+
+
 @trace_node(desc="融合排序", need_push=True)
 def node_rrf_and_rerank(state: QueryGraphState) -> QueryGraphState:
     rewritten_query, embedding_recalls, hyde_recalls, web_matches = (
@@ -147,6 +198,10 @@ def node_rrf_and_rerank(state: QueryGraphState) -> QueryGraphState:
     rerank_results = step_3_rerank(rewritten_query, fused_results, web_matches)
     logger.info(f"重排序结果: {rerank_results}")
     logger.info(f"重排序结果数量: {len(rerank_results)}")
+
+    rerank_results = step_4_dynamic_topk(rerank_results)
+    logger.info(f"动态 TopK 后结果: {rerank_results}")
+    logger.info(f"动态 TopK 后结果数量: {len(rerank_results)}")
 
     return {"rerank_results": rerank_results}
 

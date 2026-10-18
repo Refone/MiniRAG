@@ -68,5 +68,15 @@ class _AppConfig:
     # RRF (Reciprocal Rank Fusion) 参数
     rrf_k: int = 60
 
+    # ==== 重排序动态 TopK 参数 ======
+    # 动态 TopK 硬上限: 最多保留前 N 条重排序结果
+    rerank_max_topk: int = 10
+    # 动态 TopK 硬下限: 至少保留前 N 条重排序结果 (>=1, 且 <= rerank_max_topk)
+    rerank_min_topk: int = 1
+    # 断崖检测阈值 (绝对差): 相邻两条相关性得分差超过该值视为断崖
+    rerank_gap_abs: float = 0.2
+    # 断崖检测阈值 (相对比例): 相邻两条相关性得分相对降幅超过该比例视为断崖
+    rerank_gap_ratio: float = 0.25
+
 
 APP_CONFIG: Final[_AppConfig] = _AppConfig()
