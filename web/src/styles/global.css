@@ -539,8 +539,6 @@ details.progress summary {
   cursor: zoom-in;
   transition:
     opacity 0.25s ease,
-    width 0.2s ease,
-    height 0.2s ease,
     filter 0.15s ease;
 }
 
