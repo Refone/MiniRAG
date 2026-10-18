@@ -221,6 +221,8 @@ export function ChatPage() {
 
   const chatRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  /** 聊天页容器：用于计算 composer 的动态高度上限（75% 聊天区） */
+  const pageRef = useRef<HTMLDivElement>(null);
   const esRef = useRef<EventSource | null>(null);
   /** 上一次的健康检查结果：只在「已连接/不可用」变化时打日志，否则 5 秒一次会刷屏 */
   const healthRef = useRef<boolean | null>(null);
@@ -308,6 +310,28 @@ export function ChatPage() {
     const timer = setTimeout(() => inputRef.current?.focus(), 200);
     return () => clearTimeout(timer);
   }, []);
+
+  // textarea 高度随内容动态伸缩：上限为聊天区高度的 75%（预留工具行与内边距）
+  const autoResize = useCallback(() => {
+    const ta = inputRef.current;
+    const page = pageRef.current;
+    if (!ta || !page) return;
+    const maxH = Math.max(80, Math.round(page.clientHeight * 0.75) - 48);
+    ta.style.height = "auto";
+    ta.style.maxHeight = `${maxH}px`;
+    ta.style.height = `${Math.min(ta.scrollHeight, maxH)}px`;
+  }, []);
+
+  // 内容变化（输入/发送清空）时重算高度
+  useEffect(() => {
+    autoResize();
+  }, [input, autoResize]);
+
+  // 窗口尺寸变化时重算上限
+  useEffect(() => {
+    window.addEventListener("resize", autoResize);
+    return () => window.removeEventListener("resize", autoResize);
+  }, [autoResize]);
 
   // 卸载时关闭 EventSource
   useEffect(() => {
@@ -487,7 +511,7 @@ export function ChatPage() {
   }, [sessionId]);
 
   return (
-    <div className="chat-page">
+    <div className="chat-page" ref={pageRef}>
       <div className="chat" ref={chatRef}>
         <div className="dayline">今天</div>
         {messages.map((m) => (
@@ -524,7 +548,11 @@ export function ChatPage() {
           <textarea
             ref={inputRef}
             value={input}
-            onChange={(e) => setInput(e.target.value)}
+            onChange={(e) => {
+              setInput(e.target.value);
+              // 同步重算，避免出现一帧滚动条闪烁
+              autoResize();
+            }}
             onKeyDown={onKeyDown}
             placeholder="给智能知识库小助手发送消息"
           />

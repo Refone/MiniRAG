@@ -682,7 +682,8 @@ details.progress summary {
 }
 
 /* 输入框本体无内框：卡片本身就是唯一的圆角矩形框。
-   右侧 padding 给悬浮发送按钮让位，文字不会被过早截断 */
+   右侧 padding 给悬浮发送按钮让位，文字不会被过早截断。
+   高度由 JS 随内容动态伸缩（上限为聊天区 75%），达到上限后内部滚动且不显示滚动条 */
 .composer textarea {
   flex: none;
   width: 100%;
@@ -695,8 +696,15 @@ details.progress summary {
   line-height: 1.6;
   font-family: inherit;
   min-height: 40px;
-  max-height: 120px;
   padding: 4px 44px 4px 8px;
+  overflow-y: auto;
+  scrollbar-width: none; /* Firefox：可滚动但不显示滚动条 */
+}
+
+.composer textarea::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
 }
 
 .composer textarea::placeholder {
