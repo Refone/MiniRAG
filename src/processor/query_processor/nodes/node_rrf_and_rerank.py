@@ -148,7 +148,7 @@ def node_rrf_and_rerank(state: QueryGraphState) -> QueryGraphState:
     logger.info(f"重排序结果: {rerank_results}")
     logger.info(f"重排序结果数量: {len(rerank_results)}")
 
-    return {}
+    return {"rerank_results": rerank_results}
 
 
 if __name__ == "__main__":
@@ -169,7 +169,7 @@ if __name__ == "__main__":
     next_state = node_rrf_and_rerank(fused_state)
     rprint(next_state)
 
-    new_state_json = str(PROJECT_ROOT / "output/tmp/query_05_rrf.json")
+    new_state_json = str(PROJECT_ROOT / "output/tmp/query_05_rrf_and_rerank.json")
 
     save_state(next_state, new_state_json)
     logger.info(f"RRF融合排序处理完成")

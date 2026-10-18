@@ -31,19 +31,7 @@ def step_1_validate_and_get_data(state: QueryGraphState) -> tuple[str, str]:
 
 @step_log(desc="根据会话 ID 获取聊天记录")
 def step_2_summary_history(session_id: str) -> str:
-
-    history_list = chat_history_manager.get_latest_messages(session_id=session_id)[::-1]
-
-    history_summary_list: list[str] = []
-    for index, item in enumerate(history_list):
-        if item["role"] == MessageRole.USER:
-            history_summary_list.append(f"编号 {index+1} | 用户提问 | {item['text']}")
-        elif item["role"] == MessageRole.ASSISTANT:
-            history_summary_list.append(f"编号 {index+1} | 助手回答 | {item['text']}")
-
-    history_summary = "\n".join(history_summary_list)
-
-    return history_summary
+    return chat_history_manager.summary_history(session_id=session_id)
 
 
 @step_log(desc="重写查询")

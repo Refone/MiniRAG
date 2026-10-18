@@ -16,7 +16,7 @@ from processor.query_processor.state import QueryGraphState, WebSearchResult
 
 @step_log(desc="校验并获取数据")
 def step_1_validate_and_get_data(state: QueryGraphState) -> tuple[bool, str]:
-    web_enable = state.get("web_enable", False)
+    web_enable = state.get("web_search", False)
     rewritten_query = state.get("rewritten_query", "")
     if not rewritten_query:
         raise ValueError("state['rewritten_query'] is empty")
@@ -93,6 +93,7 @@ if __name__ == "__main__":
     from utils.path_utils import PROJECT_ROOT
 
     prev_state = load_state(PROJECT_ROOT / "output/tmp/query_01_intent_recognize.json")
+    prev_state["web_search"] = True
     next_state = node_search_web(prev_state)
     rprint(next_state)
 

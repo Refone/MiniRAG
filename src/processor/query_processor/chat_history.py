@@ -86,6 +86,31 @@ class ChatHistoryManager:
             logger.error(f"获取 {session_id} 会话的最新 {limit} 条记录失败: {e}")
             return []
 
+    def summary_history(
+        self,
+        session_id: str,
+        limit: int = APP_CONFIG.chat_message_lookback_count,
+    ) -> str:
+        history_list = chat_history_manager.get_latest_messages(
+            session_id=session_id,
+            limit=limit,
+        )[::-1]
+
+        history_summary_list: list[str] = []
+        for index, item in enumerate(history_list):
+            if item["role"] == MessageRole.USER:
+                history_summary_list.append(
+                    f"编号 {index+1} | 用户提问 | {item['text']}"
+                )
+            elif item["role"] == MessageRole.ASSISTANT:
+                history_summary_list.append(
+                    f"编号 {index+1} | 助手回答 | {item['text']}"
+                )
+
+        history_summary = "\n".join(history_summary_list)
+
+        return history_summary
+
 
 chat_history_manager: ChatHistoryManager = ChatHistoryManager()
 
