@@ -2,13 +2,14 @@ import re
 
 from regex import R
 
+from common.config.app_config import APP_CONFIG
 from processor.query_processor.chat_history import chat_history_manager, MessageRole
 from utils.node_utils import trace_node
 from common.prompt.prompt_final_answer import PromptFinalAnswer
 from utils.logging_utils import logger
 import time
 from processor.query_processor.state import DataFrom, QueryGraphState, RerankResult
-from common.model import LLM
+from common.model import LLM, RERANKER
 from utils.sse_utils import SSEEvent, sse_push
 
 
@@ -58,16 +59,90 @@ def step_3_call_llm_generate_answer(session_id: str, answer_prompt: str) -> str:
     return answer
 
 
-def step_4_collecte_images(rerank_results: list[RerankResult]) -> list[str]:
-    image_urls: list[str] = []
+def step_4_collecte_images(
+    rerank_results: list[RerankResult],
+    rewritten_query: str,
+) -> list[str]:
+    """从重排序结果中收集要展示给用户的图片。
 
-    image_re = re.compile(r"\!\[.*?\]\((.*?)\)")
+    过滤策略 (解决"召回的无关图片太多"问题):
+    1. 只从 Milvus 切片中取图 (Web 结果不含本地图);
+    2. 粗筛: 切片 rerank 分数低于 image_min_chunk_score 的不出图;
+    3. 精排: 将图片描述 (markdown 方括号中的 alt 文本, 导入时为 VLM 生成的
+       图片摘要) 与 rewritten_query 做图片级 rerank, 分数低于
+       image_min_rerank_score 的图片直接丢弃。这一步解决"切片文本相关但
+       其中某张图无关"的问题 (如含产品名的标题页 LOGO 图);
+    4. 按图片级 rerank 分数降序, 保证最相关的图优先;
+    5. 去重 (重叠切片可能包含同一张图, 同 URL 保留分数更高切片中的描述);
+    6. 总数不超过 image_max_count。
+    """
+    if not rerank_results:
+        return []
 
-    for doc in rerank_results:
-        if doc["data_from"] == DataFrom.MILVUS:
-            image_urls.extend(image_re.findall(doc["document"]))
+    # 方括号捕获图片描述 (alt 文本), 圆括号捕获 URL
+    image_re = re.compile(r"!\[(.*?)\]\((.*?)\)")
 
-    return image_urls
+    # ---- 1. 粗筛: 只看 Milvus 且切片分数达标的候选, 按切片分数降序 ----
+    pre_filtered = sorted(
+        (
+            doc for doc in rerank_results
+            if doc["data_from"] == DataFrom.MILVUS
+            and doc.get("score", 0.0) >= APP_CONFIG.image_min_chunk_score
+        ),
+        key=lambda doc: doc.get("score", 0.0),
+        reverse=True,
+    )
+    dropped = sum(
+        1 for d in rerank_results if d["data_from"] == DataFrom.MILVUS
+    ) - len(pre_filtered)
+    if dropped:
+        logger.info(
+            f"图片粗筛: {dropped} 个切片低于分数门槛 "
+            f"{APP_CONFIG.image_min_chunk_score}, 不参与图片精排"
+        )
+
+    # ---- 2. 提取 (描述, URL, 切片分数), 按 URL 去重 ----
+    images: list[tuple[str, str, float]] = []
+    seen_urls: set[str] = set()
+    for doc in pre_filtered:
+        chunk_score = doc.get("score", 0.0)
+        for desc, url in image_re.findall(doc["document"]):
+            if url in seen_urls:
+                continue
+            seen_urls.add(url)
+            images.append((desc.strip(), url, chunk_score))
+    if not images:
+        return []
+
+    # ---- 3. 图片级 rerank: 图片描述 vs 重写后的问题 ----
+    # 空描述无法参与 rerank, 用切片分数兜底
+    valid_pairs = [(i, desc) for i, (desc, _, _) in enumerate(images) if desc]
+    score_by_image: dict[int, float] = {}
+    if valid_pairs:
+        try:
+            hits = RERANKER.rerank(
+                query=rewritten_query,
+                documents=[desc for _, desc in valid_pairs],
+            )
+            # rerank 返回的 index 是传入 documents 列表中的下标
+            score_by_image = {
+                valid_pairs[h["index"]][0]: h["relevance_score"] for h in hits
+            }
+        except Exception as e:
+            logger.warning(f"图片描述 rerank 失败, 退化为切片分数过滤: {e}")
+
+    # ---- 4. 阈值过滤 + 按图片级分数降序 ----
+    threshold = APP_CONFIG.image_min_rerank_score
+    scored: list[tuple[str, float]] = []
+    for idx, (desc, url, chunk_score) in enumerate(images):
+        image_score = score_by_image.get(idx, chunk_score)
+        if image_score < threshold:
+            logger.debug(f"图片描述 rerank {image_score:.4f} 低于阈值 {threshold}, 丢弃: {desc[:40]}")
+            continue
+        scored.append((url, image_score))
+    scored.sort(key=lambda x: x[1], reverse=True)
+
+    return [url for url, _ in scored[: APP_CONFIG.image_max_count]]
 
 
 def step_5_save_message_and_push_final(
@@ -109,7 +184,7 @@ def node_answer_output(state: QueryGraphState) -> QueryGraphState:
         answer = step_3_call_llm_generate_answer(session_id, answer_prompt)
         logger.info(f"最终答案: {answer}")
 
-        image_urls = step_4_collecte_images(rerank_results)
+        image_urls = step_4_collecte_images(rerank_results, rewritten_query)
         logger.info(f"提取的图片 URL: {image_urls}")
         logger.info(f"共: {len(image_urls)} 张图片")
 

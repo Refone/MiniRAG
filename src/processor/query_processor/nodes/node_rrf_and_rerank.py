@@ -33,9 +33,29 @@ def step_2_rrf_fusion(
     embedding_recalls: list[MilvusChunksRecall],
     hyde_recalls: list[MilvusChunksRecall],
 ) -> list[MilvusChunksRecall]:
+    def _filter_below_threshold(
+        chunks: list[MilvusChunksRecall],
+    ) -> list[MilvusChunksRecall]:
+        """剔除混合检索原始分数低于阈值的切片。
+
+        注意: 此处过滤的是 Milvus 混合检索 (WeightedRanker) 归一化后的原始
+        分数, 而非 RRF 排名分。RRF 分是基于排名倒数的加权和, 量级极小,
+        不能用 chunks_recall_threshold 这种 [0,1] 阈值去过滤。
+        """
+        threshold = APP_CONFIG.chunks_recall_threshold
+        kept = [c for c in chunks if c.get("score", 0.0) >= threshold]
+        dropped = len(chunks) - len(kept)
+        if dropped:
+            logger.info(f"召回阈值 {threshold} 过滤掉 {dropped} 条低分切片")
+        return kept
+
+    embedding_recalls = _filter_below_threshold(embedding_recalls)
+    hyde_recalls = _filter_below_threshold(hyde_recalls)
+
+    embedding_weight, hyde_weight = APP_CONFIG.rrf_weights
     data_list: list[tuple[float, list[MilvusChunksRecall]]] = [
-        (0.5, embedding_recalls),
-        (0.5, hyde_recalls),
+        (embedding_weight, embedding_recalls),
+        (hyde_weight, hyde_recalls),
     ]
     logger.info(f"向量查询切片数量: {len(embedding_recalls)}")
     logger.info(f"Hyde查询切片数量: {len(hyde_recalls)}")
@@ -137,21 +157,39 @@ def step_3_rerank(
 
 @step_log(desc="动态TopK")
 def step_4_dynamic_topk(rerank_results: list[RerankResult]) -> list[RerankResult]:
-    """断崖检测实现动态 TopK。
+    """绝对分数下限 + 断崖检测实现动态 TopK。
 
-    输入已按相关性得分降序排列的重排序结果, 从 min_topk 位置起向后扫描相邻
-    两条的得分差。一旦发现“断崖”(绝对差值或相对降幅超过阈值), 即认为其后的
-    召回片段相关度偏低, 予以剔除, 避免低质量片段污染最终答案。
+    1. 先按绝对分数下限 (rerank_score_floor) 丢弃低相关候选:
+       断崖检测只在相邻得分差上做文章, 当分数平滑下降时 (重排序模型常见)
+       低分候选会全部幸存, 因此必须有独立的绝对下限兜底。
+    2. 再对剩余结果做断崖检测: 从 min_topk 位置起向后扫描相邻两条的得分差。
+       一旦发现“断崖”(绝对差值或相对降幅超过阈值), 即认为其后的召回片段
+       相关度偏低, 予以剔除, 避免低质量片段污染最终答案。
 
     参数:
         rerank_results: 重排序结果列表 (已按 score 降序)
 
     返回:
-        截断后的重排序结果列表
+         截断后的重排序结果列表
     """
     total = len(rerank_results)
     if total == 0:
         return rerank_results
+
+    # 1. 绝对分数下限: 低于该分数的候选直接丢弃 (不依赖断崖检测)
+    floor = APP_CONFIG.rerank_score_floor
+    kept = [r for r in rerank_results if r.get("score", 0.0) >= floor]
+    dropped = total - len(kept)
+    if dropped:
+        logger.info(f"重排分数下限 {floor} 过滤掉 {dropped} 条低相关候选")
+    # 若全部低于下限, 保留最高分一条作为兜底, 维持"至少 1 条"的既有语义
+    if not kept:
+        logger.warning(f"全部候选低于分数下限 {floor}, 兜底保留最高分 1 条")
+        kept = rerank_results[:1]
+    rerank_results = kept
+
+    # 2. 断崖检测
+    total = len(rerank_results)
 
     # 硬上限: 最多保留前 N 条 (不超过候选总数)
     max_top_k = min(APP_CONFIG.rerank_max_topk, total)

@@ -55,10 +55,12 @@ class _AppConfig:
     # chunks 混合检索融合权重 (dense_weight, sparse_weight)
     # 长文本稀疏信号区分度低, 故以稠密为主(0.7)，稀疏为辅(0.3)
     chunks_hybrid_weight: tuple[float, float] = (0.7, 0.3)
-    # chunks 融合相似分数阈值: 低于该分数的切片视为无关, 直接过滤
-    chunks_recall_threshold: float = 0.85
-    # chunks 过滤后最终保留的 top-k 条数
-    chunks_recall_topk: int = 8
+    # chunks 混合检索原始分数阈值: 低于该分数的切片视为无关, 在 RRF 融合前直接过滤
+    # 注意: WeightedRanker 分数已归一化到 [0,1], 越大越相似
+    # 实测: 有效命中 >= 0.78, 噪声尾部集中在 0.52 左右, 故取 0.55 (可继续实测校准)
+    chunks_recall_threshold: float = 0.55
+    # chunks RRF 融合后最终保留的 top-k 条数
+    chunks_recall_topk: int = 5
 
     # mcp web search 配置
     mcp_web_search_count: int = 4
@@ -67,16 +69,30 @@ class _AppConfig:
 
     # RRF (Reciprocal Rank Fusion) 参数
     rrf_k: int = 60
+    # RRF 融合权重: (embedding_recalls_weight, hyde_recalls_weight)
+    # HyDE 假设性回答召回噪声较多, 以真实查询向量为主
+    rrf_weights: tuple[float, float] = (0.7, 0.3)
 
     # ==== 重排序动态 TopK 参数 ======
     # 动态 TopK 硬上限: 最多保留前 N 条重排序结果
     rerank_max_topk: int = 10
     # 动态 TopK 硬下限: 至少保留前 N 条重排序结果 (>=1, 且 <= rerank_max_topk)
     rerank_min_topk: int = 1
+    # 重排序绝对分数下限: 低于该分数的候选直接丢弃, 不依赖断崖检测
+    rerank_score_floor: float = 0.5
     # 断崖检测阈值 (绝对差): 相邻两条相关性得分差超过该值视为断崖
     rerank_gap_abs: float = 0.2
     # 断崖检测阈值 (相对比例): 相邻两条相关性得分相对降幅超过该比例视为断崖
     rerank_gap_ratio: float = 0.25
+
+    # ==== 图片展示过滤参数 ======
+    # 所属切片的 rerank 分数低于该值时不展示其中的图片 (粗筛, 减少图片级 rerank 的候选量)
+    image_min_chunk_score: float = 0.6
+    # 图片描述 (alt 文本) 与重写后问题的 rerank 分数低于该值时不展示
+    # 与 rerank_score_floor 同一量纲, 短描述得分略低于长文本, 如误杀可下调至 0.4~0.45
+    image_min_rerank_score: float = 0.5
+    # 单次回答最多展示的图片数量
+    image_max_count: int = 4
 
 
 APP_CONFIG: Final[_AppConfig] = _AppConfig()

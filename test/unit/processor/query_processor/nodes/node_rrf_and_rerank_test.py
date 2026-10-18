@@ -6,8 +6,9 @@
 说明:
     - step_4_dynamic_topk 是纯函数, 输入已按 score 降序排列的 RerankResult 列表,
       无需 mock 外部依赖。
-    - 阈值读取 APP_CONFIG 的默认值: max_topk=10 / min_topk=1 / gap_abs=0.5 /
-      gap_ratio=0.25。
+    - 阈值读取 APP_CONFIG 的默认值: max_topk=10 / min_topk=1 / gap_abs=0.2 /
+      gap_ratio=0.25 / score_floor=0.5 (低于下限直接丢弃, 全部低于下限时兜底
+      保留最高分 1 条)。
 """
 
 from __future__ import annotations
@@ -108,10 +109,12 @@ def test_single_element_returns_single():
 
 # --------------------------------------------------------------------------- #
 # 边界: 当前得分为 0 时不触发除零错误
+# 全零分低于绝对分数下限, 全部被过滤后兜底保留最高分 1 条
 # --------------------------------------------------------------------------- #
 def test_zero_current_score_no_division_by_zero():
     docs = _docs([0.0, 0.0])
 
     result = step_4_dynamic_topk(docs)
 
-    assert len(result) == 2
+    assert len(result) == 1
+    assert _scores(result) == [0.0]
