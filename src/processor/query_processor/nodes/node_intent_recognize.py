@@ -2,7 +2,7 @@ from collections import defaultdict
 
 from common.client import MILVUS_CLIENT
 from common.config.app_config import APP_CONFIG
-from common.model import EMBEDDING, LLM
+from common.model import LLM
 from common.prompt.prompt_conclude_keywords import (
     PromptConcludeKeywords,
     ConcludeKeywordsPydantic,
@@ -91,17 +91,15 @@ def step_5_select_item_from_milvus(
 
     reqs_list = MILVUS_CLIENT.hybrid_search_item_name(texts=key_words)
     """
-    reqs_list 的结构 (list[list[dict]] | None):
+    reqs_list 的结构 (list[list[MilvusItemNameHit]] | None):
     外层 list 对应查询向量 (批量查询时长度为 len(key_words)),
     reqs_list[i] 是 key_words[i] 的 top-k 命中:
     [
         [  # key_words[0] 的命中
             {
                 "id": 469734951640943804, -> entity 主键ID
-                "distance": 0.8866561651229858, -> 最终融合得分, COSINE,IP 越大越相似, L2 越小越相似
-                "entity": {
-                    "item_name": ...
-                }
+                "score": 0.8866561651229858, -> 最终融合得分, COSINE,IP 越大越相似, L2 越小越相似
+                "item_name": ...
             },
             ...
         ],
@@ -118,14 +116,8 @@ def step_5_select_item_from_milvus(
 
     for key_word, hits_list in zip(key_words, reqs_list):
         for hit in hits_list:
-            try:
-                item_name = hit["entity"]["item_name"]
-                score = hit["distance"]
-            except Exception as e:
-                logger.error(
-                    f"Failed to extract item_name and score from item: {hit}, error: {e}"
-                )
-                continue
+            item_name = hit["item_name"]
+            score = hit["score"]
             result_dict[key_word].append((item_name, score))
 
         # 匹配量小，sort 带来的性能影响可以忽略

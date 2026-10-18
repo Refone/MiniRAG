@@ -9,34 +9,18 @@ from mcp_types import CallToolResult
 
 from common.config.app_config import APP_CONFIG
 from common.config.env_config import ENV_CONFIG
-from utils.node_utils import trace_node
+from utils.node_utils import trace_node, step_log
 from utils.logging_utils import logger
-from processor.query_processor.state import QueryGraphState
+from processor.query_processor.state import QueryGraphState, WebSearchResult
 
 
-class WebSearchResult(TypedDict):
-    """
-    {
-        'snippet': '如何使用电阻表测量电阻? 1. 断开...',
-        'hostname': '百度教育',
-        'hostlogo': 'https://mbs1.bdstatic.com/searchbox/mappconsole/image/20230906/3096e08a-869d-46a7-8d30-5e32adb66fdc.png',
-        'title': '如何使用电阻表测量电阻?',
-        'url': 'https://easylearn.baidu.com/edu-page/tiangong/questiondetail?id=1832280139494591726&fr=search'
-    }
-    """
-
-    snippet: str  # 搜索结果的摘要信息
-    hostname: str  # 搜索结果的主机名
-    hostlogo: str  # 搜索结果的主机图标 URL
-    title: str  # 搜索结果的标题
-    url: str  # 搜索结果的链接
-
-
-def step_1_validate_and_get_data(state: QueryGraphState) -> str:
+@step_log(desc="校验并获取数据")
+def step_1_validate_and_get_data(state: QueryGraphState) -> tuple[bool, str]:
+    web_enable = state.get("web_enable", False)
     rewritten_query = state.get("rewritten_query", "")
     if not rewritten_query:
         raise ValueError("state['rewritten_query'] is empty")
-    return rewritten_query
+    return web_enable, rewritten_query
 
 
 async def _call_mcp_tool(rewritten_query: str):
@@ -70,6 +54,7 @@ async def _call_mcp_tool(rewritten_query: str):
     return result
 
 
+@step_log(desc="调用 MCP 工具进行网络搜索")
 def step_2_call_mcp_tool(rewritten_query: str) -> list[WebSearchResult]:
     try:
         result = asyncio.run(_call_mcp_tool(rewritten_query))
@@ -88,15 +73,18 @@ def step_2_call_mcp_tool(rewritten_query: str) -> list[WebSearchResult]:
 
 
 @trace_node(desc="互联网搜索", need_push=True)
-def node_search_internet(state: QueryGraphState) -> QueryGraphState:
+def node_search_web(state: QueryGraphState) -> QueryGraphState:
 
-    rewritten_query = step_1_validate_and_get_data(state)
+    web_enable, rewritten_query = step_1_validate_and_get_data(state)
     logger.info(f"重写后的查询: {rewritten_query}")
 
-    search_results = step_2_call_mcp_tool(rewritten_query)
-    logger.info(f"搜索结果: {search_results}")
+    search_results = []
+    if web_enable:
+        search_results = step_2_call_mcp_tool(rewritten_query)
+    logger.info(f"是否启用网络搜索: {web_enable}")
+    logger.info(f"网络搜索结果: {search_results}")
 
-    return {"internet_matches": search_results}
+    return {"web_matches": search_results}
 
 
 if __name__ == "__main__":
@@ -105,10 +93,10 @@ if __name__ == "__main__":
     from utils.path_utils import PROJECT_ROOT
 
     prev_state = load_state(PROJECT_ROOT / "output/tmp/query_01_intent_recognize.json")
-    next_state = node_search_internet(prev_state)
+    next_state = node_search_web(prev_state)
     rprint(next_state)
 
-    new_state_json = str(PROJECT_ROOT / "output/tmp/query_04_search_internet.json")
+    new_state_json = str(PROJECT_ROOT / "output/tmp/query_04_search_web.json")
 
     save_state(next_state, new_state_json)
     logger.info(f"互联网搜索处理完成")

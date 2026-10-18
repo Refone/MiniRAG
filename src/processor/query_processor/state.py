@@ -2,14 +2,49 @@ from typing import TypedDict
 import copy
 import json
 
+from enum import Enum
+
+from common.client.milvus_client import MilvusChunksRecall
 from utils.path_utils import PROJECT_ROOT
 
 
-class StateChunkHits(TypedDict):
-    id: int
-    score: float
-    # 取决于 entity 的具体结构
-    ...
+class WebSearchResult(TypedDict):
+    """
+    调用联网搜索 MCP 获得的搜索结果
+    {
+        'snippet': '如何使用电阻表测量电阻? 1. 断开...',
+        'hostname': '百度教育',
+        'hostlogo': 'https://mbs1.bdstatic.com/searchbox/mappconsole/image/20230906/3096e08a-869d-46a7-8d30-5e32adb66fdc.png',
+        'title': '如何使用电阻表测量电阻?',
+        'url': 'https://easylearn.baidu.com/edu-page/tiangong/questiondetail?id=1832280139494591726&fr=search'
+    }
+    """
+
+    snippet: str  # 搜索结果的摘要信息
+    hostname: str  # 搜索结果的主机名
+    hostlogo: str  # 搜索结果的主机图标 URL
+    title: str  # 搜索结果的标题
+    url: str  # 搜索结果的链接
+
+
+class DataFrom:
+    MILVUS: str = "Milvus"
+    WEB: str = "Web"
+
+
+class RerankResult(TypedDict):
+    """
+    重排序结果
+    {
+        'document': '巴黎是法国的首都。',
+        'data_from': 'Milvus',
+        'score': 0.95
+    }
+    """
+
+    document: str  # 文档内容
+    data_from: str  # 文档来源
+    score: float  # 重排序得分
 
 
 class QueryGraphState(TypedDict):
@@ -24,10 +59,11 @@ class QueryGraphState(TypedDict):
     confirm_list: list[str]  # 确认匹配的列表
     suspect_list: list[str]  # 疑似匹配的列表
 
-    embedding_matches: list[StateChunkHits]  # 向量化查询匹配结果
-    hyde_matches: list[StateChunkHits]  # 海德搜索匹配结果
-    rrf_matches: list[StateChunkHits]  # RRF 融合排序结果
-    internet_matches: list[dict]  # 互联网搜索匹配结果
+    embedding_recalls: list[MilvusChunksRecall]  # 向量化查询匹配结果
+    hyde_recalls: list[MilvusChunksRecall]  # 海德搜索匹配结果
+    web_matches: list[WebSearchResult]  # 互联网搜索匹配结果
+
+    rerank_results: list[RerankResult]  # 重排序结果
 
     answer: str  # 最终回答
 
@@ -40,10 +76,10 @@ _DEFAULT_STATE: QueryGraphState = {
     "key_words": [],
     "confirm_list": [],
     "suspect_list": [],
-    "embedding_matches": [],
-    "hyde_matches": [],
-    "rrf_matches": [],
-    "internet_matches": [],
+    "embedding_recalls": [],
+    "hyde_recalls": [],
+    "web_matches": [],
+    "rerank_results": [],
     "answer": "",
 }
 

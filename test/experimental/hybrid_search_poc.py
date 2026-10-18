@@ -103,7 +103,7 @@ def test_query(text: str):
     dense_vector = vecs[0]["dense"]
     sparse_vector = vecs[0]["sparse"]
 
-    results = MILVUS_CLIENT.minirag_hybrid_search(
+    results = MILVUS_CLIENT._minirag_hybrid_search(
         collection_name=collection_name,
         dense_vectors=[dense_vector],
         sparse_vectors=[sparse_vector],

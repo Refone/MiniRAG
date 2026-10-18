@@ -38,6 +38,7 @@ dependencies = [
     "regex>=2026.9.10",
     "requests>=2.34.2",
     "rich>=13.0.0",
+    "tiktoken>=0.7.0",
     "uvicorn>=0.53.0",
 ]
 

@@ -53,7 +53,27 @@ class MilvusChunksItem(TypedDict):
     sparse_vector: dict[int, float]
 
 
-class HybridSearchHits(TypedDict):
+class MilvusItemNameRecall(TypedDict):
+    id: int
+    score: float
+
+    # Milvus item_name 混合向量检索输出字段
+    # 对应 hybrid_search_item_name 中 output_field
+    item_name: str
+
+
+class MilvusChunksRecall(TypedDict):
+    id: int
+    score: float
+
+    # Milvus chunks 混合向量检索输出字段
+    # 对应 hybrid_search_chunks 中 output_field
+    item_name: str
+    file_title: str
+    chunk_content: str
+
+
+class HybridSearchRecall(TypedDict):
     id: int
     distance: float
     entity: dict  # 取决于 output_field
@@ -67,7 +87,7 @@ class MiniRagMilvusClient(MilvusClient):
         self,
         texts: list[str],
         limit: int = APP_CONFIG.item_name_recall_limit,
-    ) -> list[list[HybridSearchHits]] | None:
+    ) -> list[list[MilvusItemNameRecall]] | None:
         collection_name = ENV_CONFIG.milvus.collection_item_name
         output_fields = [MilvusItemNameField.ITEM_NAME]
 
@@ -83,7 +103,7 @@ class MiniRagMilvusClient(MilvusClient):
         dense_vectors = [vec["dense"] for vec in texts_vectors]
         sparse_vectors = [vec["sparse"] for vec in texts_vectors]
 
-        return self.minirag_hybrid_search(
+        hits = self._minirag_hybrid_search(
             collection_name=collection_name,
             dense_vectors=dense_vectors,
             sparse_vectors=sparse_vectors,
@@ -92,12 +112,14 @@ class MiniRagMilvusClient(MilvusClient):
             limit=limit,
         )
 
+        return self._convert_hit_results(hits)
+
     def hybrid_search_chunks(
         self,
         query_text: list[str],
         item_names: list[str] = None,
         limit: int = APP_CONFIG.chunks_recall_limit,
-    ) -> list[list[HybridSearchHits]] | None:
+    ) -> list[list[MilvusChunksRecall]] | None:
         collection_name = ENV_CONFIG.milvus.collection_chunks
         output_fields = [
             MilvusChunksField.ITEM_NAME,
@@ -109,7 +131,7 @@ class MiniRagMilvusClient(MilvusClient):
         dense_vector = [vec["dense"] for vec in vectors]
         sparse_vector = [vec["sparse"] for vec in vectors]
 
-        return self.minirag_hybrid_search(
+        hits = self._minirag_hybrid_search(
             collection_name=collection_name,
             dense_vectors=dense_vector,
             sparse_vectors=sparse_vector,
@@ -119,11 +141,13 @@ class MiniRagMilvusClient(MilvusClient):
             output_fields=output_fields,
         )
 
+        return self._convert_hit_results(hits)
+
     # Milvus 混合搜索 (稠密向量 + 稀疏向量)
     # https://milvus.io/docs/multi-vector-search.md
     # https://milvus.io/api-reference/pymilvus/v3.0.x/MilvusClient/Vector/hybrid_search.md
     # 反省: anns_field 封在这里面其实不算好的设计, 未来可能出现多向量字段的场景
-    def minirag_hybrid_search(
+    def _minirag_hybrid_search(
         self,
         collection_name: str,
         dense_vectors: list[list[float]],
@@ -132,7 +156,7 @@ class MiniRagMilvusClient(MilvusClient):
         weight: tuple[float, float],
         filter: str | None = None,
         output_fields: list[str] = ["*"],
-    ) -> list[list[HybridSearchHits]] | None:
+    ) -> list[list[HybridSearchRecall]] | None:
         """稠密 + 稀疏混合搜索, 支持批量查询 (nq > 1)。
 
         返回 list[list[HybridSearchHits]]
@@ -202,6 +226,72 @@ class MiniRagMilvusClient(MilvusClient):
             return None
 
         return res
+
+    def _convert_hit_results(
+        self,
+        hits: list[list[HybridSearchRecall]] | None,
+    ) -> list[list[dict]] | None:
+        """
+        处理 Milvus 原生 hybrid_search 结果的外层列表嵌套。
+
+        外层 list 对应 nq 个查询向量, 内层 list 对应每个查询的 top-k 命中,
+        单个命中的转换统一交由 _convert_hit 处理。
+
+        示例 (item_name 场景, 2 个查询向量):
+        输入:
+        [
+            [
+                {"id": 1, "distance": 0.9, "entity": {"item_name": "A"}},
+                {"id": 2, "distance": 0.8, "entity": {"item_name": "B"}},
+            ],
+            [
+                {"id": 3, "distance": 0.7, "entity": {"item_name": "C"}},
+            ],
+        ]
+        输出:
+        [
+            [
+                {"id": 1, "score": 0.9, "item_name": "A"},
+                {"id": 2, "score": 0.8, "item_name": "B"},
+            ],
+            [
+                {"id": 3, "score": 0.7, "item_name": "C"},
+            ],
+        ]
+        """
+        if hits is None:
+            return None
+
+        return [[self._convert_hit(hit) for hit in hit_group] for hit_group in hits]
+
+    def _convert_hit(self, hit: HybridSearchRecall) -> dict:
+        """
+        将单个 HybridSearchHits 转换为对外的 Hit 容器。
+
+        对外统一暴露 {id, score, ...entity 字段} 结构, 不再泄漏 HybridSearchHits:
+        1. 顶层 distance 统一重命名为 score
+        2. entity 内的输出字段拍平到顶层
+        3. 主键 id 从顶层合并进结果 (entity 中不含主键 id)
+
+        示例:
+        输入 (HybridSearchHits):
+        {
+            "id": 469734951640943804,
+            "distance": 0.8866561651229858,
+            "entity": {"item_name": "RS-12 多功能表"},
+        }
+        输出 (MilvusItemNameHit):
+        {
+            "id": 469734951640943804,
+            "score": 0.8866561651229858,
+            "item_name": "RS-12 多功能表",
+        }
+        """
+        return {
+            **hit.get("entity", {}),
+            "id": hit.get("id"),
+            "score": hit.get("distance", 0.0),
+        }
 
     def prepare_item_name_collection(self):
         """准备 item_name collection, 有则跳过, 无则创建"""

@@ -1,8 +1,8 @@
 from common.client import MILVUS_CLIENT
-from common.client.milvus_client import HybridSearchHits
+from common.client.milvus_client import MilvusChunksRecall
 from utils.node_utils import step_log, trace_node
 from utils.logging_utils import logger
-from processor.query_processor.state import StateChunkHits, QueryGraphState
+from processor.query_processor.state import QueryGraphState
 
 
 @step_log(desc="校验并获取数据")
@@ -16,32 +16,19 @@ def step_1_validate_and_get_data(state: QueryGraphState):
 def step_2_vectorize_query(
     rewritten_query: str,
     milvus_items: list[str],
-) -> list[HybridSearchHits]:
+) -> list[MilvusChunksRecall]:
     """
     根据 rewritten_query 在 Milvus 中进行向量化查询，
     限制搜索范围为已 item_name in [已确定实体](milvus_items) 中的条目
     """
 
     # 仅有一个 query_text, 因此取第一个结果列表
-    chunks: list[list[HybridSearchHits]] = MILVUS_CLIENT.hybrid_search_chunks(
+    chunks: list[list[MilvusChunksRecall]] = MILVUS_CLIENT.hybrid_search_chunks(
         query_text=[rewritten_query],
         item_names=milvus_items,
     )
 
-    return chunks[0]
-
-
-def step_3_process_chunks(
-    chunk_matches: list[HybridSearchHits],
-) -> list[StateChunkHits]:
-    embedding_matches: list[StateChunkHits] = []
-    for hit in chunk_matches:
-        chunk = hit.get("entity", {})
-        # entity 中不含主键 id, 需从 hit 顶层单独取出, 供后续 RRF 融合按 id 去重
-        chunk["id"] = hit.get("id")
-        chunk["score"] = hit.get("distance", 0.0)
-        embedding_matches.append(chunk)
-    return embedding_matches
+    return chunks[0] if chunks else []
 
 
 @trace_node(desc="向量化查询", need_push=True)
@@ -55,14 +42,12 @@ def node_search_embedding(state: QueryGraphState) -> QueryGraphState:
         logger.warning("没有在文库中找到匹配项, 跳过向量化查询")
         return {}
 
-    chunk_matches: list[HybridSearchHits] = step_2_vectorize_query(
+    embedding_recalls: list[MilvusChunksRecall] = step_2_vectorize_query(
         rewritten_query,
         milvus_items,
     )
 
-    embedding_matches: list[StateChunkHits] = step_3_process_chunks(chunk_matches)
-
-    return {"embedding_matches": embedding_matches}
+    return {"embedding_recalls": embedding_recalls}
 
 
 if __name__ == "__main__":

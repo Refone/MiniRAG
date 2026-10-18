@@ -82,6 +82,15 @@ class EmbeddingSettings(BaseSettings):
     batch_size: int = 10
 
 
+class RerankSettings(BaseSettings):
+    model_config = SettingsConfigDict(**BASE_CONFIG, env_prefix="RERANK_")
+
+    model: str = "qwen3.7-text-rerank"
+    base_url: str = "https://maas.qianwenaiapi.com/api/v1"
+    rpm: int = 3000
+    max_length: int = 30_000
+
+
 class MilvusSettings(BaseSettings):
     model_config = SettingsConfigDict(**BASE_CONFIG, env_prefix="MILVUS_")
 
@@ -120,6 +129,7 @@ class EnvConfig(BaseSettings):
     vlm: VLMSettings = Field(default_factory=VLMSettings)
     minio: MinioSettings = Field(default_factory=MinioSettings)
     embedding: EmbeddingSettings = Field(default_factory=EmbeddingSettings)
+    rerank: RerankSettings = Field(default_factory=RerankSettings)
     milvus: MilvusSettings = Field(default_factory=MilvusSettings)
     qwen: QwenSettings = Field(default_factory=QwenSettings)
     mongodb: MongoDBSettings = Field(default_factory=MongoDBSettings)
