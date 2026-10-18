@@ -11,11 +11,9 @@
   --muted: #7a869a;
   --brand: #1aa7ff;
   --brand2: #5b7cfa;
-  --bubble-user: #1aa7ff;
-  --bubble-bot: #ffffff;
+  --user-pill: #e8ebef;
   --border: #e6e9ef;
   --shadow: 0 10px 30px rgba(31, 45, 61, 0.12);
-  --input-bg: #ffffff;
   --kbd-bg: #f7f9fc;
   --kbd-text: #3b4a5a;
   --avatar-bg: #e9eef7;
@@ -41,11 +39,9 @@
   --muted: #8b96a8;
   --brand: #2bb1ff;
   --brand2: #7d94fb;
-  --bubble-user: #1a86d6;
-  --bubble-bot: #1f2531;
+  --user-pill: #2a3140;
   --border: #2a3140;
   --shadow: 0 12px 34px rgba(0, 0, 0, 0.5);
-  --input-bg: #1a1f2a;
   --kbd-bg: #232a37;
   --kbd-text: #cdd6e4;
   --avatar-bg: #232a37;
@@ -102,7 +98,7 @@ button {
   flex: 1 1 auto;
   min-height: 0;
   display: flex;
-  padding: 18px;
+  padding: 0;
   overflow: hidden;
 }
 
@@ -225,30 +221,6 @@ button {
 }
 
 /* ============ 通用小组件 ============ */
-.btn {
-  border: none;
-  background: linear-gradient(135deg, var(--brand), var(--brand2));
-  color: #fff;
-  padding: 8px 12px;
-  border-radius: 10px;
-  font-size: 12px;
-  cursor: pointer;
-}
-
-.btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.pill {
-  font-size: 12px;
-  color: var(--muted);
-  border: 1px solid var(--border);
-  padding: 6px 10px;
-  border-radius: 999px;
-  background: var(--input-bg);
-}
-
 .kbd {
   font-family:
     ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
@@ -260,100 +232,82 @@ button {
   color: var(--kbd-text);
 }
 
-/* ============ 对话页 ============ */
+/* ============ 对话页（DeepSeek 风格：消息铺在背景板上，只有输入框是圆角卡片并悬浮在顶层） ============ */
 .chat-page {
+  position: relative;
   flex: 1 1 auto;
+  min-width: 0;
   min-height: 0;
-  max-width: 980px;
-  margin: 0 auto;
   display: flex;
   flex-direction: column;
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  box-shadow: var(--shadow);
   overflow: hidden;
 }
 
-.chat-toolbar {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 16px;
-  border-bottom: 1px solid var(--border);
-  background: linear-gradient(
-    90deg,
-    rgba(26, 167, 255, 0.1),
-    rgba(91, 124, 250, 0.1)
-  );
-}
-
-.stream-toggle {
-  font-size: 12px;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  cursor: pointer;
-  user-select: none;
-  color: var(--muted);
-}
-
-.stream-toggle input {
-  cursor: pointer;
-}
-
-.chat-toolbar .pill {
-  margin-left: auto;
-}
-
+/* 背景板：无边框、无卡片，纯滚动区域 */
 .chat {
   flex: 1;
-  overflow: auto;
-  padding: 16px 14px 10px;
-  background:
-    linear-gradient(180deg, rgba(26, 167, 255, 0.05), transparent 40%),
-    linear-gradient(0deg, rgba(91, 124, 250, 0.05), transparent 45%);
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  width: 100%;
+  max-width: 800px;
+  margin: 0 auto;
+  /* 底部留白：给悬浮输入卡片腾出空间 */
+  padding: 26px 20px 240px;
 }
 
 .dayline {
   text-align: center;
   color: var(--muted);
   font-size: 12px;
-  margin: 6px 0 14px;
+  margin: 4px 0 18px;
 }
 
 .msg {
   display: flex;
-  gap: 10px;
-  margin: 10px 0;
-  align-items: flex-end;
+  margin: 16px 0;
 }
 
 .msg.user {
   justify-content: flex-end;
 }
 
-/* 关键：只让“消息内容容器”(排除头像)在 flex 中可伸缩，避免被压到“1 个字宽”导致竖排换行 */
-.msg > div:not(.avatar) {
-  flex: 1;
-  min-width: 0;
-}
-
-.msg.user > div:not(.avatar) {
+.user-row {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
+  max-width: 78%;
+}
+
+/* 用户消息：右侧灰底圆角胶囊，无边框，像印在背景板上 */
+.msg.user .bubble {
+  background: var(--user-pill);
+  color: var(--text);
+  border: none;
+  border-radius: 12px;
+  padding: 10px 14px;
+  font-size: 15px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+}
+
+/* 机器人消息：无气泡框，文字直接铺在背景上，左侧一个小 logo */
+.msg.bot {
+  gap: 12px;
+  align-items: flex-start;
 }
 
 .avatar {
-  width: 34px;
-  height: 34px;
-  border-radius: 10px;
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
   background: var(--avatar-bg);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 14px;
+  font-size: 15px;
   color: var(--avatar-text);
   flex: 0 0 auto;
 }
@@ -367,25 +321,17 @@ button {
   color: var(--text);
 }
 
-.bubble {
-  max-width: min(720px, 76%);
-  display: inline-block;
-  border-radius: 14px;
-  padding: 10px 12px;
-  border: 1px solid var(--border);
-  background: var(--bubble-bot);
-  position: relative;
-  line-height: 1.55;
-  font-size: 14px;
-  white-space: pre-wrap;
-  overflow-wrap: break-word;
+.bot-body {
+  flex: 1;
+  min-width: 0;
+  font-size: 15px;
+  line-height: 1.7;
   color: var(--text);
 }
 
-.msg.user .bubble {
-  background: var(--bubble-user);
-  color: #fff;
-  border-color: transparent;
+.bot-body .answer {
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
 }
 
 .meta {
@@ -394,21 +340,17 @@ button {
   margin-top: 6px;
 }
 
-.msg.user .meta {
-  color: rgba(255, 255, 255, 0.85);
-}
-
 .answer-text {
   white-space: pre-wrap;
   overflow-wrap: break-word;
 }
 
 details.progress {
-  margin-top: 8px;
-  border: 1px dashed rgba(122, 134, 154, 0.45);
-  border-radius: 12px;
-  padding: 8px 10px;
-  background: rgba(122, 134, 154, 0.06);
+  margin-top: 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 8px 12px;
+  background: var(--panel-2);
 }
 
 details.progress summary {
@@ -490,57 +432,185 @@ details.progress summary {
   }
 }
 
-.composer {
-  border-top: 1px solid var(--border);
-  padding: 12px 14px;
+/* ---- 悬浮输入区：全页唯一的圆角卡片，浮在消息流之上 ---- */
+.composer-wrap {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 10;
   display: flex;
-  gap: 10px;
-  align-items: flex-end;
+  flex-direction: column;
+  align-items: center;
+  padding: 0 16px 14px;
+  pointer-events: none;
+}
+
+/* 消息滚动到输入框后面时自然淡出 */
+.composer-wrap::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 170px;
+  background: linear-gradient(to top, var(--bg) 20%, rgba(0, 0, 0, 0) 100%);
+  pointer-events: none;
+}
+
+.composer {
+  position: relative;
+  pointer-events: auto;
+  width: 100%;
+  max-width: 768px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
   background: var(--panel);
-}
-
-.composer textarea {
-  flex: 1;
-  resize: none;
-  min-height: 44px;
-  max-height: 140px;
-  padding: 10px 12px;
-  border-radius: 12px;
   border: 1px solid var(--border);
-  outline: none;
-  font-size: 14px;
-  line-height: 1.5;
-  font-family: inherit;
-  background: var(--input-bg);
-  color: var(--text);
+  border-radius: 20px;
+  box-shadow: var(--shadow);
+  padding: 10px 12px 12px;
 }
 
-.composer textarea:focus {
-  border-color: rgba(26, 167, 255, 0.6);
-  box-shadow: 0 0 0 3px rgba(26, 167, 255, 0.12);
+.composer-tools {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tool-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--border);
+  background: var(--panel-2);
+  color: var(--muted);
+  border-radius: 999px;
+  padding: 5px 12px;
+  font-size: 12px;
+  cursor: pointer;
+  transition:
+    color 0.15s,
+    border-color 0.15s,
+    background 0.15s;
+}
+
+.tool-pill:hover {
+  color: var(--text);
+  border-color: rgba(26, 167, 255, 0.45);
+}
+
+.tool-pill.active {
+  color: var(--brand);
+  border-color: rgba(26, 167, 255, 0.5);
+  background: rgba(26, 167, 255, 0.08);
+}
+
+.tool-icon {
+  font-size: 13px;
+  line-height: 1;
+}
+
+.api-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.api-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--muted);
+}
+
+.api-dot.ok {
+  background: var(--success);
+}
+
+.api-dot.bad {
+  background: var(--danger);
+}
+
+.composer-clear {
+  border: none;
+  background: none;
+  padding: 4px 6px;
+  font-size: 12px;
+  color: var(--muted);
+  cursor: pointer;
+  border-radius: 6px;
+}
+
+.composer-clear:hover {
+  color: var(--danger);
+  background: rgba(231, 76, 60, 0.08);
+}
+
+/* 输入框本体无内框：卡片本身就是唯一的圆角矩形框 */
+.composer textarea {
+  flex: none;
+  width: 100%;
+  resize: none;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: var(--text);
+  font-size: 15px;
+  line-height: 1.6;
+  font-family: inherit;
+  min-height: 44px;
+  max-height: 160px;
+  padding: 4px 6px;
+}
+
+.composer textarea::placeholder {
+  color: var(--muted);
+}
+
+.composer-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
 }
 
 .send {
-  width: 88px;
-  height: 44px;
+  width: 36px;
+  height: 36px;
   border: none;
-  border-radius: 12px;
+  border-radius: 50%;
   cursor: pointer;
-  font-size: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   color: #fff;
   background: linear-gradient(135deg, var(--brand), var(--brand2));
+  box-shadow: 0 4px 12px rgba(26, 167, 255, 0.35);
+  transition:
+    transform 0.15s,
+    opacity 0.15s;
+}
+
+.send:hover:not(:disabled) {
+  transform: translateY(-1px);
 }
 
 .send:disabled {
-  opacity: 0.6;
+  opacity: 0.45;
   cursor: not-allowed;
+  box-shadow: none;
 }
 
 .hint {
-  padding: 0 14px 12px;
-  color: var(--muted);
+  pointer-events: auto;
+  margin-top: 10px;
   font-size: 12px;
-  background: var(--panel);
+  color: var(--muted);
+  text-align: center;
 }
 
 /* ============ 导入页 ============ */
@@ -550,7 +620,7 @@ details.progress summary {
   overflow: auto;
   width: 100%;
   max-width: 800px;
-  margin: 0 auto;
+  margin: 18px auto;
   background: var(--panel);
   padding: 30px;
   border-radius: 12px;
@@ -725,15 +795,24 @@ details.progress summary {
     display: none;
   }
 
-  .app-body {
-    padding: 10px;
-  }
-
   .import-page {
+    margin: 10px auto;
     padding: 20px;
   }
 
-  .bubble {
-    max-width: 90%;
+  .chat {
+    padding: 20px 14px 230px;
+  }
+
+  .user-row {
+    max-width: 88%;
+  }
+
+  .composer-wrap {
+    padding: 0 10px 10px;
+  }
+
+  .composer {
+    border-radius: 16px;
   }
 }

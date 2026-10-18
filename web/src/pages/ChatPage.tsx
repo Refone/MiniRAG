@@ -142,11 +142,10 @@ function MessageBubble({ message }: { message: ChatMessage }) {
   if (message.role === "user") {
     return (
       <div className="msg user">
-        <div>
+        <div className="user-row">
           <div className="bubble">{message.text}</div>
           <div className="meta">{message.time}</div>
         </div>
-        <div className="avatar">我</div>
       </div>
     );
   }
@@ -188,9 +187,11 @@ function MessageBubble({ message }: { message: ChatMessage }) {
 
   return (
     <div className="msg bot">
-      <div className="avatar bot">🧠</div>
-      <div>
-        <div className="bubble">{content}</div>
+      <div className="avatar bot" aria-hidden="true">
+        🧠
+      </div>
+      <div className="bot-body">
+        {content}
         <div className="meta">{message.hint ?? message.time}</div>
       </div>
     </div>
@@ -486,21 +487,6 @@ export function ChatPage() {
 
   return (
     <div className="chat-page">
-      <div className="chat-toolbar">
-        <label className="stream-toggle">
-          <input
-            type="checkbox"
-            checked={webSearch}
-            onChange={(e) => setWebSearch(e.target.checked)}
-          />
-          网络搜索
-        </label>
-        <span className="pill">API: {apiConnected ? "已连接" : "未连接"}</span>
-        <button type="button" className="btn" onClick={clearHistory}>
-          清空对话
-        </button>
-      </div>
-
       <div className="chat" ref={chatRef}>
         <div className="dayline">今天</div>
         {messages.map((m) => (
@@ -508,27 +494,73 @@ export function ChatPage() {
         ))}
       </div>
 
-      <div className="composer">
-        <textarea
-          ref={inputRef}
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={onKeyDown}
-          placeholder="请输入问题（Enter 发送，Shift+Enter 换行）"
-        />
-        <button
-          type="button"
-          className="send"
-          onClick={onSend}
-          disabled={sending}
-        >
-          发送
-        </button>
-      </div>
-      <div className="hint">
-        快捷键：<span className="kbd">Enter</span> 发送，
-        <span className="kbd">Shift</span>+<span className="kbd">Enter</span>{" "}
-        换行
+      <div className="composer-wrap">
+        <div className="composer">
+          <div className="composer-tools">
+            <button
+              type="button"
+              className={`tool-pill${webSearch ? " active" : ""}`}
+              onClick={() => setWebSearch(!webSearch)}
+              aria-pressed={webSearch}
+              title="开启后回答会结合网络搜索结果"
+            >
+              <span className="tool-icon">🌐</span>
+              网络搜索
+            </button>
+            <span className="api-status" title="查询服务连接状态">
+              <span className={`api-dot${apiConnected ? " ok" : " bad"}`} />
+              {apiConnected ? "服务已连接" : "服务未连接"}
+            </span>
+            <button
+              type="button"
+              className="composer-clear"
+              onClick={clearHistory}
+            >
+              清空对话
+            </button>
+          </div>
+
+          <textarea
+            ref={inputRef}
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={onKeyDown}
+            placeholder="给智能知识库小助手发送消息"
+          />
+
+          <div className="composer-footer">
+            <button
+              type="button"
+              className="send"
+              onClick={onSend}
+              disabled={sending}
+              aria-label="发送"
+              title="发送（Enter）"
+            >
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                aria-hidden="true"
+              >
+                <path
+                  d="M12 19V5M5 12l7-7 7 7"
+                  stroke="currentColor"
+                  strokeWidth="2.2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <div className="hint">
+          快捷键：<span className="kbd">Enter</span> 发送，
+          <span className="kbd">Shift</span>+<span className="kbd">Enter</span>{" "}
+          换行
+        </div>
       </div>
     </div>
   );
