@@ -243,7 +243,8 @@ button {
   overflow: hidden;
 }
 
-/* 背景板：无边框、无卡片，纯滚动区域 */
+/* 背景板：无边框、无卡片，纯滚动区域。
+   滚动容器全宽 → 滚动条贴在页面最右侧；内容由 .chat-inner 居中限宽 */
 .chat {
   flex: 1;
   min-height: 0;
@@ -251,10 +252,16 @@ button {
   overflow-x: hidden;
   overscroll-behavior: contain;
   width: 100%;
+  /* 底部留白：给悬浮输入卡片腾出空间 */
+  padding: 0 0 190px;
+}
+
+.chat-inner {
+  width: 100%;
   max-width: 800px;
   margin: 0 auto;
-  /* 底部留白：给悬浮输入卡片腾出空间 */
-  padding: 26px 20px 190px;
+  padding: 26px 20px 0;
+  box-sizing: border-box;
 }
 
 .dayline {
@@ -1083,7 +1090,11 @@ details.progress summary {
   }
 
   .chat {
-    padding: 20px 14px 180px;
+    padding: 0 0 180px;
+  }
+
+  .chat-inner {
+    padding: 20px 14px 0;
   }
 
   .user-row {

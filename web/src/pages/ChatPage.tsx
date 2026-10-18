@@ -489,10 +489,12 @@ export function ChatPage() {
   return (
     <div className="chat-page" ref={pageRef}>
       <div className="chat" ref={chatRef}>
-        <div className="dayline">今天</div>
-        {messages.map((m) => (
-          <MessageBubble key={m.id} message={m} />
-        ))}
+        <div className="chat-inner">
+          <div className="dayline">今天</div>
+          {messages.map((m) => (
+            <MessageBubble key={m.id} message={m} />
+          ))}
+        </div>
       </div>
 
       <div className="composer-wrap">
