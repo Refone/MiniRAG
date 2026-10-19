@@ -44,9 +44,9 @@ class _AppConfig:
     # Milvus 向量检索超时时间 (秒)
     milvus_search_timeout: int = 30
     # 融合相似分数 确认阈值
-    item_name_confirm_threshold: float = 0.9
+    item_name_confirm_threshold: float = 0.8
     # 融合相似分数 疑似阈值
-    item_name_suspect_threshold: float = 0.8
+    item_name_suspect_threshold: float = 0.5
     # 确认 topk
     item_name_confirm_topk: int = 5
     # 疑似 topk
