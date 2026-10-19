@@ -56,33 +56,6 @@ const STATUS_CLASSES: Record<ImportStatus, string> = {
   error: "status-error",
 };
 
-/** 上传步骤在日志里的显示名（后端节点不含“上传”这一步，前端手动补一条） */
-const UPLOAD_STEP = "上传文件";
-
-/**
- * 导入链路「后端节点」序列（与 processor/import_processor/main_graph.py 一致）。
- * PDF 会多走 node_pdf_to_md 这一步，Markdown 直接跳过它：
- *   - PDF：6 个节点
- *   - Markdown：5 个节点
- * 注意：完整链路最前面还有「上传文件」这一步（前端补，见 UPLOAD_STEP），
- * 总步数 = 节点数 + 1，由 inferTotalSteps() 统一计算。
- */
-const PDF_STEPS = [
-  "node_entry",
-  "node_pdf_to_md",
-  "node_md_img",
-  "node_document_split",
-  "node_item_name_vect",
-  "node_chunks_vect",
-];
-const MD_STEPS = [
-  "node_entry",
-  "node_md_img",
-  "node_document_split",
-  "node_item_name_vect",
-  "node_chunks_vect",
-];
-
 /* ------------------------------------------------------------------ */
 /* 小工具函数                                                          */
 /* ------------------------------------------------------------------ */
@@ -95,34 +68,11 @@ function makeId(): string {
 /** 日志行类型：kind 决定使用哪个状态图标，text 是节点名 */
 type LogLine = { kind: "done" | "running" | "failed"; text: string };
 
-/**
- * 根据文件名后缀推断导入链路的「总步数」（含最前面的「上传文件」步骤）。
- *   - PDF：1(上传) + 6(节点) = 7 步
- *   - Markdown：1(上传) + 5(节点) = 6 步
- */
-function inferTotalSteps(fileName: string): number {
-  const nodeSteps = /\.pdf$/i.test(fileName)
-    ? PDF_STEPS.length
-    : MD_STEPS.length;
-  return nodeSteps + 1; // +1：链路第一步「上传文件」
-}
-
-/**
- * 由「已完成节点数 / 总节点数」计算处理阶段进度（0 ~ 99）。
- * 每个节点完成推进 100/totalSteps%；99% 是封顶，最后的 100% 只在
- * 后端返回 complete 时才设置，避免「节点已全部完成但状态还没翻转」时进度条先顶到 100%。
- */
-function calcProgress(doneCount: number, totalSteps: number): number {
-  if (totalSteps <= 0) return 0;
-  return Math.min(Math.round((doneCount / totalSteps) * 100), 99);
-}
-
 /* ------------------------------------------------------------------ */
-/* 文件条目子组件：一个文件对应一行（名称/大小/进度条/日志/状态徽标）   */
+/* 文件条目子组件：一个文件对应一行（名称/大小/步骤日志/已耗时/状态徽标） */
 /* ------------------------------------------------------------------ */
 
 function FileItem({ file }: { file: ImportFile }) {
-  const uploading = file.status === "uploading";
   const failed = file.status === "error";
 
   // 后端在节点抛异常时，finally 仍会把该节点写进 done_nodes（而不是留在 running_nodes），
@@ -133,27 +83,23 @@ function FileItem({ file }: { file: ImportFile }) {
   // 真正成功完成的节点 = done 去掉最后一个失败节点
   const doneNodes = failedNode ? file.done.slice(0, -1) : file.done;
 
-  // 上传步骤的状态：上传中 running / 上传失败 failed（error 且无任何节点）/ 其余 done
-  let uploadLog: LogLine;
-  if (uploading) {
-    uploadLog = { kind: "running", text: UPLOAD_STEP };
-  } else if (failed && file.done.length === 0) {
-    uploadLog = { kind: "failed", text: UPLOAD_STEP };
-  } else {
-    uploadLog = { kind: "done", text: UPLOAD_STEP };
-  }
-
-  // 顺序：上传步骤 → 已完成节点 → 失败节点 → 进行中节点
+  // 步骤列表完全来自后端节点（与 query_processor 一致）：已完成节点 → 失败节点 → 进行中节点
   const lines: LogLine[] = [
-    uploadLog,
     ...doneNodes.map((n) => ({ kind: "done" as const, text: n })),
     ...(failedNode ? [{ kind: "failed" as const, text: failedNode }] : []),
     ...file.running.map((n) => ({ kind: "running" as const, text: n })),
   ];
 
-  // 已完成计数：上传（若已完成）+ 成功节点数（不含失败节点）
-  const doneCount = (uploading ? 0 : 1) + doneNodes.length;
-  const totalSteps = inferTotalSteps(file.name);
+  // 已消耗时间：任务进行中每秒刷新，结束后冻结在最终值
+  const [now, setNow] = useState(() => Date.now());
+  const active = file.status === "uploading" || file.status === "processing";
+  useEffect(() => {
+    if (!active) return;
+    const timer = window.setInterval(() => setNow(Date.now()), 500);
+    return () => window.clearInterval(timer);
+  }, [active]);
+  const elapsedSeconds = (now - file.startedAt) / 1000;
+  const elapsedText = `${elapsedSeconds.toFixed(1)}s`;
 
   // 完成后（completed）自动收起；上传/处理/失败保持展开，失败时方便查看出错节点
   const isOpen = file.status !== "completed";
@@ -163,33 +109,27 @@ function FileItem({ file }: { file: ImportFile }) {
       <div className="file-info">
         <span className="file-name">{file.name}</span>
         <span className="file-size">{file.sizeKB}</span>
-        <div className="progress-bar-container">
-          <div
-            className="progress-bar"
-            style={{
-              width: `${file.progress}%`,
-              backgroundColor:
-                file.progress >= 100 ? "var(--info)" : "var(--warning)",
-            }}
-          />
-        </div>
         <details className="log-details" open={isOpen}>
-          <summary>{`任务已完成 [${doneCount}/${totalSteps}]，点击收起 / 展开`}</summary>
+          <summary>{`已耗时 ${elapsedText}，点击收起 / 展开`}</summary>
           <ul className="log-list">
-            {lines.map((line) => (
-              <li key={line.text} className="status-line">
-                <span className={`status-line__icon status-line__icon--${line.kind}`}>
-                  {line.kind === "done" ? (
-                    <CompleteIcon />
-                  ) : line.kind === "failed" ? (
-                    <FailedIcon />
-                  ) : (
-                    <LoadingIcon />
-                  )}
-                </span>
-                <span className="status-line__text">{line.text}</span>
-              </li>
-            ))}
+            {lines.length === 0 ? (
+              <li className="status-line">暂无进度</li>
+            ) : (
+              lines.map((line) => (
+                <li key={line.text} className="status-line">
+                  <span className={`status-line__icon status-line__icon--${line.kind}`}>
+                    {line.kind === "done" ? (
+                      <CompleteIcon />
+                    ) : line.kind === "failed" ? (
+                      <FailedIcon />
+                    ) : (
+                      <LoadingIcon />
+                    )}
+                  </span>
+                  <span className="status-line__text">{line.text}</span>
+                </li>
+              ))
+            )}
           </ul>
         </details>
       </div>
@@ -242,36 +182,28 @@ export function ImportPage() {
   }, []);
 
   /** 轮询任务进度：每隔 2 秒查一次，直到 complete / failed 才停止 */
-  const pollStatus = (taskId: string, fileId: string, totalSteps: number) => {
+  const pollStatus = (taskId: string, fileId: string) => {
     const interval = window.setInterval(async () => {
       try {
         const res = await fetch(`${API_BASE}/upload/status/${taskId}`);
         const data: UploadStatusResponse = await res.json();
 
-        // 1) 同步节点进度（后端字段是 done_nodes / running_nodes）
-        const doneNodes = data.done_nodes || [];
-        const doneNodeCount = doneNodes.length;
+        // 同步后端节点进度（done_nodes / running_nodes），步骤展示与 query_processor 一致
         updateFile(fileId, {
-          done: doneNodes,
+          done: data.done_nodes || [],
           running: data.running_nodes || [],
         });
 
         if (data.status === "complete") {
-          console.log(
-            `[import] 任务 ${taskId} 处理完成（${doneNodeCount} 项）`,
-          );
-          updateFile(fileId, { status: "completed", progress: 100 });
+          console.log(`[import] 任务 ${taskId} 处理完成`);
+          updateFile(fileId, { status: "completed" });
           clearPolling(fileId);
         } else if (data.status === "failed") {
           console.error(`[import] 任务 ${taskId} 处理失败`);
           updateFile(fileId, { status: "error" });
           clearPolling(fileId);
         } else if (data.status === "processing" || data.status === "pending") {
-          // 都还没跑完：进度计数 = 已上传(1) + 已完成节点数（进入轮询时上传已完成）
-          updateFile(fileId, {
-            status: "processing",
-            progress: calcProgress(doneNodeCount + 1, totalSteps),
-          });
+          updateFile(fileId, { status: "processing" });
         }
         // 其它未知状态：不做任何更新，保留上一次展示，等下一轮轮询
       } catch (e) {
@@ -288,14 +220,12 @@ export function ImportPage() {
   /** 上传单个文件：先落一条「上传中」条目，成功后拿到 task_id 再转入轮询 */
   const uploadFile = async (file: File) => {
     const id = makeId();
-    // 按文件类型确定导入链路总步数（含上传：PDF 7 步 / Markdown 6 步），供进度条按比例推进
-    const totalSteps = inferTotalSteps(file.name);
     const newFile: ImportFile = {
       id,
       name: file.name,
       sizeKB: (file.size / 1024).toFixed(2) + " KB",
       status: "uploading",
-      progress: 0, // 上传阶段没有可靠的字节进度回调，先保持 0%
+      startedAt: Date.now(), // 已消耗时间从开始上传时计时
       done: [],
       running: [],
     };
@@ -319,9 +249,9 @@ export function ImportPage() {
         `[import] 上传成功：${file.name} → 任务 ${taskId}，开始轮询状态`,
       );
 
-      // 2. 上传完成 → 进入处理中；进度不再写死，交给 pollStatus 按已完成节点数推进
+      // 上传完成 → 进入处理中；步骤列表交给 pollStatus 按后端节点同步
       updateFile(id, { status: "processing" });
-      pollStatus(taskId, id, totalSteps);
+      pollStatus(taskId, id);
     } catch (error) {
       console.error(`[import] 上传失败：${file.name}`, error);
       updateFile(id, { status: "error" });

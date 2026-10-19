@@ -6,7 +6,7 @@ from utils.logging_utils import logger
 from utils.node_utils import trace_node
 
 
-@trace_node(desc="入口节点")
+@trace_node(desc="识别文档类别")
 def node_entry(state: ImportNodeState) -> ImportNodeState:
     """识别文件类型并补全状态字段; 文件缺失或类型不受支持时原样返回。"""
     origin_file_path = Path(state["origin_file_path"])

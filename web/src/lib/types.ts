@@ -42,7 +42,8 @@ export interface ImportFile {
   name: string;
   sizeKB: string;
   status: ImportStatus;
-  progress: number;
+  /** 任务开始时刻（ms 时间戳），用于展示已消耗时间 */
+  startedAt: number;
   done: string[];
   running: string[];
 }

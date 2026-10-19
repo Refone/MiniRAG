@@ -18,7 +18,6 @@
   --kbd-text: #3b4a5a;
   --avatar-bg: #e9eef7;
   --avatar-text: #3b4a5a;
-  --progress-track: #f0f0f0;
   --log-line: #56657a;
 
   --info: #3498db;
@@ -46,7 +45,6 @@
   --kbd-text: #cdd6e4;
   --avatar-bg: #232a37;
   --avatar-text: #cdd6e4;
-  --progress-track: #2a3140;
   --log-line: #a9b4c5;
 
   --info: #3498db;
@@ -1016,23 +1014,6 @@ details.progress summary {
 
 .status-error {
   background-color: var(--danger);
-}
-
-.progress-bar-container {
-  width: 100%;
-  height: 4px;
-  background-color: var(--progress-track);
-  margin-top: 8px;
-  border-radius: 2px;
-  overflow: hidden;
-}
-
-.progress-bar {
-  height: 100%;
-  width: 0%;
-  transition:
-    width 0.3s,
-    background-color 0.3s;
 }
 
 .log-details {
