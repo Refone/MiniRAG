@@ -90,14 +90,9 @@ class _AppConfig:
     image_min_chunk_score: float = 0.6
     # 图片描述 (alt 文本) 与重写后问题的 rerank 分数低于该值时不展示
     # 与 rerank_score_floor 同一量纲, 短描述得分略低于长文本, 如误杀可下调至 0.4~0.45
-    image_min_rerank_score: float = 0.6
+    image_min_rerank_score: float = 0.7
     # 单次回答最多展示的图片数量
     image_max_count: int = 8
-    # 过滤 icon 类小图: 宽高 (像素) 均低于对应阈值时不展示 (icon 常见 16~64px)
-    # 尺寸在导入时写入 Markdown (title / width / height 属性), 查询时零成本过滤;
-    # 解析不到尺寸时兜底保留 (历史数据 / 切片截断), 置 0 可关闭该过滤
-    image_min_width: int = 80
-    image_min_height: int = 80
 
 
 APP_CONFIG: Final[_AppConfig] = _AppConfig()

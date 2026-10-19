@@ -81,28 +81,22 @@ def step_4_collect_images(
     过滤策略 (解决"召回的无关图片太多"问题):
     1. 只从 Milvus 切片中取图 (Web 结果不含本地图);
     2. 粗筛: 切片 rerank 分数低于 image_min_chunk_score 的不出图;
-    3. 尺寸过滤: 宽高 (像素) 均低于 image_min_width / image_min_height 的
-        icon 小图不出图。尺寸由导入时写入 Markdown (title / width / height
-        属性), 查询时零成本解析; 解析不到尺寸时兜底保留 (历史数据或切片截断);
-    4. 精排: 将图片描述 (markdown 方括号中的 alt 文本或 <img> 标签的 alt
+    3. 精排: 将图片描述 (markdown 方括号中的 alt 文本或 <img> 标签的 alt
        属性, 导入时为 VLM 生成的图片摘要) 与 rewritten_query 做图片级 rerank,
        分数低于 image_min_rerank_score 的图片直接丢弃。这一步解决"切片文本相关但
        其中某张图无关"的问题 (如含产品名的标题页 LOGO 图);
-    5. 按图片级 rerank 分数降序, 保证最相关的图优先;
-    6. 去重 (重叠切片可能包含同一张图, 同 URL 保留分数更高切片中的描述,
-        重复出现时补全缺失的尺寸信息);
-    7. 总数不超过 image_max_count。
+    4. 按图片级 rerank 分数降序, 保证最相关的图优先;
+    5. 去重 (重叠切片可能包含同一张图, 同 URL 保留分数更高切片中的描述);
+    6. 总数不超过 image_max_count。
     """
     if not rerank_results:
         return []
 
-    # 方括号捕获图片描述 (alt 文本), 圆括号捕获 URL, 可选 title 属性携带 "宽x高"
-    image_re = re.compile(
-        r"!\[(?P<desc>.*?)\]\((?P<url>.*?)(?:\s+(?P<title>\"[^\"]*\"|'[^']*'))?\)"
-    )
-    # HTML <img> 标签语法: src 为图片 URL, alt 为图片描述, width/height 为像素尺寸
+    # 方括号捕获图片描述 (alt 文本), 圆括号捕获 URL
+    image_re = re.compile(r"!\[(.*?)\]\((.*?)\)")
+    # HTML <img> 标签语法: src 为图片 URL, alt 为图片描述
     img_tag_re = re.compile(r"<img\b[^>]*>", re.IGNORECASE)
-    # src/alt/width/height 属性值 (带双引号/单引号/不带引号三种写法)
+    # src/alt 属性值 (带双引号/单引号/不带引号三种写法)
     img_attr_re = {
         "src": re.compile(
             r"(?<=\s)src\s*=\s*(?:\"(?P<dq>[\s\S]*?)\"|'(?P<sq>[\s\S]*?)'|(?P<uq>[^\s>]*))",
@@ -112,38 +106,11 @@ def step_4_collect_images(
             r"(?<=\s)alt\s*=\s*(?:\"(?P<dq>[\s\S]*?)\"|'(?P<sq>[\s\S]*?)'|(?P<uq>[^\s>]*))",
             re.IGNORECASE,
         ),
-        "width": re.compile(
-            r"(?<=\s)width\s*=\s*(?:\"(?P<dq>[\s\S]*?)\"|'(?P<sq>[\s\S]*?)'|(?P<uq>[^\s>]*))",
-            re.IGNORECASE,
-        ),
-        "height": re.compile(
-            r"(?<=\s)height\s*=\s*(?:\"(?P<dq>[\s\S]*?)\"|'(?P<sq>[\s\S]*?)'|(?P<uq>[^\s>]*))",
-            re.IGNORECASE,
-        ),
     }
 
     def _attr_value(match: re.Match) -> str:
-        """从 src/alt/width/height 属性匹配结果中取出属性值。"""
+        """从 src/alt 属性匹配结果中取出属性值。"""
         return match.group("dq") or match.group("sq") or match.group("uq") or ""
-
-    def _parse_int(value: str) -> int:
-        """宽松解析像素尺寸, 解析失败返回 0 (未知)。"""
-        try:
-            return int(value)
-        except (TypeError, ValueError):
-            return 0
-
-    def _title_size(title: str | None) -> tuple[int, int]:
-        """解析 Markdown title 属性中的 '宽x高' 尺寸, 未知返回 (0, 0)。"""
-        if not title:
-            return (0, 0)
-        parts = title.strip().strip("\"'").lower().split("x")
-        if len(parts) != 2:
-            return (0, 0)
-        return _parse_int(parts[0]), _parse_int(parts[1])
-
-    def _is_unknown_size(size: tuple[int, int]) -> bool:
-        return size[0] <= 0 or size[1] <= 0
 
     # ---- 1. 粗筛: 只看 Milvus 且切片分数达标的候选, 按切片分数降序 ----
     pre_filtered = sorted(
@@ -165,79 +132,36 @@ def step_4_collect_images(
             f"{APP_CONFIG.image_min_chunk_score}, 不参与图片精排"
         )
 
-    # ---- 2. 提取 (描述, URL, 切片分数, 尺寸), 按 URL 去重 ----
-    images: list[tuple[str, str, float, tuple[int, int]]] = []
+    # ---- 2. 提取 (描述, URL, 切片分数), 按 URL 去重 ----
+    images: list[tuple[str, str, float]] = []
     seen_urls: set[str] = set()
-    idx_by_url: dict[str, int] = {}
-
-    def _record_image(
-        desc: str, url: str, chunk_score: float, size: tuple[int, int]
-    ) -> None:
-        """按 URL 去重收录; 同一 URL 重复出现时补全缺失的尺寸信息。"""
-        if url in seen_urls:
-            idx = idx_by_url[url]
-            if _is_unknown_size(images[idx][3]) and not _is_unknown_size(size):
-                images[idx] = (images[idx][0], url, images[idx][2], size)
-            return
-        seen_urls.add(url)
-        idx_by_url[url] = len(images)
-        images.append((desc, url, chunk_score, size))
-
     for doc in pre_filtered:
         chunk_score = doc.get("score", 0.0)
         document = doc["document"]
-        # 2.1 Markdown 语法 ![描述](url "宽x高")
-        for match in image_re.finditer(document):
-            _record_image(
-                match.group("desc").strip(),
-                match.group("url"),
-                chunk_score,
-                _title_size(match.group("title")),
-            )
-        # 2.2 HTML 语法 <img src="url" width=".." height=".." alt="描述">
+        # 2.1 Markdown 语法 ![](url)
+        for desc, url in image_re.findall(document):
+            if url in seen_urls:
+                continue
+            seen_urls.add(url)
+            images.append((desc.strip(), url, chunk_score))
+        # 2.2 HTML 语法 <img src="url" alt="描述">
         for tag_match in img_tag_re.finditer(document):
             src_match = img_attr_re["src"].search(tag_match.group(0))
             if not src_match:
                 continue
             url = _attr_value(src_match)
-            if not url:
+            if not url or url in seen_urls:
                 continue
             alt_match = img_attr_re["alt"].search(tag_match.group(0))
             desc = html.unescape(_attr_value(alt_match)) if alt_match else ""
-            width_match = img_attr_re["width"].search(tag_match.group(0))
-            height_match = img_attr_re["height"].search(tag_match.group(0))
-            size = (
-                _parse_int(_attr_value(width_match)) if width_match else 0,
-                _parse_int(_attr_value(height_match)) if height_match else 0,
-            )
-            _record_image(desc.strip(), url, chunk_score, size)
+            seen_urls.add(url)
+            images.append((desc.strip(), url, chunk_score))
     if not images:
         return []
 
-    # ---- 3. 尺寸过滤: 剔除宽高均低于阈值的 icon 小图 ----
-    if APP_CONFIG.image_min_width > 0 and APP_CONFIG.image_min_height > 0:
-        kept: list[tuple[str, str, float, tuple[int, int]]] = []
-        for desc, url, chunk_score, size in images:
-            width, height = size
-            if (
-                not _is_unknown_size(size)
-                and width < APP_CONFIG.image_min_width
-                and height < APP_CONFIG.image_min_height
-            ):
-                logger.debug(
-                    f"图片尺寸 {width}x{height} 低于 icon 过滤阈值 "
-                    f"{APP_CONFIG.image_min_width}x{APP_CONFIG.image_min_height}, "
-                    f"丢弃: {desc[:40]}({url})"
-                )
-                continue
-            kept.append((desc, url, chunk_score, size))
-        images = kept
-    if not images:
-        return []
-
-    # ---- 4. 图片级 rerank: 图片描述 vs 重写后的问题 ----
+    # ---- 3. 图片级 rerank: 图片描述 vs 重写后的问题 ----
     # 空描述无法参与 rerank, 用切片分数兜底
-    valid_pairs = [(i, desc) for i, (desc, _, _, _) in enumerate(images) if desc]
+    valid_pairs = [(i, desc) for i, (desc, _, _) in enumerate(images) if desc]
     score_by_image: dict[int, float] = {}
     if valid_pairs:
         try:
@@ -252,10 +176,10 @@ def step_4_collect_images(
         except Exception as e:
             logger.warning(f"图片描述 rerank 失败, 退化为切片分数过滤: {e}")
 
-    # ---- 5. 阈值过滤 + 按图片级分数降序 ----
+    # ---- 4. 阈值过滤 + 按图片级分数降序 ----
     threshold = APP_CONFIG.image_min_rerank_score
     scored: list[tuple[str, float]] = []
-    for idx, (desc, url, chunk_score, _) in enumerate(images):
+    for idx, (desc, url, chunk_score) in enumerate(images):
         image_score = score_by_image.get(idx, chunk_score)
         if image_score < threshold:
             logger.debug(
