@@ -49,7 +49,7 @@ class MineruSettings(BaseSettings):
     est_per_page: float = 0.5
     timeout_per_page: float = 10
     poll_interval: float = 3
-    unzip_dir: str = str(PROJECT_ROOT / "output/markdown-folder")
+    unzip_dir: str = str(PROJECT_ROOT / "output/import")
 
 
 class VLMSettings(BaseSettings):
@@ -67,8 +67,8 @@ class MinioSettings(BaseSettings):
     endpoint: str = "127.0.0.1:9000"
     access_key: str = "minioadmin"
     secret_key: str = "minioadmin"
-    bucket_name: str = "knowlege-hub-files"
-    image_dir: str = "upload-images"
+    bucket_name: str = "minirag"
+    image_dir: str = "markdown-images"
     secure: bool = False
 
 
@@ -95,8 +95,8 @@ class MilvusSettings(BaseSettings):
     model_config = SettingsConfigDict(**BASE_CONFIG, env_prefix="MILVUS_")
 
     endpoint: str = "127.0.0.1:19530"
-    collection_item_name: str = "kb_item_name"
-    collection_chunks: str = "kb_chunks"
+    collection_item_name: str = "minirag_item_name"
+    collection_chunks: str = "minirag_chunks"
 
 
 class LargeLanguageModelSettings(BaseSettings):

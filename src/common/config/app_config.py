@@ -1,10 +1,15 @@
 from dataclasses import dataclass
 import os
+from pathlib import Path
 from typing import Final
+
+from utils.path_utils import PROJECT_ROOT
 
 
 @dataclass(frozen=True)
 class _AppConfig:
+    upload_dir: Path = PROJECT_ROOT / "output/uploads"
+
     # 支持的图片格式
     support_image_format: tuple[str, ...] = (
         "jpg",

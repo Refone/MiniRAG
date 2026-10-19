@@ -15,6 +15,7 @@ from api import __version__
 from api.schemas import QueryRequest, UploadResponse, UploadStatusResponse
 import uuid
 from pathlib import Path
+from common.config.app_config import APP_CONFIG
 from service.import_service import arun_import
 from service.query_service import arun_query
 from utils import task_utils
@@ -56,7 +57,7 @@ async def health() -> dict:
     return {"status": "ok", "version": __version__}
 
 
-UPLOAD_DIR = PROJECT_ROOT / "output" / "uploads"
+UPLOAD_DIR = APP_CONFIG.upload_dir
 
 
 @app.post("/upload", response_model=UploadResponse, status_code=202)

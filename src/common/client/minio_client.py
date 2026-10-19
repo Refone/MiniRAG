@@ -68,6 +68,27 @@ class MiniRagMinioClient:
 
         return delete_cnt
 
+    def remove_bucket(self) -> int:
+        """删除 bucket 中的所有对象后删除 bucket，返回成功删除的对象数。"""
+        objects = self._minio.list_objects(bucket_name=self.bucket_name, recursive=True)
+        delete_objects = [DeleteObject(obj.object_name) for obj in objects]
+
+        if delete_objects:
+            errors = list(
+                self._minio.remove_objects(
+                    bucket_name=self.bucket_name,
+                    delete_object_list=delete_objects,
+                )
+            )
+            if errors:
+                details = "; ".join(
+                    f"{error.object_name}: {error.message}" for error in errors
+                )
+                raise RuntimeError(f"MinIO 对象删除失败，未删除 bucket: {details}")
+
+        self._minio.remove_bucket(self.bucket_name)
+        return len(delete_objects)
+
     def upload_file(self, prefix: str, as_name: str, file_path: str) -> str:
         """上传一个文件
 
