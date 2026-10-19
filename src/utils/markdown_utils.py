@@ -5,18 +5,31 @@ from common.config.app_config import APP_CONFIG
 # 一个或多个空行（允许行内只有空格/制表符）
 _BLANK_LINE_RE = re.compile(r"\n[ \t]*\n")
 _IMG_MD_RE = re.compile(r"!\[[^\]]*\]\([^)]*\)")
+# HTML <img> 标签（属性名不区分大小写）
+_IMG_HTML_TAG_RE = re.compile(r"<img\b[^>]*>", re.IGNORECASE)
+# <img> 标签中的 src 属性值（可带可不带引号，不跨标签边界）
+_IMG_HTML_SRC_RE = re.compile(
+    r"(?<=\s)src\s*=\s*[\"']?([^\"'>\s]*)", re.IGNORECASE
+)
 _MEANINGLESS_CHARS_RE = re.compile(r"[\s\[\]()（）【】]+")
+
+
+def _remove_image_marks(segment: str) -> str:
+    """去掉段落中的图片标记（![]() 与 <img> 标签）。"""
+    segment = _IMG_MD_RE.sub("", segment)
+    return _IMG_HTML_TAG_RE.sub("", segment)
+
 
 def _is_image_only(segment: str) -> bool:
     """段落去掉图片标记后若没有其它字符，则视为纯图片段落。"""
-    stripped = _IMG_MD_RE.sub("", segment)
+    stripped = _remove_image_marks(segment)
     stripped = _MEANINGLESS_CHARS_RE.sub("", stripped)
     return stripped == ""
 
 
 def _clean_segment(segment: str) -> str:
     """去掉段落中的图片标记，并清理多余空白。"""
-    return _IMG_MD_RE.sub("", segment).strip()
+    return _remove_image_marks(segment).strip()
 
 
 def extract_surrounding_context(
@@ -67,7 +80,7 @@ def extract_surrounding_context(
 
 def find_image_position(md_content: str, image_name: str) -> tuple[int, int] | None:
     """
-    在 Markdown 中找到图片描述符 ![...](...) 的起止位置
+    在 Markdown 中找到图片描述符 ![...](...) 或 <img ...> 标签的起止位置
 
     Args:
         md_content: Markdown 文本
@@ -75,8 +88,16 @@ def find_image_position(md_content: str, image_name: str) -> tuple[int, int] | N
     Returns:
         (start, end): 图片描述符的起止位置, 如果没找到, 返回 None
     """
-    rep = re.compile(r"\!\[.*?\]\(.*?"+re.escape(image_name)+r".*\)")
-    search_match = rep.search(md_content)
-    if not search_match:
-        return None
-    return search_match.start(), search_match.end()
+    # 1. Markdown 内联语法 ![alt](url)
+    md_rep = re.compile(r"\!\[.*?\]\(.*?" + re.escape(image_name) + r".*\)")
+    search_match = md_rep.search(md_content)
+    if search_match:
+        return search_match.start(), search_match.end()
+
+    # 2. HTML 标签语法 <img src="...">
+    for tag_match in _IMG_HTML_TAG_RE.finditer(md_content):
+        for src_match in _IMG_HTML_SRC_RE.finditer(tag_match.group(0)):
+            if image_name in src_match.group(1):
+                return tag_match.start(), tag_match.end()
+
+    return None

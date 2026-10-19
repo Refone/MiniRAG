@@ -1,3 +1,4 @@
+import html
 import re
 
 from regex import R
@@ -59,7 +60,7 @@ def step_3_call_llm_generate_answer(session_id: str, answer_prompt: str) -> str:
     return answer
 
 
-def step_4_collecte_images(
+def step_4_collect_images(
     rerank_results: list[RerankResult],
     rewritten_query: str,
 ) -> list[str]:
@@ -68,9 +69,9 @@ def step_4_collecte_images(
     过滤策略 (解决"召回的无关图片太多"问题):
     1. 只从 Milvus 切片中取图 (Web 结果不含本地图);
     2. 粗筛: 切片 rerank 分数低于 image_min_chunk_score 的不出图;
-    3. 精排: 将图片描述 (markdown 方括号中的 alt 文本, 导入时为 VLM 生成的
-       图片摘要) 与 rewritten_query 做图片级 rerank, 分数低于
-       image_min_rerank_score 的图片直接丢弃。这一步解决"切片文本相关但
+    3. 精排: 将图片描述 (markdown 方括号中的 alt 文本或 <img> 标签的 alt
+       属性, 导入时为 VLM 生成的图片摘要) 与 rewritten_query 做图片级 rerank,
+       分数低于 image_min_rerank_score 的图片直接丢弃。这一步解决"切片文本相关但
        其中某张图无关"的问题 (如含产品名的标题页 LOGO 图);
     4. 按图片级 rerank 分数降序, 保证最相关的图优先;
     5. 去重 (重叠切片可能包含同一张图, 同 URL 保留分数更高切片中的描述);
@@ -81,6 +82,23 @@ def step_4_collecte_images(
 
     # 方括号捕获图片描述 (alt 文本), 圆括号捕获 URL
     image_re = re.compile(r"!\[(.*?)\]\((.*?)\)")
+    # HTML <img> 标签语法: src 为图片 URL, alt 为图片描述
+    img_tag_re = re.compile(r"<img\b[^>]*>", re.IGNORECASE)
+    # src/alt 属性值 (带双引号/单引号/不带引号三种写法)
+    img_attr_re = {
+        "src": re.compile(
+            r"(?<=\s)src\s*=\s*(?:\"(?P<dq>[\s\S]*?)\"|'(?P<sq>[\s\S]*?)'|(?P<uq>[^\s>]*))",
+            re.IGNORECASE,
+        ),
+        "alt": re.compile(
+            r"(?<=\s)alt\s*=\s*(?:\"(?P<dq>[\s\S]*?)\"|'(?P<sq>[\s\S]*?)'|(?P<uq>[^\s>]*))",
+            re.IGNORECASE,
+        ),
+    }
+
+    def _attr_value(match: re.Match) -> str:
+        """从 src/alt 属性匹配结果中取出属性值。"""
+        return match.group("dq") or match.group("sq") or match.group("uq") or ""
 
     # ---- 1. 粗筛: 只看 Milvus 且切片分数达标的候选, 按切片分数降序 ----
     pre_filtered = sorted(
@@ -107,9 +125,23 @@ def step_4_collecte_images(
     seen_urls: set[str] = set()
     for doc in pre_filtered:
         chunk_score = doc.get("score", 0.0)
-        for desc, url in image_re.findall(doc["document"]):
+        document = doc["document"]
+        # 2.1 Markdown 语法 ![](url)
+        for desc, url in image_re.findall(document):
             if url in seen_urls:
                 continue
+            seen_urls.add(url)
+            images.append((desc.strip(), url, chunk_score))
+        # 2.2 HTML 语法 <img src="url" alt="描述">
+        for tag_match in img_tag_re.finditer(document):
+            src_match = img_attr_re["src"].search(tag_match.group(0))
+            if not src_match:
+                continue
+            url = _attr_value(src_match)
+            if not url or url in seen_urls:
+                continue
+            alt_match = img_attr_re["alt"].search(tag_match.group(0))
+            desc = html.unescape(_attr_value(alt_match)) if alt_match else ""
             seen_urls.add(url)
             images.append((desc.strip(), url, chunk_score))
     if not images:
@@ -139,10 +171,13 @@ def step_4_collecte_images(
         image_score = score_by_image.get(idx, chunk_score)
         if image_score < threshold:
             logger.debug(
-                f"图片描述 rerank {image_score:.4f} 低于阈值 {threshold}, 丢弃: {desc[:40]}"
+                f"图片描述 rerank {image_score:.4f} 低于阈值 {threshold}, 丢弃: {desc[:40]}({url})"
             )
-            continue
-        scored.append((url, image_score))
+        else:
+            logger.debug(
+                f"图片描述 rerank {image_score:.4f} 高于阈值 {threshold}, 保留: {desc[:40]}({url})"
+            )
+            scored.append((url, image_score))
     scored.sort(key=lambda x: x[1], reverse=True)
 
     return [url for url, _ in scored[: APP_CONFIG.image_max_count]]
@@ -189,7 +224,7 @@ def node_answer_output(state: QueryGraphState) -> QueryGraphState:
         answer = step_3_call_llm_generate_answer(session_id, answer_prompt)
         logger.info(f"最终答案: {answer}")
 
-        image_urls = step_4_collecte_images(rerank_results, rewritten_query)
+        image_urls = step_4_collect_images(rerank_results, rewritten_query)
         logger.info(f"提取的图片 URL: {image_urls}")
         logger.info(f"共: {len(image_urls)} 张图片")
 

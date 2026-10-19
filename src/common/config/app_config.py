@@ -90,9 +90,9 @@ class _AppConfig:
     image_min_chunk_score: float = 0.6
     # 图片描述 (alt 文本) 与重写后问题的 rerank 分数低于该值时不展示
     # 与 rerank_score_floor 同一量纲, 短描述得分略低于长文本, 如误杀可下调至 0.4~0.45
-    image_min_rerank_score: float = 0.5
+    image_min_rerank_score: float = 0.7
     # 单次回答最多展示的图片数量
-    image_max_count: int = 4
+    image_max_count: int = 8
 
 
 APP_CONFIG: Final[_AppConfig] = _AppConfig()

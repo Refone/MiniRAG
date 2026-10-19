@@ -1,4 +1,5 @@
 import asyncio
+import html
 from pathlib import Path
 import re
 from typing import TypedDict
@@ -19,6 +20,40 @@ from utils.logging_utils import logger
 
 _MD_FIXED_SUFFIX = "_fixed"
 
+# <img> 标签中 src 属性的完整写法 (属性名不区分大小写, 值可带可不带引号)
+_IMG_TAG_SRC_ATTR_RE = re.compile(
+    r"(?<=\s)src\s*=\s*[\"']?[^\"'>\s]*[\"']?", re.IGNORECASE
+)
+# <img> 标签中的 alt 属性 (带双引号/单引号/不带引号三种写法)
+_IMG_TAG_ALT_ATTR_RE = re.compile(
+    r"(?<=\s)alt\s*=\s*(?:\"(?P<dq>[\s\S]*?)\"|'(?P<sq>[\s\S]*?)'|[^\s>]*)",
+    re.IGNORECASE,
+)
+
+
+def _rewrite_img_tag(tag: str, summary: str, url: str) -> str:
+    """
+    将 <img> 标签改写为: src 指向网络地址, alt 写入图片摘要
+
+    Args:
+        tag: 原始 <img> 标签字符串
+        summary: VLM 生成的图片摘要
+        url: 图片在 MinIO 上的网络地址
+    Returns:
+        改写后的 <img> 标签
+    """
+    # 1. src 属性替换为网络地址
+    tag = _IMG_TAG_SRC_ATTR_RE.sub(lambda _: f'src="{url}"', tag, count=1)
+
+    # 2. 移除原有 alt 属性 (若有), 统一在标签闭合前重新写入
+    tag = _IMG_TAG_ALT_ATTR_RE.sub("", tag)
+    alt_attr = f'alt="{html.escape(summary, quote=True)}"'
+    if tag.rstrip().endswith("/>"):
+        insert_at = tag.rfind("/>")
+        return f"{tag[:insert_at].rstrip()} {alt_attr} {tag[insert_at:]}"
+    insert_at = tag.rfind(">")
+    return f"{tag[:insert_at].rstrip()} {alt_attr}{tag[insert_at:]}"
+
 
 class ImageInfo(TypedDict):
     """
@@ -29,7 +64,7 @@ class ImageInfo(TypedDict):
     name: str
     # 图片文件路径
     path: Path
-    # 图片描述 ![]() 在 Markdown 中的起始位置|结束为止
+    # 图片描述 ![]() 或 <img> 标签在 Markdown 中的起始位置|结束位置
     start: int
     end: int
     # 图片描述前后的文字内容
@@ -201,7 +236,9 @@ def step_5_md_content_image_replace(
     image_url_dict: dict[str, str],
 ) -> str:
     """
-    对 md 文件图片标记进行替换      ![](本地路径) -> ![摘要](网络地址)
+    对 md 文件图片标记进行替换
+        ![](本地路径)              -> ![摘要](网络地址)
+        <img src="本地路径" ... /> -> <img src="网络地址" alt="摘要" ... />
 
     Args:
         md_content: str  markdown 文件内容
@@ -215,9 +252,22 @@ def step_5_md_content_image_replace(
 
     for image_name, summary in image_summary_dict.items():
         url = image_url_dict.get(image_name)
-        reg = re.compile(r"\!\[.*?\]\(.*?" + re.escape(image_name) + r".*?\)")
 
-        fixed_content = reg.sub(lambda _: f"![{summary}]({url})", fixed_content)
+        # 1. Markdown 内联语法 ![](本地路径) -> ![摘要](网络地址)
+        md_reg = re.compile(r"\!\[.*?\]\(.*?" + re.escape(image_name) + r".*?\)")
+        fixed_content = md_reg.sub(lambda _: f"![{summary}]({url})", fixed_content)
+
+        # 2. HTML 标签语法 <img src="本地路径" ...> -> <img src="网络地址" alt="摘要" ...>
+        img_reg = re.compile(
+            r"<img\b[^>]*?(?<=\s)src\s*=\s*[\"']?[^\"'>\s]*"
+            + re.escape(image_name)
+            + r"[^\"'>\s]*[\"']?[^>]*>",
+            re.IGNORECASE,
+        )
+        fixed_content = img_reg.sub(
+            lambda match: _rewrite_img_tag(match.group(0), summary, url),
+            fixed_content,
+        )
         cnt += 1
 
     logger.info(f"完成文档中 {cnt} 处替换")
@@ -245,10 +295,14 @@ def step_6_new_content_to_disk(md_path: Path, md_content: str) -> Path:
     return fixed_md_path
 
 
-@trace_node(desc="Markdown 内联图片语法处理")
+@trace_node(desc="Markdown 图片语法处理 (![]() 与 <img>)")
 def node_md_img(state: ImportNodeState) -> ImportNodeState:
     """
     图片处理节点 (生成图片的文字描述信息)
+
+    支持两种图片语法:
+    1. Markdown 内联语法: ![](本地路径) -> ![摘要](网络地址)
+    2. HTML 标签语法: <img src="本地路径" ...> -> <img src="网络地址" alt="摘要" ...>
     """
 
     # 1. 状态校验
@@ -265,8 +319,9 @@ def node_md_img(state: ImportNodeState) -> ImportNodeState:
     # {"<图片名>" : "<URL>"}
     url_dict = step_4_upload_images_get_url(file_title, image_info_list)
 
-    # 5. 替换 Markdown 中的内联图片
+    # 5. 替换 Markdown 中的图片标记
     # ![](local_url) -> ![abstract](minio_url)
+    # <img src="local_url"> -> <img src="minio_url" alt="abstract">
     fixed_md_content = step_5_md_content_image_replace(
         md_content, summary_dict, url_dict
     )
