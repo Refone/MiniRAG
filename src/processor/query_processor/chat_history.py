@@ -100,15 +100,15 @@ class ChatHistoryManager:
         for index, item in enumerate(history_list):
             if item["role"] == MessageRole.USER:
                 history_summary_list.append(
-                    f"编号 {index+1} | 用户提问 | {item['text']}"
+                    f"历史对话 {index+1} | 用户提问 | {item['text']}"
                 )
             elif item["role"] == MessageRole.ASSISTANT:
                 history_summary_list.append(
-                    f"编号 {index+1} | 助手回答 | {item['text']}"
+                    f"历史对话 {index+1} | 助手回答 | {item['text']}"
                 )
 
         history_summary = "\n".join(history_summary_list)
-
+        history_summary += "---\n\n"
         return history_summary
 
 

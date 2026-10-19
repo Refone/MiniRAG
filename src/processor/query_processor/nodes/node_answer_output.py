@@ -4,6 +4,7 @@ import re
 from regex import R
 
 from common.config.app_config import APP_CONFIG
+from common.prompt.prompt_remove_item_names import PromptRerankQuerySanitizer
 from processor.query_processor.chat_history import chat_history_manager, MessageRole
 from utils.node_utils import trace_node
 from common.prompt.prompt_final_answer import PromptFinalAnswer
@@ -18,9 +19,10 @@ def step_1_validate_and_get_data(state: QueryGraphState):
     answer = state.get("answer")
     session_id = state.get("session_id")
     rewritten_query = state.get("rewritten_query")
+    confirm_list = state.get("confirm_list")
     rerank_results = state.get("rerank_results")
 
-    return answer, session_id, rewritten_query, rerank_results
+    return answer, session_id, rewritten_query, confirm_list, rerank_results
 
 
 def step_2_format_prompt(
@@ -60,9 +62,19 @@ def step_3_call_llm_generate_answer(session_id: str, answer_prompt: str) -> str:
     return answer
 
 
+def _remove_item_name_from_query(query: str, confirm_list: list[str]) -> str:
+    """移除 query 中的关键字，以避免干扰图片 rerank。"""
+    prompt = PromptRerankQuerySanitizer(
+        query=query,
+        item_names=confirm_list,
+    ).prompt
+    clean_query = LLM.invoke(prompt).content
+    return clean_query
+
+
 def step_4_collect_images(
     rerank_results: list[RerankResult],
-    rewritten_query: str,
+    query_without_item_name: str,
 ) -> list[str]:
     """从重排序结果中收集要展示给用户的图片。
 
@@ -154,7 +166,7 @@ def step_4_collect_images(
     if valid_pairs:
         try:
             hits = RERANKER.rerank(
-                query=rewritten_query,
+                query=query_without_item_name,
                 documents=[desc for _, desc in valid_pairs],
             )
             # rerank 返回的 index 是传入 documents 列表中的下标
@@ -210,6 +222,7 @@ def node_answer_output(state: QueryGraphState) -> QueryGraphState:
         answer,
         session_id,
         rewritten_query,
+        confirm_list,
         rerank_results,
     ) = step_1_validate_and_get_data(state)
 
@@ -224,56 +237,17 @@ def node_answer_output(state: QueryGraphState) -> QueryGraphState:
         answer = step_3_call_llm_generate_answer(session_id, answer_prompt)
         logger.info(f"最终答案: {answer}")
 
-        image_urls = step_4_collect_images(rerank_results, rewritten_query)
+        query_without_keywords = _remove_item_name_from_query(
+            rewritten_query, confirm_list
+        )
+        logger.info(f"剔除关键词 {confirm_list} 后的查询: {query_without_keywords}")
+        image_urls = step_4_collect_images(rerank_results, query_without_keywords)
         logger.info(f"提取的图片 URL: {image_urls}")
         logger.info(f"共: {len(image_urls)} 张图片")
 
         step_5_save_message_and_push_final(session_id, answer, image_urls)
 
     return state
-
-    # # FAKE:
-    # base_answer = (
-    #     answer
-    #     or f"这是关于 \"{state.get('original_query')}\" 的测试回答，正在演示打字机流式输出效果"
-    # )
-
-    # final_text = ""
-    # for ch in base_answer:
-    #     final_text += ch
-    #     sse_push(
-    #         sse_id=state.get("session_id"),
-    #         event=SSEEvent.DELTA,
-    #         data={
-    #             "delta": ch,
-    #         },
-    #     )
-    #     time.sleep(0.05)
-
-    # image_urls = [
-    #     "https://www.baidu.com/img/PCtm_d9c8750bed0b3c7d089fa7d55720d6cf.png",
-    #     "https://atguigu.com/images/index_new/logo.png",
-    # ]
-
-    # logger.info(f"流式输出完成, 总长度: {len(final_text)}")
-
-    # chat_history_manager.save_message(
-    #     session_id=state.get("session_id"),
-    #     role=MessageRole.ASSISTANT,
-    #     text=final_text,
-    #     image_urls=image_urls,
-    # )
-
-    # sse_push(
-    #     sse_id=state.get("session_id"),
-    #     event=SSEEvent.FINAL,
-    #     data={
-    #         "answer": final_text,
-    #         "image_urls": image_urls,
-    #     },
-    # )
-
-    # return state
 
 
 if __name__ == "__main__":
