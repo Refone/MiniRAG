@@ -14,6 +14,7 @@ from common.model.qwen_vl_32b import encode_image
 from common.prompt.prompt_image_summary import PromptImageSummary
 from processor.import_processor.state import ImportNodeState
 from utils.markdown_utils import extract_surrounding_context, find_image_position
+from utils.image_utils import get_image_size
 from utils.path_utils import PROJECT_ROOT
 from utils.node_utils import trace_node, step_log
 from utils.logging_utils import logger
@@ -29,30 +30,43 @@ _IMG_TAG_ALT_ATTR_RE = re.compile(
     r"(?<=\s)alt\s*=\s*(?:\"(?P<dq>[\s\S]*?)\"|'(?P<sq>[\s\S]*?)'|[^\s>]*)",
     re.IGNORECASE,
 )
+# <img> 标签中的 width / height 属性 (旧值可能与实际不符, 统一移除后重写)
+_IMG_TAG_SIZE_ATTR_RE = re.compile(
+    r"(?<=\s)(?:width|height)\s*=\s*[\"']?[^\"'>\s]*[\"']?", re.IGNORECASE
+)
 
 
-def _rewrite_img_tag(tag: str, summary: str, url: str) -> str:
+def _rewrite_img_tag(tag: str, summary: str, url: str, width: int, height: int) -> str:
     """
-    将 <img> 标签改写为: src 指向网络地址, alt 写入图片摘要
+    将 <img> 标签改写为: src 指向网络地址, alt 写入图片摘要, 并重写 width / height
 
     Args:
         tag: 原始 <img> 标签字符串
         summary: VLM 生成的图片摘要
         url: 图片在 MinIO 上的网络地址
+        width: 图片像素宽度, <=0 表示未知
+        height: 图片像素高度, <=0 表示未知
     Returns:
         改写后的 <img> 标签
     """
     # 1. src 属性替换为网络地址
     tag = _IMG_TAG_SRC_ATTR_RE.sub(lambda _: f'src="{url}"', tag, count=1)
 
-    # 2. 移除原有 alt 属性 (若有), 统一在标签闭合前重新写入
+    # 2. 移除原有 alt / width / height 属性, 统一在标签闭合前重新写入
     tag = _IMG_TAG_ALT_ATTR_RE.sub("", tag)
+    tag = _IMG_TAG_SIZE_ATTR_RE.sub("", tag)
+
+    size_attr = ""
+    if width > 0 and height > 0:
+        size_attr = f'width="{width}" height="{height}"'
     alt_attr = f'alt="{html.escape(summary, quote=True)}"'
+    attrs = f"{size_attr} {alt_attr}".strip()
+
     if tag.rstrip().endswith("/>"):
         insert_at = tag.rfind("/>")
-        return f"{tag[:insert_at].rstrip()} {alt_attr} {tag[insert_at:]}"
+        return f"{tag[:insert_at].rstrip()} {attrs} {tag[insert_at:]}"
     insert_at = tag.rfind(">")
-    return f"{tag[:insert_at].rstrip()} {alt_attr}{tag[insert_at:]}"
+    return f"{tag[:insert_at].rstrip()} {attrs}{tag[insert_at:]}"
 
 
 class ImageInfo(TypedDict):
@@ -70,6 +84,9 @@ class ImageInfo(TypedDict):
     # 图片描述前后的文字内容
     pre_text: str
     post_text: str
+    # 图片像素宽高 (<=0 表示解析失败/未知, 查询侧兜底保留)
+    width: int
+    height: int
 
 
 @step_log(desc="检验文件并加载")
@@ -127,8 +144,14 @@ def step_2_scan_images(
 
         pre_text, post_text = extract_surrounding_context(md_content, start, end)
 
+        # 读取像素宽高, 供查询侧过滤 icon 类小图; 解析失败按未知处理
+        size = get_image_size(image_path)
+        width, height = size if size else (0, 0)
+        if not size:
+            logger.debug(f"{image_name} 无法识别图片尺寸, 查询侧将按未知尺寸兜底保留")
+
         logger.debug(
-            f"{image_name} 内联图片描述位置: [{start}, {end}],\n"
+            f"{image_name} 内联图片描述位置: [{start}, {end}], 尺寸: {width}x{height},\n"
             f"前文字: [{pre_text}]\n后文字[{post_text}]"
         )
         image_info_list.append(
@@ -139,6 +162,8 @@ def step_2_scan_images(
                 end=end,
                 pre_text=pre_text,
                 post_text=post_text,
+                width=width,
+                height=height,
             )
         )
     return image_info_list
@@ -229,21 +254,29 @@ def step_4_upload_images_get_url(
     return image_url_dict
 
 
+def _md_image_markdown(summary: str, url: str, width: int, height: int) -> str:
+    """构造替换后的 Markdown 图片标记, 尺寸已知时写入 title 属性 "宽x高"。"""
+    title = f' "{width}x{height}"' if width > 0 and height > 0 else ""
+    return f"![{summary}]({url}{title})"
+
+
 @step_log("替换 markdown 中的图片标记")
 def step_5_md_content_image_replace(
     md_content: str,
     image_summary_dict: dict[str, str],
     image_url_dict: dict[str, str],
+    image_size_dict: dict[str, tuple[int, int]],
 ) -> str:
     """
     对 md 文件图片标记进行替换
-        ![](本地路径)              -> ![摘要](网络地址)
-        <img src="本地路径" ... /> -> <img src="网络地址" alt="摘要" ... />
+        ![](本地路径)              -> ![摘要](网络地址 "宽x高")
+        <img src="本地路径" ... /> -> <img src="网络地址" width=".." height=".." alt="摘要" ... />
 
     Args:
         md_content: str  markdown 文件内容
         image_summary_dict: dict[str, str]  {"图片名":"图片摘要"}
         image_url_dict: dict[str, str]  {"图片名", "url"}
+        image_size_dict: dict[str, tuple[int, int]]  {"图片名": (宽, 高)}, 宽高 <=0 表示未知
     Returns:
         str: 替换后的 markdown 内容
     """
@@ -252,12 +285,20 @@ def step_5_md_content_image_replace(
 
     for image_name, summary in image_summary_dict.items():
         url = image_url_dict.get(image_name)
+        if not url:
+            continue
+        width, height = image_size_dict.get(image_name, (0, 0))
 
-        # 1. Markdown 内联语法 ![](本地路径) -> ![摘要](网络地址)
+        # 1. Markdown 内联语法 ![](本地路径) -> ![摘要](网络地址 "宽x高")
         md_reg = re.compile(r"\!\[.*?\]\(.*?" + re.escape(image_name) + r".*?\)")
-        fixed_content = md_reg.sub(lambda _: f"![{summary}]({url})", fixed_content)
+        fixed_content = md_reg.sub(
+            lambda _, summary=summary, url=url, width=width, height=height: (
+                _md_image_markdown(summary, url, width, height)
+            ),
+            fixed_content,
+        )
 
-        # 2. HTML 标签语法 <img src="本地路径" ...> -> <img src="网络地址" alt="摘要" ...>
+        # 2. HTML 标签语法 <img src="本地路径" ...> -> <img src="网络地址" width height alt ...>
         img_reg = re.compile(
             r"<img\b[^>]*?(?<=\s)src\s*=\s*[\"']?[^\"'>\s]*"
             + re.escape(image_name)
@@ -265,7 +306,9 @@ def step_5_md_content_image_replace(
             re.IGNORECASE,
         )
         fixed_content = img_reg.sub(
-            lambda match: _rewrite_img_tag(match.group(0), summary, url),
+            lambda match: _rewrite_img_tag(
+                match.group(0), summary, url, width, height
+            ),
             fixed_content,
         )
         cnt += 1
@@ -301,8 +344,9 @@ def node_md_img(state: ImportNodeState) -> ImportNodeState:
     图片处理节点 (生成图片的文字描述信息)
 
     支持两种图片语法:
-    1. Markdown 内联语法: ![](本地路径) -> ![摘要](网络地址)
-    2. HTML 标签语法: <img src="本地路径" ...> -> <img src="网络地址" alt="摘要" ...>
+    1. Markdown 内联语法: ![](本地路径) -> ![摘要](网络地址 "宽x高")
+    2. HTML 标签语法: <img src="本地路径" ...> -> <img src="网络地址" width=".." height=".." alt="摘要" ...>
+    尺寸信息用于查询侧过滤 icon 类小图 (见 node_answer_output.step_4_collect_images)。
     """
 
     # 1. 状态校验
@@ -319,11 +363,17 @@ def node_md_img(state: ImportNodeState) -> ImportNodeState:
     # {"<图片名>" : "<URL>"}
     url_dict = step_4_upload_images_get_url(file_title, image_info_list)
 
+    # 4.5 汇总图片像素尺寸, 写入 Markdown 供查询侧过滤 icon 小图
+    # {"<图片名>" : (宽, 高)}
+    size_dict = {
+        info["name"]: (info["width"], info["height"]) for info in image_info_list
+    }
+
     # 5. 替换 Markdown 中的图片标记
-    # ![](local_url) -> ![abstract](minio_url)
-    # <img src="local_url"> -> <img src="minio_url" alt="abstract">
+    # ![](local_url) -> ![abstract](minio_url "宽x高")
+    # <img src="local_url"> -> <img src="minio_url" width=".." height=".." alt="abstract">
     fixed_md_content = step_5_md_content_image_replace(
-        md_content, summary_dict, url_dict
+        md_content, summary_dict, url_dict, size_dict
     )
 
     # 6. 将新的 Markdown 内容写入磁盘
