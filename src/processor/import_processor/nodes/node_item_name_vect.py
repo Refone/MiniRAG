@@ -3,7 +3,7 @@ from pathlib import Path
 from utils.node_utils import trace_node, step_log
 from utils.logging_utils import logger, brief_list, brief_dict
 from processor.import_processor.state import ImportGraphState
-from common.prompt.prompt_recognize_item_name import PromptRecognizeItemName
+from common.prompt.prompt_item_name_of_document import PromptItemNameOfDocument
 from common.model import LLM, EMBEDDING
 from common.client import MILVUS_CLIENT
 from common.client.milvus_client import MilvusItemNameItem
@@ -30,7 +30,7 @@ def step_1_validate_and_get_data(state: ImportGraphState) -> tuple[str, str]:
 def step_2_call_llm_return_item_name(md_content: str, file_title: str) -> str:
     # 这里调用大语言模型的逻辑，返回识别出的 item_name
     # 目前用占位符返回
-    prompt = PromptRecognizeItemName(
+    prompt = PromptItemNameOfDocument(
         file_title=file_title, md_content=md_content
     ).prompt
 

@@ -1,11 +1,13 @@
 from collections import defaultdict
+from re import M
 
 from common.client import MILVUS_CLIENT
+from common.client.milvus_client import MilvusItemNameRecall
 from common.config.app_config import APP_CONFIG
 from common.model import LLM
-from common.prompt.prompt_conclude_keywords import (
-    PromptConcludeKeywords,
-    ConcludeKeywordsPydantic,
+from common.prompt.prompt_item_names_of_query import (
+    PromptItemNamesOfQuery,
+    ItemNamesOfQueryPydantic,
 )
 from common.prompt.prompt_query_rewrite import PromptQueryRewrite
 from utils.logging_utils import logger
@@ -46,88 +48,99 @@ def step_3_rewrite_query(
     return response.content
 
 
-@step_log(desc="总结关键词")
-def step_4_conclude_key_words(
-    query: str,
+@step_log(desc="识别主体")
+def step_4_recognize_item_names(
+    rewritten_query: str,
+    history_summary: str,
 ) -> list[str]:
-    prompt = PromptConcludeKeywords(query)
+    """
+    输入参数:
+    - rewritten_query: str 重写后的查询
+    - history_summary: str 历史聊天记录摘要
 
-    response = LLM.with_structured_output(ConcludeKeywordsPydantic).invoke(
+    返回:
+    list[str] 识别出的主体列表
+    """
+
+    prompt = PromptItemNamesOfQuery(
+        query=rewritten_query,
+        history_text=history_summary,
+    )
+
+    response = LLM.with_structured_output(ItemNamesOfQueryPydantic).invoke(
         prompt.prompt
     )
 
-    return response.key_words
+    return response.item_names
 
 
 @step_log(desc="从 Milvus item_name 表中选择匹配的主体")
 def step_5_select_item_from_milvus(
-    key_words: list[str],
+    item_names: list[str],
 ) -> dict[str, list[tuple[str, float]]]:
+    """
+    输入参数:
+    - item_names: list[str] 识别出的询问主体列表
+        ["主体1", "主体2", ...]
+
+    返回:
+
+    dict[str, list[tuple[str, float]]] 匹配结果字典，键为主体，值为匹配的 item_name 及其得分列表
+
+        {
+            "主体1": [("item_name1", distance), ("item_name2", distance), ...],
+            "主体2": [("item_name1", distance), ("item_name2", distance), ...],
+            ...
+        }
+
+    item_name* 对应 Milvus (minirag_item_name) 中要匹配的 item_name 字段。
+    """
+
     result_dict: dict[str, list[tuple[str, float]]] = defaultdict(list)
-    """
-    result_dict 的结构:
-    {
-        "关键词1": [("item_name1", distance), ("item_name2", distance), ...],
-        "关键词2": [("item_name1", distance), ("item_name2", distance), ...],
-        ...
-    }
-    ----
-    item_namex 对应 Milvus (kb_item_name) 中要匹配的 item_name 字段。
-    """
-    if not key_words:
+
+    if not item_names:
         return result_dict
 
-    reqs_list = MILVUS_CLIENT.hybrid_search_item_name(texts=key_words)
-    """
-    reqs_list 的结构 (list[list[MilvusItemNameHit]] | None):
-    外层 list 对应查询向量 (批量查询时长度为 len(key_words)),
-    reqs_list[i] 是 key_words[i] 的 top-k 命中:
-    [
-        [  # key_words[0] 的命中
-            {
-                "id": 469734951640943804, -> entity 主键ID
-                "score": 0.8866561651229858, -> 最终融合得分, COSINE,IP 越大越相似, L2 越小越相似
-                "item_name": ...
-            },
-            ...
-        ],
-        [  # key_words[1] 的命中
-            ...
-        ],
-    ]
-    搜索失败时返回 None。
-    """
+    reqs_list: list[list[MilvusItemNameRecall]] = MILVUS_CLIENT.hybrid_search_item_name(
+        texts=item_names
+    )
 
     if not reqs_list:
-        logger.warning("关键词的混合搜索无结果或失败")
+        logger.warning("主体名称的混合搜索无结果或失败")
         return result_dict
 
-    for key_word, hits_list in zip(key_words, reqs_list):
+    for item_name, hits_list in zip(item_names, reqs_list):
         for hit in hits_list:
-            item_name = hit["item_name"]
+            hit_item_name = hit["item_name"]
             score = hit["score"]
-            result_dict[key_word].append((item_name, score))
+            result_dict[item_name].append((hit_item_name, score))
 
         # 匹配量小，sort 带来的性能影响可以忽略
-        result_dict[key_word].sort(key=lambda x: x[1], reverse=True)
+        result_dict[item_name].sort(key=lambda x: x[1], reverse=True)
 
     return result_dict
 
 
-@step_log(desc="根据关键词匹配结果生成确认主体和疑似主体列表")
-def step_6_keywords_match_results(result_dict):
+@step_log(desc="根据主体匹配结果生成确认主体和疑似主体列表")
+def step_6_item_name_match_results(
+    result_dict: dict[str, list[tuple[str, float]]],
+) -> tuple[list[str], list[str]]:
+    """
+    输入参数:
+    - result_dict: dict[str, list[tuple[str, float]]] 匹配结果字典，键为主体，值为匹配的 item_name 及其得分列表
+
+        {
+            "主体1": [("item_name1", distance), ("item_name2", distance), ...],
+            "主体2": [("item_name1", distance), ("item_name2", distance), ...],
+            ...
+        }
+
+    返回:
+    tuple[list[str], list[str]] 确认主体列表和疑似主体列表
+    """
 
     confirm_set = set()
     suspect_set = set()
-
-    """
-    result_dict 的结构:
-    {
-        "关键词1": [("item_name1", distance), ("item_name2", distance), ...],
-        "关键词2": [("item_name1", distance), ("item_name2", distance), ...],
-        ...
-    }
-    """
 
     for matche_list in result_dict.values():
 
@@ -169,14 +182,14 @@ def node_intent_recognize(state: QueryGraphState) -> QueryGraphState:
     state["rewritten_query"] = rewritten_query if rewritten_query else original_query
     logger.info(f"重写后的查询: {state['rewritten_query']}")
 
-    key_words = step_4_conclude_key_words(rewritten_query)
-    state["key_words"] = key_words if key_words else []
-    logger.info(f"提取的关键词: {key_words}")
+    item_names = step_4_recognize_item_names(rewritten_query, history_summary)
+    state["item_names"] = item_names if item_names else []
+    logger.info(f"识别的主体: {item_names}")
 
-    result_dict = step_5_select_item_from_milvus(key_words)
+    result_dict = step_5_select_item_from_milvus(item_names)
     logger.info(f"从 Milvus 中选取的结果: {result_dict}")
 
-    confirm_list, suspect_list = step_6_keywords_match_results(result_dict)
+    confirm_list, suspect_list = step_6_item_name_match_results(result_dict)
     logger.info(f"确认匹配: {confirm_list}")
     logger.info(f"疑似匹配: {suspect_list}")
     state["confirm_list"] = confirm_list if confirm_list else []

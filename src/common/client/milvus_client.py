@@ -88,6 +88,28 @@ class MiniRagMilvusClient(MilvusClient):
         texts: list[str],
         limit: int = APP_CONFIG.item_name_recall_limit,
     ) -> list[list[MilvusItemNameRecall]] | None:
+        """
+        返回:
+        list[list[MilvusItemNameRecall]] | None, 外层 list 对应 len(item_names),
+
+        内层 list 是 item_names[i] 的 top-k 命中:
+
+            [
+                [  # item_names[0] 的命中
+                    {
+                        "id": 469734951640943804, -> entity 主键ID
+                        "score": 0.8866561651229858, -> 最终融合得分, COSINE,IP 越大越相似, L2 越小越相似
+                        "item_name": ...
+                    },
+                    ...
+                ],
+                [  # item_names[1] 的命中
+                    ...
+                ],
+            ]
+
+        搜索失败时返回 None。
+        """
         collection_name = ENV_CONFIG.milvus.collection_item_name
         output_fields = [MilvusItemNameField.ITEM_NAME]
 

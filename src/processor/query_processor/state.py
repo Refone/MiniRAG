@@ -54,7 +54,7 @@ class QueryGraphState(TypedDict):
     enable_hyde: bool  # 是否进行HyDE 搜索
 
     rewritten_query: str  # 重写后的问题
-    key_words: list[str]  # 关键词
+    item_names: list[str]  # 识别出的询问主体 (用于匹配 Milvus item_name)
 
     # Milvus item_name 匹配结果
     confirm_list: list[str]  # 确认匹配的列表
@@ -75,7 +75,7 @@ _DEFAULT_STATE: QueryGraphState = {
     "enable_web_search": True,
     "enable_hyde": True,
     "rewritten_query": "",
-    "key_words": [],
+    "item_names": [],
     "confirm_list": [],
     "suspect_list": [],
     "embedding_recalls": [],
