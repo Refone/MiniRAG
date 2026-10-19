@@ -17,26 +17,26 @@ workflow.add_node(node_chunks_vect)
 def file_type_router(state: ImportNodeState):
     """根据 doc_type 决定走 PDF 转换还是直接进入图片处理。"""
     if state.get("markdown_file_path"):
-        return node_md_img.__name__
+        return "node_md_img"
     else:
-        return node_pdf_to_md.__name__
+        return "node_pdf_to_md"
 
 
-# 构建工作流 (节点名统一取函数 __name__, 与注册时的规范名一致)
-workflow.set_entry_point(node_entry.__name__)
+# 构建工作流
+workflow.set_entry_point("node_entry")
 workflow.add_conditional_edges(
-    node_entry.__name__,
+    "node_entry",
     file_type_router,
     path_map={
-        node_pdf_to_md.__name__: node_pdf_to_md.__name__,
-        node_md_img.__name__: node_md_img.__name__,
+        "node_pdf_to_md": "node_pdf_to_md",
+        "node_md_img": "node_md_img",
     },
 )
-workflow.add_edge(node_pdf_to_md.__name__, node_md_img.__name__)
-workflow.add_edge(node_md_img.__name__, node_document_split.__name__)
-workflow.add_edge(node_document_split.__name__, node_item_name_vect.__name__)
-workflow.add_edge(node_item_name_vect.__name__, node_chunks_vect.__name__)
-workflow.add_edge(node_chunks_vect.__name__, END)
+workflow.add_edge("node_pdf_to_md", "node_md_img")
+workflow.add_edge("node_md_img", "node_document_split")
+workflow.add_edge("node_document_split", "node_item_name_vect")
+workflow.add_edge("node_item_name_vect", "node_chunks_vect")
+workflow.add_edge("node_chunks_vect", END)
 
 import_processor = workflow.compile()
 
