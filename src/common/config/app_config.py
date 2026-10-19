@@ -91,11 +91,6 @@ class _AppConfig:
     # 图片描述 (alt 文本) 与重写后问题的 rerank 分数低于该值时不展示
     # 与 rerank_score_floor 同一量纲, 短描述得分略低于长文本, 如误杀可下调至 0.4~0.45
     image_min_rerank_score: float = 0.7
-    # 诉求点 rerank 分数门槛: 将问题与图片描述中已确认的主体名 (confirm_list)
-    # 剔除后, 对剩余诉求点 (如"四指操作") 再做一次 rerank, 低于该值说明图片与
-    # 问题的实际诉求不相关 (主体名带来的虚高分不算数), 直接丢弃。
-    # 剔除后文本更短、得分整体偏低, 建议从 0.35~0.45 起步实测校准
-    image_min_aspect_score: float = 0.4
     # 单次回答最多展示的图片数量
     image_max_count: int = 8
 
