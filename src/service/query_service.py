@@ -8,7 +8,7 @@ from processor.query_processor.state import create_state
 async def arun_query(
     session_id: str,
     query: str,
-    web_search: bool = True,
+    enable_web_search: bool = True,
     enable_hyde: bool = True,
 ) -> dict:
     try:
@@ -18,7 +18,7 @@ async def arun_query(
         start_state = create_state(
             session_id=session_id,
             original_query=query,
-            web_search=web_search,
+            enable_web_search=enable_web_search,
             enable_hyde=enable_hyde,
         )
         end_state = await query_processor.ainvoke(start_state)

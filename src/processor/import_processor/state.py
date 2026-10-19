@@ -12,7 +12,7 @@ class FileType:
     UNKNOWN = "<unknown>"
 
 
-class ImportNodeState(TypedDict):
+class ImportGraphState(TypedDict):
     """
     导入图状态
 
@@ -44,7 +44,7 @@ class ImportNodeState(TypedDict):
     item_name: str
 
 
-_DEFAULT_STATE: ImportNodeState = {
+_DEFAULT_STATE: ImportGraphState = {
     "task_id": "",
     "origin_file_path": "",
     "markdown_file_path": "",
@@ -71,7 +71,7 @@ def file_type_from_filename(filename: str) -> str:
         return FileType.UNKNOWN
 
 
-def create_state(**state_dict) -> ImportNodeState:
+def create_state(**state_dict) -> ImportGraphState:
     """
     根据传入字典，创建一个新的导入节点状态
     """
@@ -81,7 +81,7 @@ def create_state(**state_dict) -> ImportNodeState:
     return state
 
 
-def get_default_state() -> ImportNodeState:
+def get_default_state() -> ImportGraphState:
     """
     获取默认的导入节点状态
     """
@@ -89,7 +89,7 @@ def get_default_state() -> ImportNodeState:
     return copy.deepcopy(_DEFAULT_STATE)
 
 
-def save_state(state: ImportNodeState, file_path: str) -> None:
+def save_state(state: ImportGraphState, file_path: str) -> None:
     """
     将当前状态保存到指定文件路径
     """
@@ -98,7 +98,7 @@ def save_state(state: ImportNodeState, file_path: str) -> None:
         json.dump(state, f, ensure_ascii=False, indent=4)
 
 
-def load_state(file_path: str) -> ImportNodeState:
+def load_state(file_path: str) -> ImportGraphState:
     """
     从指定文件路径加载状态
     """

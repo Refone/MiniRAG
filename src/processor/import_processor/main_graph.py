@@ -1,9 +1,9 @@
 from langgraph.constants import END
 from langgraph.graph import StateGraph
-from processor.import_processor.state import FileType, ImportNodeState
+from processor.import_processor.state import FileType, ImportGraphState
 from processor.import_processor.nodes import *
 
-workflow = StateGraph(ImportNodeState)
+workflow = StateGraph(ImportGraphState)
 
 # 注册节点:
 workflow.add_node(node_entry)
@@ -15,7 +15,7 @@ workflow.add_node(node_item_name_vect)
 workflow.add_node(node_chunks_vect)
 
 
-def file_type_router(state: ImportNodeState):
+def file_type_router(state: ImportGraphState):
     file_type = state.get("origin_file_type", FileType.UNKNOWN)
     if file_type == FileType.MARKDOWN:
         return "node_process_standalone_md"

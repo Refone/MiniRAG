@@ -1,10 +1,10 @@
 from processor.import_processor.main_graph import import_processor
-from processor.import_processor.state import ImportNodeState, create_state
+from processor.import_processor.state import ImportGraphState, create_state
 from utils import task_utils
 from utils.logging_utils import logger
 
 
-async def arun_import(task_id: str, origin_file_path: str) -> ImportNodeState:
+async def arun_import(task_id: str, origin_file_path: str) -> ImportGraphState:
     """异步执行导入图, 返回最终状态。
 
     import_processor 是同步编译图; 这里用 ainvoke 让 LangGraph 把同步节点

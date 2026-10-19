@@ -17,12 +17,12 @@ import pytest
 
 from common.schemas.internal_schemas.enum_types import DocTypeEnum
 from processor.import_processor.nodes.node_entry import node_entry
-from processor.import_processor.state import ImportNodeState, create_state
+from processor.import_processor.state import ImportGraphState, create_state
 
 TASK_ID = "node-entry-unit-test"
 
 
-def _run(path: str | Path) -> ImportNodeState:
+def _run(path: str | Path) -> ImportGraphState:
     """以给定路径创建状态并执行 node_entry。"""
     return node_entry(create_state(task_id=TASK_ID, origin_file_path=str(path)))
 

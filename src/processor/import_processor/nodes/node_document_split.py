@@ -3,12 +3,13 @@ from pathlib import Path
 
 from common.config.app_config import APP_CONFIG
 from utils.node_utils import trace_node, step_log
-from processor.import_processor.state import ImportNodeState
+from processor.import_processor.state import ImportGraphState
 from utils.markdown_splitter import split_markdown, Chunk
 from utils.logging_utils import logger
 
+
 @step_log(desc="验证并获取数据")
-def step_1_validate_and_get_data(state: ImportNodeState) -> tuple[Path, str, str]:
+def step_1_validate_and_get_data(state: ImportGraphState) -> tuple[Path, str, str]:
     """
     验证并获取 Markdown 文件路径、内容和文件标题
 
@@ -30,6 +31,7 @@ def step_1_validate_and_get_data(state: ImportNodeState) -> tuple[Path, str, str
 
     return md_path, md_content, file_title
 
+
 @step_log(desc="切分 Markdown 内容")
 def step_2_split_markdown(md_content: str) -> list[Chunk]:
     """
@@ -46,16 +48,16 @@ def step_2_split_markdown(md_content: str) -> list[Chunk]:
         md_content,
         max_chunk_size=APP_CONFIG.max_chunk_size,
         min_chunk_size=APP_CONFIG.min_chunk_size,
-        overlap_size=APP_CONFIG.overlap_size)
+        overlap_size=APP_CONFIG.overlap_size,
+    )
 
     return chunk_list
 
+
 @step_log(desc="备份切分后的 JSON")
 def step_3_backup_chunks_json(
-    md_path: Path,
-    file_title: str,
-    chunks_list: list[Chunk]
-    ) -> Path:
+    md_path: Path, file_title: str, chunks_list: list[Chunk]
+) -> Path:
     """
     备份切分后的 Markdown 内容为 JSON 文件
 
@@ -69,13 +71,16 @@ def step_3_backup_chunks_json(
     """
 
     chunk_json_path = md_path.parent / f"{file_title}_chunks.json"
-    chunk_json_path.write_text(json.dumps(chunks_list, ensure_ascii=False, indent=4), encoding="utf-8")
+    chunk_json_path.write_text(
+        json.dumps(chunks_list, ensure_ascii=False, indent=4), encoding="utf-8"
+    )
 
     logger.info(f"Chunks JSON 保存于 {chunk_json_path}")
     return chunk_json_path
 
+
 @trace_node(desc="文档切分")
-def node_document_split(state: ImportNodeState) -> ImportNodeState:
+def node_document_split(state: ImportGraphState) -> ImportGraphState:
     """
     文档切分节点
 
@@ -95,6 +100,7 @@ def node_document_split(state: ImportNodeState) -> ImportNodeState:
     state["chunks_json_path"] = str(chunks_json_path)
 
     return state
+
 
 if __name__ == "__main__":
     from rich import print as rprint

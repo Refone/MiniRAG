@@ -22,7 +22,7 @@ def after_node_intent_recognize(state: QueryGraphState):
     next_nodes = ["node_search_embedding"]
     if state.get("enable_hyde"):
         next_nodes.append("node_search_hyde")
-    if state.get("web_search"):
+    if state.get("enable_web_search"):
         next_nodes.append("node_search_web")
     return next_nodes
 

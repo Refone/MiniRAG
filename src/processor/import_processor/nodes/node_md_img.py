@@ -12,7 +12,7 @@ from common.config.env_config import ENV_CONFIG
 from common.model import VLM
 from common.model.qwen_vl_32b import encode_image
 from common.prompt.prompt_image_summary import PromptImageSummary
-from processor.import_processor.state import ImportNodeState
+from processor.import_processor.state import ImportGraphState
 from utils.markdown_utils import extract_surrounding_context, find_image_position
 from utils.path_utils import PROJECT_ROOT
 from utils.node_utils import trace_node, step_log
@@ -73,7 +73,7 @@ class ImageInfo(TypedDict):
 
 
 @step_log(desc="检验文件并加载")
-def step_1_validate_and_load_data(state: ImportNodeState) -> tuple[Path, str, str]:
+def step_1_validate_and_load_data(state: ImportGraphState) -> tuple[Path, str, str]:
     file_title = state.get("file_title")
     if not file_title:
         raise ValueError("文件标题不存在")
@@ -296,7 +296,7 @@ def step_6_new_content_to_disk(md_path: Path, md_content: str) -> Path:
 
 
 @trace_node(desc="Markdown 图片识别")
-def node_md_img(state: ImportNodeState) -> ImportNodeState:
+def node_md_img(state: ImportGraphState) -> ImportGraphState:
     """
     图片处理节点 (生成图片的文字描述信息)
 

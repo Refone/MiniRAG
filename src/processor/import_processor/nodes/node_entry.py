@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from processor.import_processor.state import (
-    ImportNodeState,
+    ImportGraphState,
     file_type_from_filename,
     FileType,
 )
@@ -10,7 +10,7 @@ from utils.node_utils import trace_node
 
 
 @trace_node(desc="识别文档类别")
-def node_entry(state: ImportNodeState) -> ImportNodeState:
+def node_entry(state: ImportGraphState) -> ImportGraphState:
     """校验文档, 确认文件存在且类型受支持"""
     origin_file_path = Path(state["origin_file_path"])
     if not origin_file_path.exists():

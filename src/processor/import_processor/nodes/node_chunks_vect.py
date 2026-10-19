@@ -12,14 +12,14 @@ from common.model import EMBEDDING
 from common.client import MILVUS_CLIENT
 from common.client.milvus_client import MilvusChunksItem
 from common.config.env_config import ENV_CONFIG
-from processor.import_processor.state import ImportNodeState
+from processor.import_processor.state import ImportGraphState
 
 BATCH_SIZE = ENV_CONFIG.embedding.batch_size
 
 
 @step_log(desc="验证状态并获取文件标题、项目名称和切片列表")
 def step_1_validate_and_get_data(
-    state: ImportNodeState,
+    state: ImportGraphState,
 ) -> tuple[str, str, list[Chunk]]:
     """
     验证状态并获取文件标题、项目名称和切片列表
@@ -184,7 +184,7 @@ def step_3_chunk_upsert_milvus(
 
 
 @trace_node(desc="切片向量化")
-def node_chunks_vect(state: ImportNodeState) -> ImportNodeState:
+def node_chunks_vect(state: ImportGraphState) -> ImportGraphState:
     """
     文档切片向量化
     """

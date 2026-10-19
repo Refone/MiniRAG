@@ -2,7 +2,7 @@ from pathlib import Path
 
 from utils.node_utils import trace_node, step_log
 from utils.logging_utils import logger, brief_list, brief_dict
-from processor.import_processor.state import ImportNodeState
+from processor.import_processor.state import ImportGraphState
 from common.prompt.prompt_recognize_item_name import PromptRecognizeItemName
 from common.model import LLM, EMBEDDING
 from common.client import MILVUS_CLIENT
@@ -11,7 +11,7 @@ from common.config.env_config import ENV_CONFIG
 
 
 @step_log(desc="校验并获取数据")
-def step_1_validate_and_get_data(state: ImportNodeState) -> tuple[str, str]:
+def step_1_validate_and_get_data(state: ImportGraphState) -> tuple[str, str]:
     file_title = state["file_title"]
     if not file_title:
         raise ValueError("file_title is missing in the state")
@@ -81,7 +81,7 @@ def step_3_insert_item_name(item_name: str, file_title: str) -> None:
 
 
 @trace_node(desc="主体识别")
-def node_item_name_vect(state: ImportNodeState) -> ImportNodeState:
+def node_item_name_vect(state: ImportGraphState) -> ImportGraphState:
 
     # 校验以及获取数据
     md_content, file_title = step_1_validate_and_get_data(state)

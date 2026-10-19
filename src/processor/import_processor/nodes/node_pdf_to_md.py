@@ -5,7 +5,7 @@ from pathlib import Path
 import requests
 
 from common.config.env_config import ENV_CONFIG
-from processor.import_processor.state import ImportNodeState
+from processor.import_processor.state import ImportGraphState
 from utils.logging_utils import logger
 from utils.node_utils import step_log, trace_node
 from pypdf import PdfReader
@@ -22,7 +22,7 @@ def pdf_page_cnt(pdf_path: Path) -> int:
 
 
 @step_log("校验 PDF 文件")
-def step_1_validate_and_setup(state: ImportNodeState) -> tuple[Path, int, str]:
+def step_1_validate_and_setup(state: ImportGraphState) -> tuple[Path, int, str]:
     """校验原始文件是真实存在的 PDF, 并把文件名(不含后缀)写入 state。"""
     origin = state.get("origin_file_path")
     if not origin:
@@ -201,7 +201,7 @@ def step_3_download_and_unzip(zip_url: str, file_title: str) -> Path:
 
 
 @trace_node(desc="PDF 转 Markdown")
-def node_pdf_to_md(state: ImportNodeState) -> ImportNodeState:
+def node_pdf_to_md(state: ImportGraphState) -> ImportGraphState:
     """
     串联三步
     1. 校验 PDF

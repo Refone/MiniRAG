@@ -50,7 +50,7 @@ class RerankResult(TypedDict):
 class QueryGraphState(TypedDict):
     session_id: str  # 会话 ID
     original_query: str  # 原始查询
-    web_search: bool  # 是否进行网络搜索
+    enable_web_search: bool  # 是否进行网络搜索
     enable_hyde: bool  # 是否进行HyDE 搜索
 
     rewritten_query: str  # 重写后的问题
@@ -72,7 +72,7 @@ class QueryGraphState(TypedDict):
 _DEFAULT_STATE: QueryGraphState = {
     "session_id": "",
     "original_query": "",
-    "web_search": True,
+    "enable_web_search": True,
     "enable_hyde": True,
     "rewritten_query": "",
     "key_words": [],

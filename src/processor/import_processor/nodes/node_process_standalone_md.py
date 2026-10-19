@@ -8,7 +8,7 @@ import requests
 from common.config.env_config import ENV_CONFIG
 from utils.logging_utils import logger
 from utils.node_utils import step_log, trace_node
-from processor.import_processor.state import ImportNodeState
+from processor.import_processor.state import ImportGraphState
 
 # 在线图片地址以 http/https 开头
 _HTTP_PREFIXES = ("http://", "https://")
@@ -23,7 +23,7 @@ _IMG_TAG_RE = re.compile(
 
 
 @step_log(desc="验证与数据获取")
-def step_1_validate_and_setup(state: ImportNodeState) -> tuple[Path, str]:
+def step_1_validate_and_setup(state: ImportGraphState) -> tuple[Path, str]:
     origin_file = state.get("origin_file_path")
     if not origin_file:
         raise ValueError(f"origin_file_path 为空: {origin_file!r}")
@@ -162,7 +162,7 @@ def step_4_replace_image_urls(md_path: Path, url_to_local: dict[str, str]) -> No
 
 
 @trace_node(desc="处理 Markdown 独文件")
-def node_process_standalone_md(state: ImportNodeState) -> ImportNodeState:
+def node_process_standalone_md(state: ImportGraphState) -> ImportGraphState:
 
     origin_md, file_title = step_1_validate_and_setup(state)
     logger.info(f"原始 Markdown 文件: {origin_md}, 文件标题: {file_title}")
@@ -182,7 +182,7 @@ def node_process_standalone_md(state: ImportNodeState) -> ImportNodeState:
 if __name__ == "__main__":
     from rich import print as rprint
     from processor.import_processor.state import (
-        ImportNodeState,
+        ImportGraphState,
         create_state,
         save_state,
     )

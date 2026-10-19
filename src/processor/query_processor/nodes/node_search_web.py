@@ -16,11 +16,11 @@ from processor.query_processor.state import QueryGraphState, WebSearchResult
 
 @step_log(desc="校验并获取数据")
 def step_1_validate_and_get_data(state: QueryGraphState) -> tuple[bool, str]:
-    web_enable = state.get("web_search", False)
+    web_search_enable = state.get("enable_web_search", False)
     rewritten_query = state.get("rewritten_query", "")
     if not rewritten_query:
         raise ValueError("state['rewritten_query'] is empty")
-    return web_enable, rewritten_query
+    return web_search_enable, rewritten_query
 
 
 async def _call_mcp_tool(rewritten_query: str):
@@ -75,13 +75,13 @@ def step_2_call_mcp_tool(rewritten_query: str) -> list[WebSearchResult]:
 @trace_node(desc="互联网搜索", need_push=True)
 def node_search_web(state: QueryGraphState) -> QueryGraphState:
 
-    web_enable, rewritten_query = step_1_validate_and_get_data(state)
+    web_search_enable, rewritten_query = step_1_validate_and_get_data(state)
     logger.info(f"重写后的查询: {rewritten_query}")
 
     search_results = []
-    if web_enable:
+    if web_search_enable:
         search_results = step_2_call_mcp_tool(rewritten_query)
-    logger.info(f"是否启用网络搜索: {web_enable}")
+    logger.info(f"是否启用网络搜索: {web_search_enable}")
     logger.info(f"网络搜索结果: {search_results}")
 
     return {"web_matches": search_results}
@@ -93,7 +93,7 @@ if __name__ == "__main__":
     from utils.path_utils import PROJECT_ROOT
 
     prev_state = load_state(PROJECT_ROOT / "output/tmp/query_01_intent_recognize.json")
-    prev_state["web_search"] = True
+    prev_state["enable_web_search"] = True
     next_state = node_search_web(prev_state)
     rprint(next_state)
 

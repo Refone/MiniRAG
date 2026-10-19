@@ -181,7 +181,7 @@ export function ChatPage() {
     },
   ]);
   const [input, setInput] = useState("");
-  const [webSearch, setWebSearch] = useState(true);
+  const [enableWebSearch, setEnableWebSearch] = useState(true);
   const [enableHyde, setEnableHyde] = useState(true);
   const [apiConnected, setApiConnected] = useState(false);
   const [sending, setSending] = useState(false);
@@ -338,7 +338,7 @@ export function ChatPage() {
   async function submitQuery(
     text: string,
     session: string,
-    webSearch: boolean,
+    enableWebSearch: boolean,
     enableHyde: boolean,
   ): Promise<QueryResponse> {
     const res = await fetch(`${API_BASE}/query`, {
@@ -347,7 +347,7 @@ export function ChatPage() {
       body: JSON.stringify({
         query: text,
         session_id: session,
-        web_search: webSearch,
+        enable_web_search: enableWebSearch,
         enable_hyde: enableHyde,
       }),
     });
@@ -388,11 +388,11 @@ export function ChatPage() {
     setMessages((prev) => [...prev, userMsg, botMsg]);
 
     console.log(
-      `[chat] 发送问题（网络搜索=${webSearch}，HyDE 搜索=${enableHyde}，${text.length} 字）`,
+      `[chat] 发送问题（网络搜索=${enableWebSearch}，HyDE 搜索=${enableHyde}，${text.length} 字）`,
     );
 
     try {
-      const data = await submitQuery(text, sessionId, webSearch, enableHyde);
+      const data = await submitQuery(text, sessionId, enableWebSearch, enableHyde);
       updateMessage(botId, {
         progress: { done: [], running: [], status: "pending" },
       });
@@ -489,7 +489,7 @@ export function ChatPage() {
       });
       setSending(false);
     }
-  }, [input, sending, webSearch, enableHyde, sessionId, updateMessage]);
+  }, [input, sending, enableWebSearch, enableHyde, sessionId, updateMessage]);
 
   const onKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -547,9 +547,9 @@ export function ChatPage() {
           <div className="composer-footer">
             <button
               type="button"
-              className={`tool-pill${webSearch ? " active" : ""}`}
-              onClick={() => setWebSearch(!webSearch)}
-              aria-pressed={webSearch}
+              className={`tool-pill${enableWebSearch ? " active" : ""}`}
+              onClick={() => setEnableWebSearch(!enableWebSearch)}
+              aria-pressed={enableWebSearch}
               title="开启后回答会结合网络搜索结果"
             >
               网络搜索

@@ -23,5 +23,5 @@ class QueryRequest(BaseModel):
 
     query: str
     session_id: str
-    web_search: bool = True
+    enable_web_search: bool = True
     enable_hyde: bool = True
