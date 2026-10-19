@@ -4,6 +4,7 @@ from .node_md_img import node_md_img
 from .node_document_split import node_document_split
 from .node_item_name_vect import node_item_name_vect
 from .node_chunks_vect import node_chunks_vect
+from .node_process_standalone_md import node_process_standalone_md
 
 __all__ = [
     "node_entry",
@@ -12,4 +13,5 @@ __all__ = [
     "node_document_split",
     "node_item_name_vect",
     "node_chunks_vect",
+    "node_process_standalone_md",
 ]

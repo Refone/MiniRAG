@@ -5,6 +5,13 @@ from typing import TypedDict
 from utils.path_utils import PROJECT_ROOT
 
 
+class FileType:
+    PDF = "pdf"
+    MARKDOWN = "markdown"
+    MARKDOWN_ZIP = "markdown-zip"
+    UNKNOWN = "<unknown>"
+
+
 class ImportNodeState(TypedDict):
     """
     导入图状态
@@ -20,6 +27,9 @@ class ImportNodeState(TypedDict):
 
     # 原始文件路径, 不确定文件格式
     origin_file_path: str
+
+    # 文件类型
+    origin_file_type: str
 
     # (转换后的) markdown 文件路径
     markdown_file_path: str
@@ -38,10 +48,27 @@ _DEFAULT_STATE: ImportNodeState = {
     "task_id": "",
     "origin_file_path": "",
     "markdown_file_path": "",
+    "origin_file_type": "",
     "file_title": "",
     "item_name": "",
     "chunks_json_path": "",
 }
+
+
+def file_type_from_filename(filename: str) -> str:
+    """
+    根据文件名推断文件类型
+    """
+    if filename.endswith(".pdf"):
+        return FileType.PDF
+    elif filename.endswith(".md"):
+        return FileType.MARKDOWN
+    elif filename.endswith(".markdown"):
+        return FileType.MARKDOWN
+    elif filename.endswith(".zip"):
+        return FileType.MARKDOWN_ZIP
+    else:
+        return FileType.UNKNOWN
 
 
 def create_state(**state_dict) -> ImportNodeState:

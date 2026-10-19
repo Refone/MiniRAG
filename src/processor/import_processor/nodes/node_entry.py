@@ -1,34 +1,27 @@
 from pathlib import Path
 
-from common.schemas.internal_schemas.enum_types import DocTypeEnum
-from processor.import_processor.state import ImportNodeState
+from processor.import_processor.state import (
+    ImportNodeState,
+    file_type_from_filename,
+    FileType,
+)
 from utils.logging_utils import logger
 from utils.node_utils import trace_node
 
 
 @trace_node(desc="识别文档类别")
 def node_entry(state: ImportNodeState) -> ImportNodeState:
-    """识别文件类型并补全状态字段; 文件缺失或类型不受支持时原样返回。"""
+    """校验文档, 确认文件存在且类型受支持"""
     origin_file_path = Path(state["origin_file_path"])
-
-    # 1. 文件存在性校验
     if not origin_file_path.exists():
         raise FileNotFoundError(f"文件不存在: {origin_file_path}, 流程终止")
 
-    # 2. 识别文档类型
-    doc_type = DocTypeEnum.from_filename(origin_file_path.name)
-    if doc_type == DocTypeEnum.UNKNOWN:
+    doc_type = file_type_from_filename(origin_file_path.name)
+    if doc_type == FileType.UNKNOWN:
         raise ValueError(f"未知文件类型: {origin_file_path}, 流程终止")
 
-    # 3. 更新 state 对应字段
+    state["origin_file_type"] = doc_type
     state["file_title"] = origin_file_path.stem
-
-    if doc_type == DocTypeEnum.MARKDOWN:
-        state["markdown_file_path"] = str(origin_file_path)
-
-    logger.info(
-        f"文件校验通过: {origin_file_path} 文件类型: {DocTypeEnum.to_str(doc_type)}"
-    )
 
     return state
 

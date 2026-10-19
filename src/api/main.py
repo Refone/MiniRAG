@@ -57,9 +57,6 @@ async def health() -> dict:
     return {"status": "ok", "version": __version__}
 
 
-UPLOAD_DIR = APP_CONFIG.upload_dir
-
-
 @app.post("/upload", response_model=UploadResponse, status_code=202)
 async def import_document(
     request: Request,
@@ -73,7 +70,7 @@ async def import_document(
         raise HTTPException(status_code=400, detail="缺少文件名")
 
     task_id = uuid.uuid4().hex
-    upload_dir = UPLOAD_DIR
+    upload_dir = APP_CONFIG.upload_dir
     upload_dir.mkdir(parents=True, exist_ok=True)
     dest = upload_dir / f"{Path(file.filename).name}"
     dest.unlink(missing_ok=True)

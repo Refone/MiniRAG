@@ -1,6 +1,6 @@
 from langgraph.constants import END
 from langgraph.graph import StateGraph
-from processor.import_processor.state import ImportNodeState
+from processor.import_processor.state import FileType, ImportNodeState
 from processor.import_processor.nodes import *
 
 workflow = StateGraph(ImportNodeState)
@@ -9,17 +9,20 @@ workflow = StateGraph(ImportNodeState)
 workflow.add_node(node_entry)
 workflow.add_node(node_pdf_to_md)
 workflow.add_node(node_md_img)
+workflow.add_node(node_process_standalone_md)
 workflow.add_node(node_document_split)
 workflow.add_node(node_item_name_vect)
 workflow.add_node(node_chunks_vect)
 
 
 def file_type_router(state: ImportNodeState):
-    """根据 doc_type 决定走 PDF 转换还是直接进入图片处理。"""
-    if state.get("markdown_file_path"):
-        return "node_md_img"
-    else:
+    file_type = state.get("origin_file_type", FileType.UNKNOWN)
+    if file_type == FileType.MARKDOWN:
+        return "node_process_standalone_md"
+    elif file_type == FileType.PDF:
         return "node_pdf_to_md"
+    else:
+        return END
 
 
 # 构建工作流
@@ -29,9 +32,12 @@ workflow.add_conditional_edges(
     file_type_router,
     path_map={
         "node_pdf_to_md": "node_pdf_to_md",
+        "node_process_standalone_md": "node_process_standalone_md",
         "node_md_img": "node_md_img",
+        END: END,
     },
 )
+workflow.add_edge("node_process_standalone_md", "node_md_img")
 workflow.add_edge("node_pdf_to_md", "node_md_img")
 workflow.add_edge("node_md_img", "node_document_split")
 workflow.add_edge("node_document_split", "node_item_name_vect")
