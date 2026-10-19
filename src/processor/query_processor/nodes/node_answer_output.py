@@ -60,9 +60,43 @@ def step_3_call_llm_generate_answer(session_id: str, answer_prompt: str) -> str:
     return answer
 
 
+# 剔除主体名后、与诉求无关的口语填充词
+_FILLER_RE = re.compile(
+    r"给我|说说|介绍|一下|请问|什么是|是什么|怎么样|如何|麻烦|的|吗|呢|么"
+    r"|[，。？！?,\s]"
+)
+
+
+def _aspect_core(aspect_query: str) -> str:
+    """剔除口语填充词后的诉求核心, 用于判断诉求点是否足够具体。
+
+    例如 "给我说说 的四指操作" -> "四指操作"; "介绍一下" -> ""。
+    """
+    return _FILLER_RE.sub("", aspect_query).strip()
+
+
+def _remove_item_names(text: str, item_names: list[str]) -> tuple[str, bool]:
+    """从文本中剔除已确认的主体名, 只保留问题的"诉求点"。
+
+    例如: "给我说说华为擎云 S520 Gen2 的四指操作" 剔除主体名后变为
+    "给我说说 的四指操作", 剩余的 "四指操作" 才是图片需要满足的真正诉求。
+
+    返回: (剔除后的文本, 是否真的删除了至少一个主体名)
+    """
+    cleaned = text
+    removed = False
+    # 长主体名优先剔除, 避免短主体名是长主体名子串时误伤
+    for name in sorted(item_names, key=len, reverse=True):
+        if name and name in cleaned:
+            cleaned = cleaned.replace(name, " ")
+            removed = True
+    return re.sub(r"\s+", " ", cleaned).strip(), removed
+
+
 def step_4_collect_images(
     rerank_results: list[RerankResult],
     rewritten_query: str,
+    item_names: list[str] | None = None,
 ) -> list[str]:
     """从重排序结果中收集要展示给用户的图片。
 
@@ -73,12 +107,21 @@ def step_4_collect_images(
        属性, 导入时为 VLM 生成的图片摘要) 与 rewritten_query 做图片级 rerank,
        分数低于 image_min_rerank_score 的图片直接丢弃。这一步解决"切片文本相关但
        其中某张图无关"的问题 (如含产品名的标题页 LOGO 图);
-    4. 按图片级 rerank 分数降序, 保证最相关的图优先;
-    5. 去重 (重叠切片可能包含同一张图, 同 URL 保留分数更高切片中的描述);
-    6. 总数不超过 image_max_count。
+    4. 诉求点复核 (解决"描述只因包含主体名而得分虚高"的问题): 问题与描述
+       共现主体名 (如"华为擎云 S520 Gen2") 时, 全题 rerank 分会被主体名拉高。
+       因此将问题与描述中已确认的主体名 (item_names, 即 confirm_list) 剔除,
+       用剩余诉求点 (如"四指操作") 再做一次 rerank, 分数低于
+       image_min_aspect_score 的图片直接丢弃。例如问题问"四指操作", 描述为
+       "展示双指点击功能"时, 全题 rerank 分因共现主体名虚高, 但诉求点
+       rerank 分很低, 会被此步拦截;
+    5. 按图片级 rerank 分数降序, 保证最相关的图优先;
+    6. 去重 (重叠切片可能包含同一张图, 同 URL 保留分数更高切片中的描述);
+    7. 总数不超过 image_max_count。
     """
     if not rerank_results:
         return []
+
+    item_names = [name for name in (item_names or []) if name]
 
     # 方括号捕获图片描述 (alt 文本), 圆括号捕获 URL
     image_re = re.compile(r"!\[(.*?)\]\((.*?)\)")
@@ -164,8 +207,40 @@ def step_4_collect_images(
         except Exception as e:
             logger.warning(f"图片描述 rerank 失败, 退化为切片分数过滤: {e}")
 
+    # ---- 3.5 诉求点 rerank: 剔除主体名后二次打分, 拦截"只命中主体名"的虚高分 ----
+    # 有确认主体名 (item_names) 时, 问题与描述共现主体名会让全题 rerank 分虚高,
+    # 导致"问四指、图是双指"的无关图片混进来。把问题与描述里的主体名都剔除,
+    # 只对诉求点 (如"四指操作") 打分, 作为通过精排后的第二道硬门槛。
+    aspect_query, query_stripped = _remove_item_names(rewritten_query, item_names)
+    # 诉求点必须是"具体信息需求" (如"四指操作")。泛介绍类问题 ("介绍一下…")
+    # 剔除主体名后只剩口语填充词, 不启用门槛, 避免误杀产品概览图
+    aspect_gate_enabled = bool(
+        query_stripped and len(_aspect_core(aspect_query)) >= 2
+    )
+    aspect_scores: dict[int, float] = {}
+    if aspect_gate_enabled:
+        # 剔除主体名后仍有内容的描述才参与诉求点打分
+        aspect_pairs = [
+            (i, _remove_item_names(desc, item_names)[0]) for i, desc in valid_pairs
+        ]
+        aspect_pairs = [(i, desc) for i, desc in aspect_pairs if desc]
+        if aspect_pairs:
+            try:
+                hits = RERANKER.rerank(
+                    query=aspect_query,
+                    documents=[desc for _, desc in aspect_pairs],
+                )
+                # rerank 返回的 index 是传入 documents 列表中的下标
+                aspect_scores = {
+                    aspect_pairs[h["index"]][0]: h["relevance_score"] for h in hits
+                }
+            except Exception as e:
+                logger.warning(f"诉求点 rerank 失败, 关闭诉求点门槛: {e}")
+                aspect_gate_enabled = False
+
     # ---- 4. 阈值过滤 + 按图片级分数降序 ----
     threshold = APP_CONFIG.image_min_rerank_score
+    scored_idx = {i for i, _ in valid_pairs}  # 有原始描述、参与过全题 rerank 的图片
     scored: list[tuple[str, float]] = []
     for idx, (desc, url, chunk_score) in enumerate(images):
         image_score = score_by_image.get(idx, chunk_score)
@@ -173,11 +248,21 @@ def step_4_collect_images(
             logger.debug(
                 f"图片描述 rerank {image_score:.4f} 低于阈值 {threshold}, 丢弃: {desc[:40]}({url})"
             )
-        else:
-            logger.debug(
-                f"图片描述 rerank {image_score:.4f} 高于阈值 {threshold}, 保留: {desc[:40]}({url})"
-            )
-            scored.append((url, image_score))
+            continue
+        # 诉求点硬门槛: 有描述但诉求点分不足 (含剔除主体名后描述为空的) 的丢弃;
+        # 无描述 (无 alt) 的图片无法验证诉求点, 沿用切片分数兜底的旧行为
+        if aspect_gate_enabled and idx in scored_idx:
+            aspect_score = aspect_scores.get(idx, 0.0)
+            if aspect_score < APP_CONFIG.image_min_aspect_score:
+                logger.debug(
+                    f"诉求点 rerank {aspect_score:.4f} 低于门槛 "
+                    f"{APP_CONFIG.image_min_aspect_score}, 丢弃: {desc[:40]}({url})"
+                )
+                continue
+        logger.debug(
+            f"图片描述 rerank {image_score:.4f} 高于阈值 {threshold}, 保留: {desc[:40]}({url})"
+        )
+        scored.append((url, image_score))
     scored.sort(key=lambda x: x[1], reverse=True)
 
     return [url for url, _ in scored[: APP_CONFIG.image_max_count]]
@@ -224,7 +309,9 @@ def node_answer_output(state: QueryGraphState) -> QueryGraphState:
         answer = step_3_call_llm_generate_answer(session_id, answer_prompt)
         logger.info(f"最终答案: {answer}")
 
-        image_urls = step_4_collect_images(rerank_results, rewritten_query)
+        image_urls = step_4_collect_images(
+            rerank_results, rewritten_query, state.get("confirm_list", [])
+        )
         logger.info(f"提取的图片 URL: {image_urls}")
         logger.info(f"共: {len(image_urls)} 张图片")
 
