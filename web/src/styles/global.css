@@ -549,6 +549,24 @@ details.progress summary {
   object-fit: contain;
 }
 
+/* 图片可点击: 新标签页打开原图 */
+.markdown .markdown-img-link {
+  display: inline-block;
+  text-decoration: none;
+  /* 消除内联图片下方的基线空隙 */
+  font-size: 0;
+  line-height: 0;
+  border-radius: 10px;
+}
+
+.markdown .markdown-img-link:hover {
+  text-decoration: none;
+}
+
+.markdown .markdown-img-link:hover .markdown-img {
+  filter: brightness(1.05);
+}
+
 .typing {
   display: inline-flex;
   gap: 6px;

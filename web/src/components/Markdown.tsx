@@ -48,14 +48,30 @@ export function MarkdownContent({ text }: MarkdownContentProps) {
     a: ({ node: _node, ...rest }) => (
       <a {...rest} target="_blank" rel="noopener noreferrer" />
     ),
-    img: ({ node: _node, ...rest }) => (
-      <img
-        {...rest}
-        loading="lazy"
-        referrerPolicy="no-referrer"
-        className="markdown-img"
-      />
-    ),
+    img: ({ node: _node, src, alt, ...rest }) => {
+      const imgEl = (
+        <img
+          src={src}
+          alt={alt}
+          {...rest}
+          loading="lazy"
+          referrerPolicy="no-referrer"
+          className="markdown-img"
+        />
+      );
+      // 图片可点击: 新标签页打开原图
+      if (typeof src !== "string" || src.length === 0) return imgEl;
+      return (
+        <a
+          href={src}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="markdown-img-link"
+        >
+          {imgEl}
+        </a>
+      );
+    },
     p: ({ node, children, ...rest }) => {
       const cls = classifyImageParagraph(node);
       return (
