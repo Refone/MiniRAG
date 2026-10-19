@@ -1,13 +1,11 @@
 import {
   useCallback,
   useEffect,
-  useMemo,
   useRef,
   useState,
   type KeyboardEvent,
   type ReactNode,
 } from "react";
-import { AnswerGallery } from "@/components/AnswerGallery";
 import { CompleteIcon } from "@/components/CompleteIcon";
 import { LoadingIcon } from "@/components/LoadingIcon";
 import { MarkdownContent } from "@/components/Markdown";
@@ -15,7 +13,7 @@ import { API_BASE } from "@/lib/api";
 import {
   formatTime,
   nowTime,
-  parseAnswerWithImages,
+  parseAnswerAndImages,
 } from "@/lib/chatUtils";
 import type {
   ChatMessage,
@@ -54,28 +52,18 @@ function parseEventData<T>(data: string): T | null {
 
 interface AnswerContentProps {
   text: string;
-  images: string[];
   showPlaceholder?: boolean;
 }
 
-function AnswerContent({ text, images, showPlaceholder }: AnswerContentProps) {
-  const parsed = useMemo(
-    () => parseAnswerWithImages(text, images),
-    [text, images],
-  );
+function AnswerContent({ text, showPlaceholder }: AnswerContentProps) {
   const display =
-    parsed.text.trim().length > 0
-      ? parsed.text
+    text.trim().length > 0
+      ? text
       : showPlaceholder
         ? "（已完成，但未返回答案）"
         : "";
 
-  return (
-    <>
-      {display && <MarkdownContent text={display} />}
-      {parsed.images.length > 0 && <AnswerGallery images={parsed.images} />}
-    </>
-  );
+  return <>{display && <MarkdownContent text={display} />}</>;
 }
 
 const STATUS_LABELS: Record<string, string> = {
@@ -154,7 +142,6 @@ function MessageBubble({ message }: { message: ChatMessage }) {
       <>
         <AnswerContent
           text={message.text}
-          images={message.images}
           showPlaceholder
         />
         {message.progress && <ProgressDetails progress={message.progress} />}
@@ -183,7 +170,6 @@ export function ChatPage() {
       text: WELCOME_TEXT,
       time: "",
       hint: WELCOME_HINT,
-      images: [],
       typing: false,
       progress: null,
       error: null,
@@ -262,16 +248,25 @@ export function ChatPage() {
       const historyMessages: ChatMessage[] = items
         .slice()
         .reverse()
-        .map((item, idx) => ({
-          id: `hist-${idx}-${item.timestamp ?? Date.now()}`,
-          role: item.role === "user" ? "user" : "bot",
-          text: item.text || "",
-          time: formatTime(item.timestamp),
-          images: item.image_urls || [],
-          typing: false,
-          progress: null,
-          error: null,
-        }));
+        .map((item, idx) => {
+          // 兼容旧记录: 旧版图片放在结尾【图片】区块、经独立 image_urls 通道展示。
+          // 现在图片一律内嵌正文, 这里把区块 URL 转成 Markdown 内嵌图片 (与正文已有 URL 去重)。
+          const { text, images } = parseAnswerAndImages(item.text || "");
+          const legacyImages = images.filter((u) => !text.includes(u));
+          const displayText =
+            legacyImages.length > 0
+              ? `${text}\n\n${legacyImages.map((u) => `![参考图片](${u})`).join("\n\n")}`
+              : text;
+          return {
+            id: `hist-${idx}-${item.timestamp ?? Date.now()}`,
+            role: item.role === "user" ? "user" : "bot",
+            text: displayText,
+            time: formatTime(item.timestamp),
+            typing: false,
+            progress: null,
+            error: null,
+          };
+        });
 
       setMessages((prev) => [prev[0], ...historyMessages]);
     } catch {
@@ -365,7 +360,6 @@ export function ChatPage() {
       role: "user",
       text,
       time: nowTime(),
-      images: [],
       typing: false,
       progress: null,
       error: null,
@@ -376,7 +370,6 @@ export function ChatPage() {
       role: "bot",
       text: "",
       time: nowTime(),
-      images: [],
       typing: true,
       progress: { done: [], running: [], status: "pending" },
       error: null,
@@ -438,13 +431,10 @@ export function ChatPage() {
           d && typeof d.answer === "string" && d.answer.trim().length > 0
             ? d.answer
             : rawAnswerText || "";
-        console.log(
-          `[chat] 回答完成（${finalText.length} 字，${d?.image_urls?.length || 0} 张图）`,
-        );
+        console.log(`[chat] 回答完成（${finalText.length} 字）`);
         updateMessage(botId, {
           typing: false,
           text: finalText,
-          images: d?.image_urls || [],
         });
         setSending(false);
       });

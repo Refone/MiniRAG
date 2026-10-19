@@ -12,7 +12,6 @@ export interface ChatMessage {
   text: string;
   time: string;
   hint?: string;
-  images: string[];
   typing: boolean;
   progress: ProgressView | null;
   error: string | null;
@@ -22,7 +21,6 @@ export interface HistoryItem {
   role: string;
   text: string;
   item_names: string[];
-  image_urls: string[];
   timestamp: number;
 }
 
@@ -31,7 +29,6 @@ export interface QueryResponse {
   answer?: string;
   done_list?: string[];
   error?: string;
-  image_urls?: string[];
   message?: string;
 }
 
@@ -54,5 +51,4 @@ export interface StatusResponse {
   running_list?: string[];
   answer?: string;
   error?: string;
-  image_urls?: string[];
 }

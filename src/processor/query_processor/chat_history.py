@@ -12,7 +12,6 @@ class ChatMessage(TypedDict):
     session_id: str
     role: str
     text: str
-    image_urls: list[str]
     timestamp: float
 
 
@@ -40,8 +39,7 @@ class ChatHistoryManager:
         self,
         session_id: str,  # 会话 ID
         role: MessageRole,  # 角色
-        text: str,  # 文本内容
-        image_urls: list[str] = [],  # 图片 URL 列表
+        text: str,  # 文本内容 (图片由回答正文以 Markdown 内嵌, 不再单独存储)
     ) -> str | None:
         ts = datetime.now().timestamp()
 
@@ -49,7 +47,6 @@ class ChatHistoryManager:
             "session_id": session_id,
             "role": role.value,
             "text": text,
-            "image_urls": image_urls,
             "timestamp": ts,
         }
 
@@ -122,19 +119,16 @@ if __name__ == "__main__":
         session_id=session_id,
         role=MessageRole.USER,
         text="Hello, world!",
-        image_urls=[],
     )
     chat_history_manager.save_message(
         session_id=session_id,
         role=MessageRole.ASSISTANT,
         text="你好我的朋友, 很高兴见到你!",
-        image_urls=["http://example.com/image1.jpg", "http://example.com/image2.jpg"],
     )
     chat_history_manager.save_message(
         session_id=session_id,
         role=MessageRole.USER,
         text="这个 item1 怎么退货?",
-        image_urls=["http://example.com/image1.jpg", "http://example.com/image2.jpg"],
     )
     latest_messages = chat_history_manager.get_latest_messages(session_id)
     for message in latest_messages:

@@ -99,22 +99,63 @@ export function parseAnswerAndImages(text: string): { text: string; images: stri
   return { text: before, images };
 }
 
-export interface ParsedAnswer {
-  text: string;
-  images: string[];
-}
+/**
+ * 修复 Markdown 链接/图片目标中的空格与括号。
+ * 参考内容中的图片 URL 可能包含空格或括号 (如目录名 "用户指南-(YTGZ,zh-cn)")，
+ * LLM 原样内嵌为 ![说明](url) 时，CommonMark 会把第一个 ")" 当作链接终点，
+ * 导致 react-markdown 解析出的 URL 被截断、图片 404。
+ * 这里按括号配平扫描出完整 URL，再把空格/括号做百分号转义。
+ */
+export function normalizeMarkdownDestinations(text: string): string {
+  const s = String(text || "");
+  const re = /(!?)\[([^\]]*)\]\(/g;
+  let out = "";
+  let last = 0;
+  let m: RegExpExecArray | null;
 
-/** 汇总“文本 + 图片”：Block 显式标记 ∪ 后端候选 ∪ 文本宽松提取。 */
-export function parseAnswerWithImages(answerText: string, candidateImageUrls: string[] = []): ParsedAnswer {
-  const { text, images: imagesFromBlock } = parseAnswerAndImages(answerText);
-  const candidates = (candidateImageUrls || []).map(normalizeUrl).filter(isImageUrl);
-  const looseImages = extractUrlsLoose(answerText).map(normalizeUrl).filter(isImageUrl);
+  const escapeUrl = (url: string): string =>
+    String(url || "")
+      .replace(/\s/g, "%20")
+      .replace(/\(/g, "%28")
+      .replace(/\)/g, "%29");
 
-  const allImages = new Set<string>([
-    ...(imagesFromBlock.length > 0 ? imagesFromBlock : []),
-    ...candidates,
-    ...looseImages,
-  ]);
+  while ((m = re.exec(s)) !== null) {
+    const destStart = m.index + m[0].length;
+    out += s.slice(last, destStart);
 
-  return { text, images: Array.from(allImages) };
+    const rest = s.slice(destStart);
+    let url = "";
+    let consumed = 0;
+
+    if (rest.startsWith("<")) {
+      // 尖括号形式 <url>: 括号/空格可在内部出现, 取到闭合的 ">"
+      const close = rest.indexOf(">");
+      if (close !== -1) {
+        url = rest.slice(1, close);
+        consumed = close + 1;
+      }
+    }
+
+    if (consumed === 0) {
+      // 普通形式: 括号配平扫描, 直到配平的 ")"
+      let depth = 0;
+      let i = 0;
+      for (; i < rest.length; i++) {
+        const c = rest[i];
+        if (c === "(") {
+          depth++;
+        } else if (c === ")") {
+          if (depth === 0) break;
+          depth--;
+        }
+      }
+      url = rest.slice(0, i).trim();
+      consumed = i;
+    }
+
+    out += escapeUrl(url);
+    last = destStart + consumed;
+  }
+
+  return out + s.slice(last);
 }
