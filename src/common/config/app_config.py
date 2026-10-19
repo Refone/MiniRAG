@@ -35,7 +35,9 @@ class _AppConfig:
 
     max_concurrent_requests: int = os.cpu_count() - 1
 
-    # 聊天记录回溯限制，综合分析过去多少条消息(user assistant 成对)
+    # 聊天记录回溯限制，综合分析过去多少条消息(user assistant 成对)。
+    # 仅用于意图识别/查询改写等查询分析场景的上下文窗口；
+    # 聊天页历史展示不受此限制 (/history/{session_id} 返回该会话全部记录)。
     chat_message_lookback_count: int = 3 * 2
 
     # ==== 查询阶段主体识别参数 ======

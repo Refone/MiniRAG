@@ -61,7 +61,9 @@ class ChatHistoryManager:
     def get_latest_messages(
         self,
         session_id: str,
-        limit: int = APP_CONFIG.chat_message_lookback_count,
+        # 默认取「回溯窗口」条数，供意图识别等查询分析使用；
+        # 传入 None 表示不限制条数，聊天页历史展示需要返回全部记录
+        limit: int | None = APP_CONFIG.chat_message_lookback_count,
     ) -> list[ChatMessage]:
         try:
             cursor = (
@@ -72,8 +74,9 @@ class ChatHistoryManager:
                     },  # 不返回 MongoDB 自动生成的 _id 字段, ObjectId 类型不可序列化
                 )
                 .sort("timestamp", DESCENDING)
-                .limit(limit)
             )
+            if limit is not None:
+                cursor = cursor.limit(limit)
             messages: list[ChatMessage] = list(cursor)
 
             # logger.debug(f"获取 {session_id} 会话的最新 {limit} 条记录: {messages}")

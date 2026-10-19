@@ -158,7 +158,10 @@ def history(
     logger.info(f"[{str(request.url)}], session_id={session_id}")
 
     message_list: list[ChatMessage] = chat_history_manager.get_latest_messages(
-        session_id
+        session_id,
+        # 历史页需展示全部记录, 不做条数限制;
+        # 查询分析场景 (意图识别等) 仍按 APP_CONFIG.chat_message_lookback_count 回溯
+        limit=None,
     )
 
     return {"status": "ok", "history": message_list}
