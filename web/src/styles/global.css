@@ -517,6 +517,38 @@ details.progress summary {
   box-shadow: 0 6px 16px rgba(31, 45, 61, 0.08);
 }
 
+/* 纯图片段落: 单图行内居中 */
+.markdown p.img-single {
+  text-align: center;
+}
+
+.markdown p.img-single .markdown-img {
+  display: inline-block;
+  margin: 10px auto;
+}
+
+/* 纯图片段落: 多图同行并列（小图自然一行，放不下自动换行） */
+.markdown p.img-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin: 10px 0;
+}
+
+.markdown p.img-row .markdown-img {
+  display: block;
+  margin: 0;
+  height: auto;
+  width: auto;
+  /* 行内高度上限：大图与整行宽度不匹配时按此高度等比缩到可并排的尺寸 */
+  max-height: 200px;
+  max-width: 100%;
+  min-width: 0;
+  object-fit: contain;
+}
+
 .typing {
   display: inline-flex;
   gap: 6px;
