@@ -9,6 +9,7 @@ async def arun_query(
     session_id: str,
     query: str,
     web_search: bool = True,
+    enable_hyde: bool = True,
 ) -> dict:
     try:
         clear_task(session_id)
@@ -18,6 +19,7 @@ async def arun_query(
             session_id=session_id,
             original_query=query,
             web_search=web_search,
+            enable_hyde=enable_hyde,
         )
         end_state = await query_processor.ainvoke(start_state)
 

@@ -17,10 +17,14 @@ builder.add_node(node_answer_output)
 def after_node_intent_recognize(state: QueryGraphState):
     if state.get("answer"):
         return "node_answer_output"
+    # 勾选HyDE 搜索时才进入HyDE 搜索节点, 否则跳过 node_search_hyde
     # 勾选网络搜索时才进入联网搜索节点, 否则跳过 node_search_web
+    next_nodes = ["node_search_embedding"]
+    if state.get("enable_hyde"):
+        next_nodes.append("node_search_hyde")
     if state.get("web_search"):
-        return "node_search_embedding", "node_search_hyde", "node_search_web"
-    return "node_search_embedding", "node_search_hyde"
+        next_nodes.append("node_search_web")
+    return next_nodes
 
 
 builder.set_entry_point("node_intent_recognize")

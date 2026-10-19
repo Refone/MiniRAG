@@ -113,7 +113,8 @@ def query(
 ):
     logger.info(
         f"[{str(request.url)}], session_id={payload.session_id}, "
-        f"query={payload.query}, web_search={payload.web_search}"
+        f"query={payload.query}, web_search={payload.web_search}, "
+        f"enable_hyde={payload.enable_hyde}"
     )
 
     sse_create_queue(payload.session_id)
@@ -123,6 +124,7 @@ def query(
         session_id=payload.session_id,
         query=payload.query,
         web_search=payload.web_search,
+        enable_hyde=payload.enable_hyde,
     )
 
     return {

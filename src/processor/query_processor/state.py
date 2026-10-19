@@ -51,6 +51,7 @@ class QueryGraphState(TypedDict):
     session_id: str  # 会话 ID
     original_query: str  # 原始查询
     web_search: bool  # 是否进行网络搜索
+    enable_hyde: bool  # 是否进行HyDE 搜索
 
     rewritten_query: str  # 重写后的问题
     key_words: list[str]  # 关键词
@@ -60,7 +61,7 @@ class QueryGraphState(TypedDict):
     suspect_list: list[str]  # 疑似匹配的列表
 
     embedding_recalls: list[MilvusChunksRecall]  # 向量化查询匹配结果
-    hyde_recalls: list[MilvusChunksRecall]  # 海德搜索匹配结果
+    hyde_recalls: list[MilvusChunksRecall]  # HyDE 搜索匹配结果
     web_matches: list[WebSearchResult]  # 互联网搜索匹配结果
 
     rerank_results: list[RerankResult]  # 重排序结果
@@ -72,6 +73,7 @@ _DEFAULT_STATE: QueryGraphState = {
     "session_id": "",
     "original_query": "",
     "web_search": True,
+    "enable_hyde": True,
     "rewritten_query": "",
     "key_words": [],
     "confirm_list": [],

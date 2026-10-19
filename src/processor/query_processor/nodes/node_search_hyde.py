@@ -9,13 +9,16 @@ from processor.query_processor.state import QueryGraphState
 
 
 @step_log(desc="校验并获取数据")
-def step_1_validate_and_get_data(state: QueryGraphState) -> tuple[list[str], str]:
+def step_1_validate_and_get_data(
+    state: QueryGraphState,
+) -> tuple[list[str], str, bool]:
     milvus_items: list[str] = state.get("confirm_list", [])
     rewritten_query: str = state.get("rewritten_query", "")
+    hyde_enable: bool = state.get("enable_hyde", False)
     if not rewritten_query:
         raise ValueError("重写后的查询未找到")
 
-    return milvus_items, rewritten_query
+    return milvus_items, rewritten_query, hyde_enable
 
 
 @step_log(desc="生成假设性回答")
@@ -41,15 +44,19 @@ def step_3_hypo_match_in_milvus(
     return chunks[0] if chunks else []
 
 
-@trace_node(desc="海德搜索", need_push=True)
+@trace_node(desc="HyDE 搜索", need_push=True)
 def node_search_hyde(state: QueryGraphState) -> QueryGraphState:
     """
     HyDE (Hypothetical Document Embeddings) search node.
     假设性搜索:
     先让大模型生成一个“理想的答案”或“可能的问题”，再用这个生成的内容去检索。
     """
-    milvus_items, rewritten_query = step_1_validate_and_get_data(state)
+    milvus_items, rewritten_query, hyde_enable = step_1_validate_and_get_data(state)
+    logger.info(f"是否启用HyDE 搜索: {hyde_enable}")
     logger.info(f"Milvus 确认主体: {milvus_items}, 查询概括: {rewritten_query}")
+
+    if not hyde_enable:
+        return {"hyde_recalls": []}
 
     hypo_answer = step_2_generate_hypothetical_answer(rewritten_query)
     logger.info(f"生成的假设性回答: {hypo_answer}")
@@ -74,5 +81,5 @@ if __name__ == "__main__":
     new_state_json = str(PROJECT_ROOT / "output/tmp/query_03_search_hyde.json")
 
     save_state(next_state, new_state_json)
-    logger.info(f"海德搜索处理完成")
+    logger.info(f"HyDE 搜索处理完成")
     logger.info(f"状态保存路径: {new_state_json}")

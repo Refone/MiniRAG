@@ -10,11 +10,7 @@ import { CompleteIcon } from "@/components/CompleteIcon";
 import { LoadingIcon } from "@/components/LoadingIcon";
 import { MarkdownContent } from "@/components/Markdown";
 import { API_BASE } from "@/lib/api";
-import {
-  formatTime,
-  nowTime,
-  parseAnswerAndImages,
-} from "@/lib/chatUtils";
+import { formatTime, nowTime, parseAnswerAndImages } from "@/lib/chatUtils";
 import type {
   ChatMessage,
   HistoryItem,
@@ -69,9 +65,7 @@ function AnswerContent({
         : "";
 
   return (
-    <>
-      {display && <MarkdownContent text={display} streaming={streaming} />}
-    </>
+    <>{display && <MarkdownContent text={display} streaming={streaming} />}</>
   );
 }
 
@@ -188,6 +182,7 @@ export function ChatPage() {
   ]);
   const [input, setInput] = useState("");
   const [webSearch, setWebSearch] = useState(true);
+  const [enableHyde, setEnableHyde] = useState(true);
   const [apiConnected, setApiConnected] = useState(false);
   const [sending, setSending] = useState(false);
   const [sessionId] = useState(getSessionId);
@@ -344,6 +339,7 @@ export function ChatPage() {
     text: string,
     session: string,
     webSearch: boolean,
+    enableHyde: boolean,
   ): Promise<QueryResponse> {
     const res = await fetch(`${API_BASE}/query`, {
       method: "POST",
@@ -352,6 +348,7 @@ export function ChatPage() {
         query: text,
         session_id: session,
         web_search: webSearch,
+        enable_hyde: enableHyde,
       }),
     });
     if (!res.ok) {
@@ -390,10 +387,12 @@ export function ChatPage() {
     };
     setMessages((prev) => [...prev, userMsg, botMsg]);
 
-    console.log(`[chat] 发送问题（网络搜索=${webSearch}，${text.length} 字）`);
+    console.log(
+      `[chat] 发送问题（网络搜索=${webSearch}，HyDE 搜索=${enableHyde}，${text.length} 字）`,
+    );
 
     try {
-      const data = await submitQuery(text, sessionId, webSearch);
+      const data = await submitQuery(text, sessionId, webSearch, enableHyde);
       updateMessage(botId, {
         progress: { done: [], running: [], status: "pending" },
       });
@@ -490,7 +489,7 @@ export function ChatPage() {
       });
       setSending(false);
     }
-  }, [input, sending, webSearch, sessionId, updateMessage]);
+  }, [input, sending, webSearch, enableHyde, sessionId, updateMessage]);
 
   const onKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -554,6 +553,16 @@ export function ChatPage() {
               title="开启后回答会结合网络搜索结果"
             >
               网络搜索
+            </button>
+
+            <button
+              type="button"
+              className={`tool-pill${enableHyde ? " active" : ""}`}
+              onClick={() => setEnableHyde(!enableHyde)}
+              aria-pressed={enableHyde}
+              title="开启后先由模型生成假设性回答，再据此在知识库中检索"
+            >
+              HyDE 搜索
             </button>
 
             <span className="api-status" title="查询服务连接状态">
