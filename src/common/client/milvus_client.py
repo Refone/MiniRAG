@@ -3,6 +3,7 @@ from common.model.qwen_embedding import HybridVector
 from common.config.app_config import APP_CONFIG
 from common.model import EMBEDDING
 from utils.logging_utils import logger
+from utils.net_utils import probe_tcp
 from common.config.env_config import ENV_CONFIG
 from pymilvus import AnnSearchRequest, DataType, MilvusClient, WeightedRanker
 
@@ -82,6 +83,14 @@ class HybridSearchRecall(TypedDict):
 class MiniRagMilvusClient(MilvusClient):
     def __init__(self):
         super().__init__(uri=ENV_CONFIG.milvus.endpoint)
+
+    def check_health(self) -> None:
+        """连通性自检: TCP 可达 + 服务端能返回版本号。"""
+        probe_tcp(ENV_CONFIG.milvus.endpoint)
+        version = self.get_server_version()
+        logger.success(
+            f"Milvus 连接成功 ({ENV_CONFIG.milvus.endpoint}), 服务端版本: {version}"
+        )
 
     def hybrid_search_item_name(
         self,
@@ -342,7 +351,7 @@ class MiniRagMilvusClient(MilvusClient):
         ).add_field(
             field_name=MilvusItemNameField.DENSE_VECTOR,
             datatype=DataType.FLOAT_VECTOR,
-            dim=1024,
+            dim=ENV_CONFIG.embedding.dense_dimension,
         ).add_field(
             field_name=MilvusItemNameField.SPARSE_VECTOR,
             datatype=DataType.SPARSE_FLOAT_VECTOR,
@@ -413,7 +422,7 @@ class MiniRagMilvusClient(MilvusClient):
         ).add_field(
             field_name=MilvusChunksField.DENSE_VECTOR,
             datatype=DataType.FLOAT_VECTOR,
-            dim=1024,
+            dim=ENV_CONFIG.embedding.dense_dimension,
         ).add_field(
             field_name=MilvusChunksField.SPARSE_VECTOR,
             datatype=DataType.SPARSE_FLOAT_VECTOR,

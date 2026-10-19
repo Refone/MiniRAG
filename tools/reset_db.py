@@ -7,8 +7,12 @@ import os
 
 def clean_db():
     print("删除 Milvus 集合")
-    MILVUS_CLIENT.drop_collection("minirag_item_name")
-    MILVUS_CLIENT.drop_collection("minirag_chunks")
+    for collection_name in (
+        ENV_CONFIG.milvus.collection_item_name,
+        ENV_CONFIG.milvus.collection_chunks,
+    ):
+        if MILVUS_CLIENT.has_collection(collection_name):
+            MILVUS_CLIENT.drop_collection(collection_name)
 
     print("删除 MinIO 桶")
     MINIO_CLIENT.remove_bucket()
@@ -21,6 +25,9 @@ def rebuild_db():
     print("重建 Milvus 集合")
     MILVUS_CLIENT.prepare_item_name_collection()
     MILVUS_CLIENT.prepare_chunks_collection()
+
+    print("重建 MinIO 桶")
+    MINIO_CLIENT.prepare_bucket()
 
 
 def clean_output_dir():

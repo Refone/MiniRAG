@@ -1,5 +1,6 @@
 from pymongo import MongoClient
 from utils.logging_utils import logger
+from utils.net_utils import probe_tcp
 from common.config.env_config import ENV_CONFIG
 
 
@@ -11,7 +12,15 @@ class MiniRagMongoClient(MongoClient):
         self.db_name = ENV_CONFIG.mongodb.db_name
         self.db = self[self.db_name]
 
-        logger.success(f"MongoDB 连接成功, 数据库: {self.db_name}")
+    def check_health(self) -> None:
+        """连通性自检: TCP 可达 + admin ping 返回 ok。
+
+        pymongo 的 MongoClient 是惰性连接, 构造成功不代表 MongoDB 可达,
+        必须实际 ping 一次才能确认服务状态, 因此检查放在本方法而非 __init__。
+        """
+        probe_tcp(self.uri)
+        self.admin.command("ping")
+        logger.success(f"MongoDB 连接成功 ({self.uri}), 数据库: {self.db_name}")
 
 
 if __name__ == "__main__":

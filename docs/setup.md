@@ -14,3 +14,29 @@ wget https://github.com/milvus-io/milvus/raw/refs/heads/master/deployments/docke
 稍加调整, 加上 attn、mangodb 服务, 调配成本项目的 [docker compose file](../docker/data-services.yaml)
 
 用以启动相关服务
+
+## 后端启动自检
+
+后端 (FastAPI) 启动时会执行 `src/api/setup.py` 的自检流程:
+
+**硬依赖** (任一项失败则拒绝启动, 并汇总报告全部失败项与排查提示):
+
+| 检查项 | 内容 |
+| --- | --- |
+| Milvus | TCP 连通性 + `minirag_item_name` / `minirag_chunks` 集合初始化 |
+| MinIO | TCP 连通性 + `minirag` bucket 初始化 (含匿名只读策略) |
+| MongoDB | TCP 连通性 + `ping` |
+| 运行时目录 | `output/uploads` / `output/import` / `logs` 存在且可写 |
+
+**软依赖** (缺失仅告警, 不阻止启动): `MINERU_API_KEY` / `VLM_API_KEY` /
+`QWEN_API_KEY` / `LLM_API_KEY` / `DASHSCOPE_API_KEY` 是否已在 `.env` 中配置。
+
+说明: 各 client 的构造函数不再做任何网络请求, 连通性统一由自检流程负责
+(先 TCP 探测快速失败, 再发真实协议请求), 服务未启动时会得到明确的错误提示,
+而不是 import 阶段的晦涩堆栈。
+
+如需手动触发自检:
+
+```bash
+.venv/bin/python -c "from api.setup import setup; setup()"
+```
