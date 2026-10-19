@@ -1,35 +1,98 @@
 import { useMemo } from "react";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
-import type { Element } from "hast";
-import { normalizeMarkdownDestinations } from "@/lib/chatUtils";
+import type { Element, Root } from "hast";
+import {
+  findPendingImage,
+  normalizeMarkdownDestinations,
+} from "@/lib/chatUtils";
 
 interface MarkdownContentProps {
   text: string;
+  /** 是否为流式输出中间态：开启时会把未写完的图片语法截下，显示占位 */
+  streaming?: boolean;
+}
+
+/** 段落是否只含图片（允许空白文本节点） */
+function isImageOnlyParagraph(node: Element): boolean {
+  if (node.tagName !== "p") return false;
+  const children = node.children ?? [];
+  let hasImg = false;
+  for (const c of children) {
+    if (c.type === "text") {
+      if (String(c.value ?? "").trim() !== "") return false;
+    } else if (c.type === "element" && c.tagName === "img") {
+      hasImg = true;
+    } else {
+      return false;
+    }
+  }
+  return hasImg;
+}
+
+/** 段落中图片数量 */
+function imageCountInParagraph(node: Element): number {
+  return (node.children ?? []).filter(
+    (c) => c.type === "element" && c.tagName === "img",
+  ).length;
 }
 
 /**
- * 判断一个 <p> 是否只包含图片（忽略空白文本节点）：
- * - 恰好 1 张图 → "img-single"（居中）
- * - 2 张及以上 → "img-row"（同行并列，放不下自动换行）
- * - 混有文字/其他元素或没有图片 → null（保持默认排版）
+ * rehype 插件：给纯图片段落打类名，并把"连续的图片段落"合并成一行。
+ * - 单个图片段落 → img-single（居中）
+ * - 同一段落多图，或连续多个图片段落（LLM 输出时中间隔了空行也有效）→
+ *   合并为一个 img-row（并排）
+ * - 图文混排段落 → 保持默认
  */
-function classifyImageParagraph(node: Element | undefined): string | null {
-  if (!node) return null;
-  const children = node.children ?? [];
-  const imgs = children.filter(
-    (c) => c.type === "element" && c.tagName === "img",
-  );
-  if (imgs.length === 0) return null;
+function rehypeGroupImageParagraphs() {
+  return (tree: Root) => {
+    const children = tree.children ?? [];
+    for (let i = 0; i < children.length; i++) {
+      const node = children[i];
+      if (node.type !== "element" || !isImageOnlyParagraph(node)) continue;
 
-  const hasOtherContent = children.some(
-    (c) =>
-      (c.type === "text" && String(c.value ?? "").trim() !== "") ||
-      (c.type === "element" && c.tagName !== "img"),
-  );
-  if (hasOtherContent) return null;
+      // 向后收集连续的图片段落 (跳过段落间的空白文本节点)
+      const group: Element[] = [node];
+      let j = i + 1;
+      while (j < children.length) {
+        const next = children[j];
+        if (next.type === "text") {
+          if (String(next.value ?? "").trim() === "") {
+            j++;
+            continue;
+          }
+          break;
+        }
+        if (next.type === "element" && isImageOnlyParagraph(next)) {
+          group.push(next);
+          j++;
+          continue;
+        }
+        break;
+      }
 
-  return imgs.length === 1 ? "img-single" : "img-row";
+      if (group.length === 1 && imageCountInParagraph(node) === 1) {
+        node.properties = { ...node.properties, className: ["img-single"] };
+      } else {
+        const merged: Element = {
+          type: "element",
+          tagName: "p",
+          properties: { className: ["img-row"] },
+          children: group.flatMap((n) => n.children ?? []),
+        };
+        children.splice(i, j - i, merged);
+      }
+    }
+  };
+}
+
+/** 流式输出中图片语法未写完时的 shimmer 文字占位 */
+function ImagePlaceholder() {
+  return (
+    <span className="img-placeholder" role="status">
+      图片渲染中…
+    </span>
+  );
 }
 
 /**
@@ -39,10 +102,21 @@ function classifyImageParagraph(node: Element | undefined): string | null {
  * - 链接统一新窗口打开
  * - 图片由 LLM 内嵌在正文中，直接内联渲染；URL 中的空格/括号先做百分号转义，
  *   避免 CommonMark 解析截断链接目标
- * - 纯图片段落按张数打上 img-single / img-row 标记，由 CSS 控制居中/并排
+ * - 纯图片段落由 rehype 插件归类：单图居中，连续多图合并为一行并排
+ * - 流式输出时，未写完的图片语法（![说明](URL…）不渲染，代之以 shimmer 文字占位，
+ *   等语法闭合后再渲染图片
  */
-export function MarkdownContent({ text }: MarkdownContentProps) {
+export function MarkdownContent({
+  text,
+  streaming = false,
+}: MarkdownContentProps) {
   const normalized = useMemo(() => normalizeMarkdownDestinations(text), [text]);
+  const pending = useMemo(
+    () => (streaming ? findPendingImage(normalized) : null),
+    [streaming, normalized],
+  );
+
+  const renderText = pending ? pending.before : normalized;
 
   const components: Components = {
     a: ({ node: _node, ...rest }) => (
@@ -72,21 +146,18 @@ export function MarkdownContent({ text }: MarkdownContentProps) {
         </a>
       );
     },
-    p: ({ node, children, ...rest }) => {
-      const cls = classifyImageParagraph(node);
-      return (
-        <p {...rest} className={cls ?? undefined}>
-          {children}
-        </p>
-      );
-    },
   };
 
   return (
     <div className="markdown">
-      <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
-        {normalized}
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        rehypePlugins={[rehypeGroupImageParagraphs]}
+        components={components}
+      >
+        {renderText}
       </ReactMarkdown>
+      {pending && <ImagePlaceholder />}
     </div>
   );
 }

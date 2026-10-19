@@ -52,10 +52,15 @@ function parseEventData<T>(data: string): T | null {
 
 interface AnswerContentProps {
   text: string;
+  streaming?: boolean;
   showPlaceholder?: boolean;
 }
 
-function AnswerContent({ text, showPlaceholder }: AnswerContentProps) {
+function AnswerContent({
+  text,
+  streaming = false,
+  showPlaceholder,
+}: AnswerContentProps) {
   const display =
     text.trim().length > 0
       ? text
@@ -63,7 +68,11 @@ function AnswerContent({ text, showPlaceholder }: AnswerContentProps) {
         ? "（已完成，但未返回答案）"
         : "";
 
-  return <>{display && <MarkdownContent text={display} />}</>;
+  return (
+    <>
+      {display && <MarkdownContent text={display} streaming={streaming} />}
+    </>
+  );
 }
 
 const STATUS_LABELS: Record<string, string> = {
@@ -142,6 +151,7 @@ function MessageBubble({ message }: { message: ChatMessage }) {
       <>
         <AnswerContent
           text={message.text}
+          streaming={message.streaming}
           showPlaceholder
         />
         {message.progress && <ProgressDetails progress={message.progress} />}
@@ -171,6 +181,7 @@ export function ChatPage() {
       time: "",
       hint: WELCOME_HINT,
       typing: false,
+      streaming: false,
       progress: null,
       error: null,
     },
@@ -263,6 +274,7 @@ export function ChatPage() {
             text: displayText,
             time: formatTime(item.timestamp),
             typing: false,
+            streaming: false,
             progress: null,
             error: null,
           };
@@ -361,6 +373,7 @@ export function ChatPage() {
       text,
       time: nowTime(),
       typing: false,
+      streaming: false,
       progress: null,
       error: null,
     };
@@ -371,6 +384,7 @@ export function ChatPage() {
       text: "",
       time: nowTime(),
       typing: true,
+      streaming: true,
       progress: { done: [], running: [], status: "pending" },
       error: null,
     };
@@ -434,6 +448,7 @@ export function ChatPage() {
         console.log(`[chat] 回答完成（${finalText.length} 字）`);
         updateMessage(botId, {
           typing: false,
+          streaming: false,
           text: finalText,
         });
         setSending(false);
@@ -442,6 +457,7 @@ export function ChatPage() {
       // 不在 final 时关流，等收到服务端 __close__ 信号再关闭连接
       es.addEventListener("__close__", () => {
         console.log(`[chat] SSE 收到 __close__，关闭连接`);
+        updateMessage(botId, { streaming: false });
         close();
       });
 
@@ -455,14 +471,23 @@ export function ChatPage() {
         }
         console.warn(`[chat] SSE 中断：${msg}`);
         rawAnswerText += `\n\n（错误：${msg}）`;
-        updateMessage(botId, { typing: false, text: rawAnswerText });
+        updateMessage(botId, {
+          typing: false,
+          streaming: false,
+          text: rawAnswerText,
+        });
         setSending(false);
         close();
       });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       console.error("[chat] 发送问题失败", msg);
-      updateMessage(botId, { typing: false, progress: null, error: msg });
+      updateMessage(botId, {
+        typing: false,
+        streaming: false,
+        progress: null,
+        error: msg,
+      });
       setSending(false);
     }
   }, [input, sending, webSearch, sessionId, updateMessage]);

@@ -509,49 +509,24 @@ details.progress summary {
 /* ---- AI 回复正文中的内嵌图片（LLM 以 Markdown 语法输出）---- */
 .markdown .markdown-img {
   display: block;
-  max-width: min(100%, 520px);
-  margin: 10px 0;
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  margin: 0;
   border-radius: 10px;
   border: 1px solid var(--border);
   background: var(--panel-2);
   box-shadow: 0 6px 16px rgba(31, 45, 61, 0.08);
 }
 
-/* 纯图片段落: 单图行内居中 */
-.markdown p.img-single {
-  text-align: center;
-}
-
-.markdown p.img-single .markdown-img {
-  display: inline-block;
-  margin: 10px auto;
-}
-
-/* 纯图片段落: 多图同行并列（小图自然一行，放不下自动换行） */
-.markdown p.img-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  margin: 10px 0;
-}
-
-.markdown p.img-row .markdown-img {
-  display: block;
-  margin: 0;
-  height: auto;
-  width: auto;
-  /* 行内高度上限：大图与整行宽度不匹配时按此高度等比缩到可并排的尺寸 */
-  max-height: 200px;
-  max-width: 100%;
-  min-width: 0;
-  object-fit: contain;
-}
-
-/* 图片可点击: 新标签页打开原图 */
+/* 图片可点击: 新标签页打开原图。
+   链接盒收缩到图片宽度 (fit-content) 并用 auto 水平边距居中，
+   在任何段落中都生效：单图段落、图文混排段落、列表项内。 */
 .markdown .markdown-img-link {
-  display: inline-block;
+  display: block;
+  width: fit-content;
+  max-width: min(100%, 520px);
+  margin: 10px auto;
   text-decoration: none;
   /* 消除内联图片下方的基线空隙 */
   font-size: 0;
@@ -565,6 +540,57 @@ details.progress summary {
 
 .markdown .markdown-img-link:hover .markdown-img {
   filter: brightness(1.05);
+}
+
+/* 纯图片段落: 多图同行并列（小图自然一行，放不下自动换行） */
+.markdown p.img-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin: 10px 0;
+}
+
+.markdown p.img-row .markdown-img-link {
+  margin: 0;
+  max-width: 100%;
+}
+
+.markdown p.img-row .markdown-img {
+  /* 行内高度上限：大图与整行宽度不匹配时按此高度等比缩到可并排的尺寸 */
+  max-height: 200px;
+  max-width: 100%;
+  min-width: 0;
+  object-fit: contain;
+}
+
+/* ---- 流式输出中图片语法未闭合时的 shimmer 文字占位 ---- */
+.markdown .img-placeholder {
+  display: inline-block;
+  margin: 6px 0;
+  font-size: 12px;
+  line-height: 1.6;
+  color: transparent;
+  background-image: linear-gradient(
+    100deg,
+    #9aa6b2 30%,
+    #e8ecf1 50%,
+    #9aa6b2 70%
+  );
+  background-size: 200% 100%;
+  background-clip: text;
+  -webkit-background-clip: text;
+  animation: img-placeholder-shimmer 1.2s ease-in-out infinite;
+}
+
+@keyframes img-placeholder-shimmer {
+  0% {
+    background-position: 120% 0;
+  }
+  100% {
+    background-position: -80% 0;
+  }
 }
 
 .typing {

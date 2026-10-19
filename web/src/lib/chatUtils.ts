@@ -126,6 +126,7 @@ export function normalizeMarkdownDestinations(text: string): string {
     const rest = s.slice(destStart);
     let url = "";
     let consumed = 0;
+    let complete = false;
 
     if (rest.startsWith("<")) {
       // 尖括号形式 <url>: 括号/空格可在内部出现, 取到闭合的 ">"
@@ -133,6 +134,7 @@ export function normalizeMarkdownDestinations(text: string): string {
       if (close !== -1) {
         url = rest.slice(1, close);
         consumed = close + 1;
+        complete = true;
       }
     }
 
@@ -145,7 +147,10 @@ export function normalizeMarkdownDestinations(text: string): string {
         if (c === "(") {
           depth++;
         } else if (c === ")") {
-          if (depth === 0) break;
+          if (depth === 0) {
+            complete = true;
+            break;
+          }
           depth--;
         }
       }
@@ -153,9 +158,52 @@ export function normalizeMarkdownDestinations(text: string): string {
       consumed = i;
     }
 
-    out += escapeUrl(url);
-    last = destStart + consumed;
+    if (complete) {
+      out += escapeUrl(url);
+      last = destStart + consumed;
+    } else {
+      // 未闭合的图片/链接语法 (流式输出中间态或异常截断): 原样保留, 不做转义,
+      // 避免把后续文字 (如错误提示) 一起当成 URL 转义
+      out += rest;
+      last = s.length;
+      break;
+    }
   }
 
   return out + s.slice(last);
+}
+
+/**
+ * 检测流式文本末尾是否有未写完的图片语法（如 ![说明](URL 还没闭合）。
+ * 返回 { before, pending }：before 是可安全渲染的部分，pending 是截下的未完成部分；
+ * 没有未闭合图片时返回 null。
+ */
+export function findPendingImage(
+  text: string,
+): { before: string; pending: string } | null {
+  const s = String(text || "");
+  const idx = s.lastIndexOf("![");
+  if (idx === -1) return null;
+
+  const tail = s.slice(idx);
+  const openIdx = tail.indexOf("](");
+  if (openIdx === -1) {
+    // 已出现闭合的 "]" 但后面不是 "(": 视为普通文本 (如 "![重要]"), 不截流
+    if (tail.indexOf("]") !== -1) return null;
+    return { before: s.slice(0, idx), pending: tail };
+  }
+
+  // 括号配平扫描: 找到深度 0 的 ")" 即图片语法完整
+  const rest = tail.slice(openIdx + 2);
+  let depth = 0;
+  for (let i = 0; i < rest.length; i++) {
+    const c = rest[i];
+    if (c === "(") {
+      depth++;
+    } else if (c === ")") {
+      if (depth === 0) return null;
+      depth--;
+    }
+  }
+  return { before: s.slice(0, idx), pending: tail };
 }

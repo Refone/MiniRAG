@@ -13,6 +13,8 @@ export interface ChatMessage {
   time: string;
   hint?: string;
   typing: boolean;
+  /** 是否处于 SSE 流式输出中：用于图片语法未写完时的占位截流 */
+  streaming: boolean;
   progress: ProgressView | null;
   error: string | null;
 }
