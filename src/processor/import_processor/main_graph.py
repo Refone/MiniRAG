@@ -13,6 +13,7 @@ workflow.add_node(node_process_standalone_md)
 workflow.add_node(node_document_split)
 workflow.add_node(node_item_name_vect)
 workflow.add_node(node_chunks_vect)
+workflow.add_node(node_process_md_zip)
 
 
 def file_type_router(state: ImportGraphState):
@@ -21,6 +22,8 @@ def file_type_router(state: ImportGraphState):
         return "node_process_standalone_md"
     elif file_type == FileType.PDF:
         return "node_pdf_to_md"
+    elif file_type == FileType.MD_ZIP:
+        return "node_process_md_zip"
     else:
         return END
 
@@ -34,11 +37,12 @@ workflow.add_conditional_edges(
         "node_pdf_to_md": "node_pdf_to_md",
         "node_process_standalone_md": "node_process_standalone_md",
         "node_md_img": "node_md_img",
+        "node_process_md_zip": "node_process_md_zip",
         END: END,
     },
 )
-workflow.add_edge("node_process_standalone_md", "node_md_img")
 workflow.add_edge("node_pdf_to_md", "node_md_img")
+workflow.add_edge("node_process_standalone_md", "node_md_img")
 workflow.add_edge("node_md_img", "node_document_split")
 workflow.add_edge("node_document_split", "node_item_name_vect")
 workflow.add_edge("node_item_name_vect", "node_chunks_vect")

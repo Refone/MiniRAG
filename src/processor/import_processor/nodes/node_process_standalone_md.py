@@ -26,11 +26,11 @@ _IMG_TAG_RE = re.compile(
 def step_1_validate_and_setup(state: ImportGraphState) -> tuple[Path, str]:
     origin_file = state.get("origin_file_path")
     if not origin_file:
-        raise ValueError(f"origin_file_path 为空: {origin_file!r}")
+        raise ValueError(f"原始文档路径为空: {origin_file!r}")
 
     file_title = state.get("file_title")
     if not state.get("file_title"):
-        raise ValueError(f"file_title 为空: {state!r}")
+        raise ValueError(f"文档标题为空: {state!r}")
 
     origin_md = Path(origin_file)
     return origin_md, file_title
