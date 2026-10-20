@@ -1,5 +1,5 @@
-import asyncio
 import html
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 import re
 from typing import TypedDict
@@ -144,13 +144,21 @@ def step_2_scan_images(
     return image_info_list
 
 
-@step_log(desc="异步并发请求 VLM 获取图像摘要")
+@step_log(desc="并发请求 VLM 获取图像摘要")
 def step_3_image_summary(
     file_title: str,
     image_info_list: list[ImageInfo],
 ) -> dict[str, str]:
     """
-    请求 VLM 获取图像摘要
+    请求 VLM 获取图像摘要, 线程池并发执行 (VLM.invoke 同步调用)。
+
+    为什么不用 asyncio.run + VLM.ainvoke:
+    本节点是同步节点, LangGraph 把它调度到工作线程执行; md 压缩包扇出时
+    多个分支并行, 每个分支都会新建自己的事件循环, 而 VLM 是模块级单例
+    (内部 httpx AsyncClient 绑定首个事件循环), 多个事件循环共享同一个异步
+    客户端会导致连接回调打到已关闭的 loop, 报 "Event loop is closed" /
+    APIConnectionError。httpx 同步客户端线程安全, 线程池并发是安全做法
+    (与 node_chunks_vect 的 embedding 并发模式一致)。
 
     Args:
         file_title: 文件标题
@@ -161,34 +169,31 @@ def step_3_image_summary(
     if not image_info_list:
         return {}
 
-    async def process_all() -> dict[str, str]:
-        async def process_image(image_info: ImageInfo) -> tuple[str, str]:
-            image_path = image_info["path"]
-            prompt = PromptImageSummary(
-                md_title=file_title,
-                pre_text=image_info["pre_text"],
-                post_text=image_info["post_text"],
-            ).prompt
-            image_data = encode_image(image_path)
-            message = HumanMessage(
-                content=[
-                    {"type": "text", "text": prompt},
-                    {"type": "image_url", "image_url": {"url": image_data}},
-                ]
-            )
-
-            logger.debug(f"请求 VLM 获取图片摘要: {image_path}")
-            description = await VLM.ainvoke([message])
-            description = description.content
-            logger.debug(f"{image_path} 图片摘要: {description}")
-            return image_info["name"], description
-
-        results = await asyncio.gather(
-            *(process_image(image_info) for image_info in image_info_list)
+    def process_image(image_info: ImageInfo) -> tuple[str, str]:
+        image_path = image_info["path"]
+        prompt = PromptImageSummary(
+            md_title=file_title,
+            pre_text=image_info["pre_text"],
+            post_text=image_info["post_text"],
+        ).prompt
+        image_data = encode_image(image_path)
+        message = HumanMessage(
+            content=[
+                {"type": "text", "text": prompt},
+                {"type": "image_url", "image_url": {"url": image_data}},
+            ]
         )
-        return dict(results)
 
-    return asyncio.run(process_all())
+        logger.debug(f"请求 VLM 获取图片摘要: {image_path}")
+        description = VLM.invoke([message])
+        description = description.content
+        logger.debug(f"{image_path} 图片摘要: {description}")
+        return image_info["name"], description
+
+    workers = min(ENV_CONFIG.vlm.concurrency, len(image_info_list))
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        results = pool.map(process_image, image_info_list)
+        return dict(results)
 
 
 @step_log("图片上传 Minio")

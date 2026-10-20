@@ -59,6 +59,8 @@ class VLMSettings(BaseSettings):
     api_key: str = ""
     model_name: str = "Qwen/Qwen3-VL-32B-Instruct"
     rpm: int = 1000
+    # 图片摘要并发请求数 (node_md_img 用线程池并发调 VLM)
+    concurrency: int = 8
 
 
 class MinioSettings(BaseSettings):
