@@ -53,8 +53,7 @@ class QueryGraphState(TypedDict):
     enable_web_search: bool  # 是否进行网络搜索
     enable_hyde: bool  # 是否进行HyDE 搜索
 
-    rewritten_query: str  # 重写后的问题
-    doc_queries: list[str]  # LLM 识别出的检索线索 (用于一级召回 minirag_docs)
+    rewritten_query: str  # 重写后的问题 (一级召回的查询文本, 直接匹配 docs 双向量)
 
     # minirag_docs 一级召回匹配结果 (对象为文档)
     confirm_list: list[int]  # 确认匹配的文档 id 列表 (二级召回唯一 doc_id 源)
@@ -76,7 +75,6 @@ _DEFAULT_STATE: QueryGraphState = {
     "enable_web_search": True,
     "enable_hyde": True,
     "rewritten_query": "",
-    "doc_queries": [],
     "confirm_list": [],
     "suspect_list": [],
     "doc_titles": {},

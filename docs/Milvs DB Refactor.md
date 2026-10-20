@@ -144,7 +144,10 @@
 
 - `hybrid_search_item_name` → `hybrid_search_docs`；
 - 两路混合：`abstract_dense_vector`(COSINE) + `keywords_sparse_vector`(IP)；
-- `output_fields`：`file_title`（+ `docs_abstract` 供展示）。
+- `output_fields`：`file_title`（+ `docs_abstract` 供展示）；
+- **查询文本直接使用重写后的完整查询 (rewritten_query)**：不做任何线索/关键词提取，
+  一次混合检索同时匹配 `keywords_sparse_vector` 与 `abstract_dense_vector`
+  (历史上下文已由查询重写步骤融入 rewritten_query, 无需额外实体继承逻辑)。
 
 ### 5.2 confirm / suspect 角色划分（第一轮评审定案）
 
@@ -205,3 +208,5 @@
 | :--- | :--- |
 | 第一轮（用户） | ① 采纳 `task_id` 字段；② 重导入需递归清理 MinIO 三份制品；③ `document_split` 之后的节点合并为 `node_document_embedding`；④ `confirm_list` 作为二级召回唯一 doc_id 源、confirm 阈值适当放宽，`suspect_list` 仅在 confirm 为空时终止流程并提示"文库暂无内容与您的查询内容匹配，可能相关的文档有《》…" |
 | 第二轮（用户） | 同名文件覆盖明确为"先完整删除（MinIO 制品 + chunks + docs），后插入新文档"，删除全部完成前不做新写入 |
+| 第三轮（问题修复） | 一级召回线索提取改用新 prompt（实体 + 主题/概念词），并加完整查询兜底：修复 "Agent 和 Workflow 有什么区别？" 类话题查询因旧"主体名" prompt 排除话题词导致线索为空、召回短路的问题（实测修复后该文档得分 0.8583，超过 0.75 确认阈值） |
+| 第四轮（用户） | 一级召回进一步简化：**直接使用重写后的完整查询匹配 docs 双向量，完全移除 LLM 线索提取步骤**（删除 `prompt_doc_queries_of_query.py` 与 `doc_queries` 状态字段） |
