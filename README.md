@@ -42,6 +42,27 @@ docker compose -p mini-rag -f docker/web-frontend.yaml up -d --build # ③ 前�
 
 ## 测试
 
+> ⚠️ **当前阶段（快速迭代）测试已在框架层面禁用**：`pyproject.toml` 的
+> `[tool.pytest.ini_options]` 中 `testpaths` 指向 `test_guard/`（恒绿占位用例），
+> `uv run pytest` 快速通过 (exit 0) 且不会收集真实的 `test/`。
+> `test/` 目录完整保留；CI 工作流已停用（`.github/workflows/unittest.yml.disable`）。
+
+需要手动回归时，显式指定路径即可绕过默认配置：
+
+```shell
+uv run pytest                              # 默认入口: 只跑恒绿占位用例 (exit 0)
+uv run pytest test/unit/utils              # 手动回归某个目录
+uv run pytest test/unit/utils/path_utils_test.py  # 单个用例文件
+uv run pytest test/smoke -s -v --run-smoke # 冒烟 (真实网络)
+uv run pytest --run-integration            # 集成 (需 Milvus/MinerU/LLM)
+```
+
+恢复默认测试：把 `testpaths` 改回 `["test"]`，并把 `unittest.yml.disable` 重命名回 `unittest.yml`。
+
+---
+
+以下为测试体系的既有约定（恢复测试时生效）。
+
 统一使用标准 pytest (不再依赖各文件 `__main__` 自测), 配置集中在
 `pyproject.toml` 的 `[tool.pytest.ini_options]`。
 
