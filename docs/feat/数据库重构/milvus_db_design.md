@@ -1,8 +1,8 @@
 # Milvus 数据库设计
 
 > ⚠️ **历史版本**: 本文档描述的是 `minirag_item_name` / `minirag_chunks` 旧表设计,
-> 已被 `docs/Milvus minirag_docs_meta db design.md` 及重构定案
-> `docs/Milvs DB Refactor.md` 取代, 仅作历史参考。
+> 已被 `Milvus minirag_docs_meta db design.md` 及重构定案
+> `Milvs DB Refactor.md` 取代, 仅作历史参考。
 
 **文档级索引（kb_item_name）**
 

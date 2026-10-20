@@ -69,7 +69,7 @@ flowchart TD
 2. **`node_pdf_to_md`** — PDF 转 Markdown (仅 PDF 分支): 校验 `%PDF-` 文件头后调 MinerU 云端 API (申请上传地址 → PUT 上传 → 轮询转换结果 → 下载解压 `full.md`), 写入 `markdown_file_path` / `file_title`。✅ 已实现 (依赖 `MINERU_API_KEY`)
 3. **`node_md_img`** — 图片处理: 扫描 Markdown 中的图片链接, 上传 MinIO, (可选) 生成多模态描述, 替换为 MinIO URL。TODO 占位, 当前透传 state
 4. **`node_document_split`** — 文档切分: 按标题层级递归切分, 过长段落二次切分, 产出带 Metadata 的 chunk 列表写入 `chunks`。TODO 占位
-5. **`node_document_embedding`** — 合并节点: 同名覆盖先完整删除旧文档 (MinIO 三份制品 + chunks + docs), 再上传制品、LLM 生成 keywords/abstract、写入 `minirag_docs` (查回 doc_id) 与 `minirag_chunks` (doc_id + chunk_index)。详见 docs/Milvs DB Refactor.md
+5. **`node_document_embedding`** — 合并节点: 同名覆盖先完整删除旧文档 (MinIO 三份制品 + chunks + docs), 再上传制品、LLM 生成 keywords/abstract、写入 `minirag_docs` (查回 doc_id) 与 `minirag_chunks` (doc_id + chunk_index)。详见 docs/feat/数据库重构/Milvs DB Refactor.md
 
 > 状态字段的「唯一事实来源」是 `import_processor/state.py` 的 `ImportNodeState`; 新增字段必须先在该 TypedDict 与 `__default_state` 中声明, 否则会被 LangGraph 静默丢弃。
 

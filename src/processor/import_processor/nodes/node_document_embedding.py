@@ -50,7 +50,7 @@ def step_1_validate_and_get_data(
 def step_2_delete_old_doc(task_id: str, file_title: str) -> None:
     """按 file_title 找到旧 docs 行, 完整删除旧 chunks / docs / MinIO 制品。
 
-    顺序与方案文档 (docs/Milvs DB Refactor.md §4.3) 一致:
+    顺序与方案文档 (docs/feat/数据库重构/Milvs DB Refactor.md §4.3) 一致:
     删除全部完成前不做任何新写入, 避免新旧行并存导致检索双份命中。
     """
     # 1. 按 file_title 查回旧 docs 行 (同名覆盖判定键)
@@ -355,7 +355,7 @@ def step_7_insert_chunks(
 def node_document_embedding(state: ImportGraphState) -> ImportGraphState:
     """合并节点: 同名覆盖先完整删除旧文档, 再上传制品 + 生成元数据 + 写入两表。
 
-    取代原 node_item_name_vect + node_chunks_vect (见 docs/Milvs DB Refactor.md §4)。
+    取代原 node_item_name_vect + node_chunks_vect (见 docs/feat/数据库重构/Milvs DB Refactor.md §4)。
     """
     # 1. 校验并获取数据
     task_id, file_title, md_path, chunks_path, origin_file_path, origin_file_type = (

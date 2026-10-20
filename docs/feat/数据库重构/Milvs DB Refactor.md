@@ -1,8 +1,8 @@
 # Milvus DB 重构方案（minirag_docs / minirag_chunks）
 
-> 状态：**预览稿（已并入第一、二轮评审），待确认**。本文档是基于 `docs/Milvus minirag_docs_meta db design.md` 原始设计，
+> 状态：**预览稿（已并入第一、二轮评审），待确认**。本文档是基于 `Milvus minirag_docs_meta db design.md` 原始设计，
 > 结合现有代码实现（`milvus_client.py`、导入/查询链路）评审后的定案改动方案。
-> 旧设计文档 `docs/milvus_db_design.md` 将在实施后标记为历史版本。
+> 旧设计文档 `milvus_db_design.md` 将在实施后标记为历史版本。
 
 ## 1. 背景与目标
 
@@ -175,7 +175,7 @@
 
 - Milvus 不支持 rename，直接 drop `minirag_item_name`，`minirag_chunks` 因 schema 变更一并重建；
 - `docs/setup.md` 连通性检查改为 `minirag_docs` / `minirag_chunks`；
-- `docs/milvus_db_design.md` 标记为历史版本。
+- `milvus_db_design.md` 标记为历史版本。
 
 ## 7. 代码变更清单
 
