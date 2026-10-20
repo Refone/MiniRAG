@@ -144,7 +144,6 @@ def node_intent_recognize(state: QueryGraphState) -> QueryGraphState:
     )
     state["confirm_list"] = confirm_list
     state["suspect_list"] = suspect_list
-    # doc_titles 仅本节点内用于日志展示与终止提示语, 无其他节点消费, 不入 state
 
     # 无确认文档时终止查询流程: 疑似文档仅用于提示, 不参与二级召回
     if not confirm_list:

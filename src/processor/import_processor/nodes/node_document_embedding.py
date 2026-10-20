@@ -144,7 +144,11 @@ def step_3_upload_artifacts(
 def step_4_generate_keywords_abstract(
     file_title: str, md_content: str
 ) -> tuple[str, str]:
-    """LLM 生成 docs_keywords / docs_abstract, 失败时回退兜底。"""
+    """LLM 生成 docs_keywords / docs_abstract, 失败时回退兜底。
+
+    keywords 的收敛只靠 prompt 约束 (文档指纹原则, 无黑名单后处理);
+    LLM 输出为空时回退 file_title。
+    """
     prompt = PromptDocKeywordsAbstract(
         file_title=file_title, md_content=md_content
     ).prompt

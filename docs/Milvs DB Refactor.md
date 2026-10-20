@@ -47,7 +47,7 @@
 | origin_file_url        | VarChar(65535)        | 原始上传文档的 Minio 链接（PDF / md / zip 分支中的 md）       |
 | final_markdown_url     | VarChar(65535)        | 图片语法替换后的最终 markdown 的 Minio 链接                   |
 | chunks_url             | VarChar(65535)        | chunks.json 的 Minio 链接                                    |
-| docs_keywords          | VarChar(65535)        | LLM 生成，英文逗号分隔；稀疏向量编码源                        |
+| docs_keywords          | VarChar(65535)        | LLM 生成，英文逗号分隔：3-5 个高区分度词（仅靠 prompt"文档指纹"原则收敛，无黑名单）；稀疏向量编码源 |
 | docs_abstract          | VarChar(65535)        | LLM 生成，文档摘要；稠密向量编码源                            |
 | keywords_sparse_vector | SparseFloatVector     | docs_keywords 的稀疏向量（术语精确匹配）                      |
 | abstract_dense_vector  | FloatVector(1024)     | docs_abstract 的稠密向量（语义模糊匹配），维度随 `EMBEDDING.dense_dimension` |
@@ -108,7 +108,9 @@
 
 首次导入直接执行以下步骤；同名覆盖 / 重导入时，先执行 §4.3 完整删除，再执行以下步骤。
 
-1. LLM 生成 `docs_keywords`（英文逗号分隔）+ `docs_abstract`（新 prompt；可合并为一次结构化输出）；
+1. LLM 生成 `docs_keywords` + `docs_abstract`（新 prompt；可合并为一次结构化输出）。
+   keywords 按"文档指纹"原则生成 3-5 个高区分度词（禁文档类型词/品类大类/通用主题词，
+   带自检规则），收敛**只靠 prompt 约束、无黑名单后处理**；LLM 输出为空时回退 file_title；
 2. 向量化：keywords → sparse、abstract → dense；chunks 按现有分批 + 线程池逻辑批量向量化；
 3. 插入 `minirag_docs`（auto_id；携带 task_id / file_title / 三个 URL / keywords / abstract / 双向量）。
    实现备注: pymilvus 3.x 的 insert 会返回生成的主键 (ids), 优先直接使用;
@@ -210,3 +212,5 @@
 | 第二轮（用户） | 同名文件覆盖明确为"先完整删除（MinIO 制品 + chunks + docs），后插入新文档"，删除全部完成前不做新写入 |
 | 第三轮（问题修复） | 一级召回线索提取改用新 prompt（实体 + 主题/概念词），并加完整查询兜底：修复 "Agent 和 Workflow 有什么区别？" 类话题查询因旧"主体名" prompt 排除话题词导致线索为空、召回短路的问题（实测修复后该文档得分 0.8583，超过 0.75 确认阈值） |
 | 第四轮（用户） | 一级召回进一步简化：**直接使用重写后的完整查询匹配 docs 双向量，完全移除 LLM 线索提取步骤**（删除 `prompt_doc_queries_of_query.py` 与 `doc_queries` 状态字段） |
+| 第五轮（用户反馈） | 收敛 docs_keywords：prompt 改为"文档指纹"原则（禁文档类型词/品类大类/通用主题词，3-5 个宁缺毋滥）+ 导入链路宽泛词黑名单后处理过滤（`filter_broad_keywords`，全滤掉回退 file_title）。存量 docs 行需重新导入才会更新关键词 |
+| 第六轮（用户） | **否决黑名单方式**（穷举不完、问题词总是事后才发现，信息已落库）：移除 `filter_broad_keywords` 与全部黑名单常量，keywords 收敛只保留 prompt 约束（文档指纹原则 + 自检规则），宁可效果弱一点也不用黑名单 |

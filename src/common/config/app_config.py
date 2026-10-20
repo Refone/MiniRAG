@@ -55,9 +55,8 @@ class _AppConfig:
     docs_confirm_topk: int = 5
     # 疑似 topk
     docs_suspect_topk: int = 5
-    # docs 混合检索融合权重 (dense_weight, sparse_weight)
-    # 短文本以稀疏为主(0.7)，稠密为辅(0.3)
-    docs_hybrid_weight: tuple[float, float] = (0.3, 0.7)
+    # docs 混合检索融合权重 (abstract_dense_weight, keywords_sparse_weight)
+    docs_hybrid_weight: tuple[float, float] = (0.7, 0.3)
 
     # chunks 召回条数
     chunks_recall_limit: int = 20
