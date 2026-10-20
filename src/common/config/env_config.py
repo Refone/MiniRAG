@@ -113,6 +113,8 @@ class LargeLanguageModelSettings(BaseSettings):
     api_key: str = ""
     model_name: str = "deepseek-ai/DeepSeek-V4-Flash"
     rpm: int = 500
+    timeout: float = 120.0
+    max_retries: int = 2
 
 
 class MongoDBSettings(BaseSettings):

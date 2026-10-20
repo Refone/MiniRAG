@@ -20,6 +20,10 @@ class DeepSeekFlash(ChatDeepSeek):
     ):
         kwargs.setdefault("rate_limiter", SlidingWindowRateLimiter(ENV_CONFIG.llm.rpm))
         kwargs.setdefault("extra_body", {"thinking": {"type": "disabled"}})
+        # 防 API 挂起: 连接超时 10s + 读超时 LLM_TIMEOUT, 失败最多重试 LLM_MAX_RETRIES 次。
+        # 不配置时 openai SDK 默认 600s/次 × 3 次, 一个卡死的请求会拖约 30 分钟。
+        kwargs.setdefault("request_timeout", (10.0, ENV_CONFIG.llm.timeout))
+        kwargs.setdefault("max_retries", ENV_CONFIG.llm.max_retries)
 
         return super().__init__(
             model=model,

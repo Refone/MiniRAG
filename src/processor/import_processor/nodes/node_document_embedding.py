@@ -1,4 +1,5 @@
 import json
+import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any
@@ -155,6 +156,7 @@ def step_4_generate_keywords_abstract(
 
     keywords, abstract = "", ""
     try:
+        logger.info(f"LLM 根据整篇文档生成关键词/摘要，耗时操作...")
         response = LLM.with_structured_output(DocKeywordsAbstractPydantic).invoke(
             prompt
         )
@@ -287,9 +289,7 @@ def step_6_insert_docs_and_query_id(
 
     insert_count = ret.get("insert_count", 0)
     if insert_count != 1:
-        raise RuntimeError(
-            f"写入 minirag_docs 条数不一致: 预期=1, 实际={insert_count}"
-        )
+        raise RuntimeError(f"写入 minirag_docs 条数不一致: 预期=1, 实际={insert_count}")
 
     doc_id = None
     ret_ids = ret.get("ids")
@@ -419,9 +419,7 @@ if __name__ == "__main__":
 
     rprint(next_state)
 
-    new_state_json = str(
-        PROJECT_ROOT / "output/tmp/import_05_document_embedding.json"
-    )
+    new_state_json = str(PROJECT_ROOT / "output/tmp/import_05_document_embedding.json")
     save_state(next_state, new_state_json)
     logger.info(f"文档嵌入入库完成")
     logger.info(f"状态保存路径: {new_state_json}")
