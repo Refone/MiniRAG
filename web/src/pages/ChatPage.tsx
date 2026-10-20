@@ -212,7 +212,7 @@ export function ChatPage() {
     if (el) el.scrollTop = el.scrollHeight;
   }, [messages]);
 
-  // 健康检查（30 秒轮询）
+  // 健康检查（60 秒轮询）
   const checkHealth = useCallback(async () => {
     let connected = false;
     let failure: unknown = null;
@@ -233,7 +233,7 @@ export function ChatPage() {
 
   useEffect(() => {
     checkHealth();
-    const timer = setInterval(checkHealth, 30000);
+    const timer = setInterval(checkHealth, 60000);
     return () => clearInterval(timer);
   }, [checkHealth]);
 
@@ -392,7 +392,12 @@ export function ChatPage() {
     );
 
     try {
-      const data = await submitQuery(text, sessionId, enableWebSearch, enableHyde);
+      const data = await submitQuery(
+        text,
+        sessionId,
+        enableWebSearch,
+        enableHyde,
+      );
       updateMessage(botId, {
         progress: { done: [], running: [], status: "pending" },
       });
