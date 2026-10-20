@@ -151,7 +151,7 @@
 
 ### 5.2 confirm / suspect 角色划分（第一轮评审定案）
 
-- `confirm_list` / `suspect_list` 从"主体名字符串"改为 **doc id 列表**（`list[int]`），展示用 `file_title`，需保留 doc_id → file_title 映射；
+- `confirm_list` / `suspect_list` 从"主体名字符串"改为 **doc id 列表**（`list[int]`），展示用 `file_title`（doc_id → file_title 映射由一级召回命中直接得到, 仅在 node_intent_recognize 内使用, 不入 state）；
 - **`confirm_list` 是二级召回的唯一定位源**：只有确认文档参与 chunks 向量检索范围（`doc_id in [...]`），疑似文档不参与检索；
 - **confirm 阈值适当放宽**：因疑似文档不参与二级召回，一级确认阈值在旧值 0.8 基础上放宽（具体值待实测标定），
   换取召回覆盖率、避免漏检；放宽引入的噪声由二级混合检索 + RRF + rerank 兜底；
