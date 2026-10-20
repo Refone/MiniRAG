@@ -1,6 +1,6 @@
 # Milvus DB 重构方案（minirag_docs / minirag_chunks）
 
-> 状态：**预览稿（已并入第一轮评审），待确认**。本文档是基于 `docs/Milvus minirag_docs_meta db design.md` 原始设计，
+> 状态：**预览稿（已并入第一、二轮评审），待确认**。本文档是基于 `docs/Milvus minirag_docs_meta db design.md` 原始设计，
 > 结合现有代码实现（`milvus_client.py`、导入/查询链路）评审后的定案改动方案。
 > 旧设计文档 `docs/milvus_db_design.md` 将在实施后标记为历史版本。
 
@@ -31,6 +31,7 @@
 | 一级召回范围 | `confirm_list` 是二级召回**唯一** doc_id 源；`suspect_list` 仅在 confirm 为空时终止流程并提示 |
 | confirm 阈值 | 在旧值 0.8 基础上**适当放宽**（具体值待实测标定） |
 | MinIO 制品 | 重导入时**递归清理**该文档在 MinIO 上的三份制品 |
+| 同名覆盖策略 | 同名文件（file_title 相同）先**完整删除**旧文档（MinIO 制品 + chunks + docs），再插入新文档 |
 
 ## 3. 表结构定案
 
@@ -42,7 +43,7 @@
 | :--------------------- | :-------------------- | :----------------------------------------------------------- |
 | id                     | INT64（自增主键）     | 文档唯一标识，auto_id 生成                                    |
 | task_id                | VarChar(256)          | 导入批次唯一键（第一轮评审采纳）：无歧义查回 id 与溯源          |
-| file_title             | VarChar(65535)        | 文档名称；重导入回退去重键（主去重键为 task_id）               |
+| file_title             | VarChar(65535)        | 文档名称；同名覆盖判定键（同名即触发"完整删除后重插"）         |
 | origin_file_url        | VarChar(65535)        | 原始上传文档的 Minio 链接（PDF / md / zip 分支中的 md）       |
 | final_markdown_url     | VarChar(65535)        | 图片语法替换后的最终 markdown 的 Minio 链接                   |
 | chunks_url             | VarChar(65535)        | chunks.json 的 Minio 链接                                    |
@@ -105,22 +106,30 @@
 
 ### 4.2 node_document_embedding 节点内部步骤
 
+首次导入直接执行以下步骤；同名覆盖 / 重导入时，先执行 §4.3 完整删除，再执行以下步骤。
+
 1. LLM 生成 `docs_keywords`（英文逗号分隔）+ `docs_abstract`（新 prompt；可合并为一次结构化输出）；
 2. 向量化：keywords → sparse、abstract → dense；chunks 按现有分批 + 线程池逻辑批量向量化；
 3. 插入 `minirag_docs`（auto_id，无返回主键；携带 task_id / file_title / 三个 URL / keywords / abstract / 双向量）；
 4. **查回 id**：`query(filter="task_id == '...'", output_fields=["id"])`，按 **id 降序取第一条**（task_id 已采纳，查询无歧义；降序兜底规避 Milvus delete 延迟可见）；
 5. 插入 `minirag_chunks`：携带 `doc_id` + `chunk_index`（按 chunks.json 顺序 enumerate）。
 
-### 4.3 重导入删除顺序（单节点内串行）
+### 4.3 同名覆盖 / 重导入：先完整删除，后插入新文档（单节点内串行）
+
+同名文件（file_title 相同）导入即触发覆盖。逻辑为**先完整删除、后插入**：删除全部完成前不做任何新写入，
+避免新旧行并存导致检索双份命中。
 
 ```
-1. 查旧 doc_id（按 task_id 过滤）
-2. 递归清理 MinIO 上该文档三份制品目录（§4.1）
-3. 删 chunks（doc_id == X；查不到旧 id 时回退按 file_title 删）
-4. 删 docs（id == X）
-5. 上传新三份制品 → 得到新 URL
-6. 插 docs（新行，自增 id 变化）→ 查回新 id
-7. 插 chunks（携带新 doc_id）
+1. 查旧文档：按 file_title 查回旧 doc_id 列表（task_id 仅用于同批次幂等重跑与查回兜底）
+2. 完整删除（全部完成后才继续）：
+   a. 递归清理 MinIO 上该文档三份制品目录（§4.1）
+   b. 删 chunks（doc_id in 旧 id 列表；查不到旧 id 时回退按 file_title 删）
+   c. 删 docs（id in 旧 id 列表）
+3. 插入新文档：
+   a. 上传新三份制品 → 得到新 URL
+   b. 插 docs（新行，自增 id 变化；携带 task_id / file_title / URL / keywords / abstract / 双向量）
+      → 查回新 id
+   c. 插 chunks（携带新 doc_id + chunk_index）
 ```
 
 说明：因自增 id 在重导入后变化，旧 chunks 的 `doc_id` 必然失效，故必须先删后插；
@@ -185,10 +194,11 @@
 5. **MinIO 公开可读**：三个 URL 为公开链接，隐私敏感文档需评估；
 6. **LLM 成本**：每篇文档新增 keywords/abstract 生成（注意 `LLM_RPM=500` 限流）；zip 扇出多分支并发时放大；
 7. **chunk_content 上限**：VarChar(65535) 与 `max_chunk_size` 配置隐性耦合；
-8. **同名文件互踩**（既有问题，本方案暂沿袭）：不同文件同名会互相覆盖，`task_id` 可支撑将来的文档唯一键优化。
+8. **同名覆盖即删旧插新（无版本概念）**：同名不同内容的文件会被整体覆盖，属本方案预期行为；如需多版本并存，`task_id` 可支撑将来的文档唯一键/版本优化。
 
 ## 9. 评审记录
 
 | 轮次 | 变更 |
 | :--- | :--- |
 | 第一轮（用户） | ① 采纳 `task_id` 字段；② 重导入需递归清理 MinIO 三份制品；③ `document_split` 之后的节点合并为 `node_document_embedding`；④ `confirm_list` 作为二级召回唯一 doc_id 源、confirm 阈值适当放宽，`suspect_list` 仅在 confirm 为空时终止流程并提示"文库暂无内容与您的查询内容匹配，可能相关的文档有《》…" |
+| 第二轮（用户） | 同名文件覆盖明确为"先完整删除（MinIO 制品 + chunks + docs），后插入新文档"，删除全部完成前不做新写入 |
