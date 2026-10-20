@@ -1,8 +1,20 @@
 import json
 import copy
-from typing import TypedDict
+from typing import Annotated, TypedDict
 
 from utils.path_utils import PROJECT_ROOT
+
+
+def _keep_latest(_old, new):
+    """
+    并发分支写同一个 key 时的合并函数: 保留最后一个值。
+
+    LangGraph 默认的 LastValue 通道不允许同一步骤内多个分支并发写同一个 key
+    (会抛 InvalidUpdateError)。给这类 key 挂上本 reducer 后通道退化为
+    BinaryOperatorAggregate, 并发写入按顺序折叠, 最终保留最后写入的值。
+    (md 压缩包扇出时, 每个 md 分支都会写 markdown_file_path 等字段)
+    """
+    return new
 
 
 class FileType:
@@ -32,22 +44,29 @@ class ImportGraphState(TypedDict):
     origin_file_type: str
 
     # (转换后的) markdown 文件路径
-    markdown_file_path: str
+    # 带 _keep_latest reducer: md 压缩包扇出时多个分支并发写此字段
+    markdown_file_path: Annotated[str, _keep_latest]
+
+    # (md 压缩包解压校验后得到的) 全部 markdown 文件路径列表 (node_process_md_zip 产出)
+    markdown_file_paths: list[str]
 
     # 文件名 (不含后缀)
     file_title: str
 
     # 文档切分后的 JSON 文件路径 (node_document_split 产出)
-    chunks_json_path: str
+    # 带 _keep_latest reducer: md 压缩包扇出时多个分支并发写此字段
+    chunks_json_path: Annotated[str, _keep_latest]
 
     # 文档主体识别结果, 如 "iPhone 13" (node_item_name_vect 产出)
-    item_name: str
+    # 带 _keep_latest reducer: md 压缩包扇出时多个分支并发写此字段
+    item_name: Annotated[str, _keep_latest]
 
 
 _DEFAULT_STATE: ImportGraphState = {
     "task_id": "",
     "origin_file_path": "",
     "markdown_file_path": "",
+    "markdown_file_paths": [],
     "origin_file_type": "",
     "file_title": "",
     "item_name": "",

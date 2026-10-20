@@ -329,9 +329,9 @@ def node_md_img(state: ImportGraphState) -> ImportGraphState:
     # 6. 将新的 Markdown 内容写入磁盘
     fixed_md_path = step_6_new_content_to_disk(md_path, fixed_md_content)
 
-    state["markdown_file_path"] = str(fixed_md_path)
-
-    return state
+    # 只返回变更字段: md 压缩包扇出时多个分支并发执行本节点, 返回完整 state
+    # 会让所有 key 在同一 step 并发写入, 触发 LangGraph InvalidUpdateError
+    return {"markdown_file_path": str(fixed_md_path)}
 
 
 if __name__ == "__main__":

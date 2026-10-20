@@ -97,9 +97,10 @@ def node_document_split(state: ImportGraphState) -> ImportGraphState:
 
     # 3. 备份切分后的 JSON
     chunks_json_path = step_3_backup_chunks_json(md_path, file_title, chunks_list)
-    state["chunks_json_path"] = str(chunks_json_path)
 
-    return state
+    # 只返回变更字段: md 压缩包扇出时多个分支并发执行本节点, 返回完整 state
+    # 会让所有 key 在同一 step 并发写入, 触发 LangGraph InvalidUpdateError
+    return {"chunks_json_path": str(chunks_json_path)}
 
 
 if __name__ == "__main__":

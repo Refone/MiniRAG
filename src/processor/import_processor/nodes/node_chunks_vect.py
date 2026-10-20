@@ -198,7 +198,10 @@ def node_chunks_vect(state: ImportGraphState) -> ImportGraphState:
     # 3. 将向量化后的切片写入 Milvus
     step_3_chunk_upsert_milvus(file_title, item_name, embedded)
 
-    return state
+    # 本节点只有 Milvus 副作用, 不写回任何状态字段。
+    # 注意: md 压缩包扇出时多个分支会并发执行本节点, 若返回完整 state
+    # 会让所有 key 在同一 step 被并发写入, 触发 LangGraph InvalidUpdateError。
+    return {}
 
 
 if __name__ == "__main__":

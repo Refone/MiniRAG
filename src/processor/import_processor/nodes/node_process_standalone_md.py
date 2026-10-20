@@ -14,7 +14,12 @@ from processor.import_processor.state import ImportGraphState
 _HTTP_PREFIXES = ("http://", "https://")
 
 # Markdown 图片语法: ![alt](url "title")
-_MARKDOWN_IMAGE_RE = re.compile(r"(!\[[^\]]*\]\([ \t]*)([^)\s]+)")
+# 注意: 图片地址可能包含空格 (如 Obsidian/Notion 导出的文件名),
+# 不能按 \s 截断; 地址后可跟 "title"/'title'。捕获组结构必须保持:
+# 组1=前缀, 组2=url (_collect_online_image_urls / _replace_src 依赖)。
+_MARKDOWN_IMAGE_RE = re.compile(
+    r"(!\[[^\]]*\]\([ \t]*)([^)\n]*?)(?:[ \t]+(?:\"[^\"]*\"|'[^']*'))?[ \t]*\)"
+)
 
 # HTML 图片语法: <img src="url" ...>
 _IMG_TAG_RE = re.compile(

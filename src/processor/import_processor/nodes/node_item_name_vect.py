@@ -92,9 +92,9 @@ def node_item_name_vect(state: ImportGraphState) -> ImportGraphState:
     # 将识别出的 item_name 插入到 Milvus 中
     step_3_insert_item_name(item_name, file_title)
 
-    state["item_name"] = item_name
-
-    return state
+    # 只返回变更字段: md 压缩包扇出时多个分支并发执行本节点, 返回完整 state
+    # 会让所有 key 在同一 step 并发写入, 触发 LangGraph InvalidUpdateError
+    return {"item_name": item_name}
 
 
 if __name__ == "__main__":
