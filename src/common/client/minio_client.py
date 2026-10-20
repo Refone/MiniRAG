@@ -90,6 +90,33 @@ class MiniRagMinioClient:
 
         return delete_cnt
 
+    def doc_artifact_prefix(self, doc_dir: str, task_id: str, file_title: str) -> str:
+        """某文档单份制品在 MinIO 上的路径前缀: <doc_dir>/<task_id>/<file_title>。
+
+        前缀命名包含 task_id: 避免不同导入批次的制品互相覆盖/误删。
+        """
+        return f"{doc_dir}/{task_id}/{file_title}"
+
+    def clear_doc_artifacts(self, task_id: str, file_title: str) -> int:
+        """递归清理该文档的三份制品目录 (origin / markdown / chunks)。
+
+        前缀带尾斜杠精确匹配到目录, 避免 task_id / file_title 前缀相似的
+        兄弟文档被误删; 幂等, 目录不存在时返回 0。
+        """
+        doc_dirs = (
+            ENV_CONFIG.minio.origin_dir,
+            ENV_CONFIG.minio.markdown_dir,
+            ENV_CONFIG.minio.chunks_dir,
+        )
+        total = 0
+        for doc_dir in doc_dirs:
+            prefix = self.doc_artifact_prefix(doc_dir, task_id, file_title) + "/"
+            del_cnt = self.clear_dir_if_exist(prefix)
+            total += del_cnt
+            if del_cnt:
+                logger.info(f"MinIO 制品清理: {prefix} 删除 {del_cnt} 个对象")
+        return total
+
     def remove_bucket(self) -> int:
         """删除 bucket 中的所有对象后删除 bucket，返回成功删除的对象数。
 

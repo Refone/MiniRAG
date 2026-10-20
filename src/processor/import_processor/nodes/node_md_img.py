@@ -158,7 +158,7 @@ def step_3_image_summary(
     (内部 httpx AsyncClient 绑定首个事件循环), 多个事件循环共享同一个异步
     客户端会导致连接回调打到已关闭的 loop, 报 "Event loop is closed" /
     APIConnectionError。httpx 同步客户端线程安全, 线程池并发是安全做法
-    (与 node_chunks_vect 的 embedding 并发模式一致)。
+    (与 node_document_embedding 的 embedding 并发模式一致)。
 
     Args:
         file_title: 文件标题

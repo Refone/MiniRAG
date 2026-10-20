@@ -57,10 +57,6 @@ class ImportGraphState(TypedDict):
     # 带 _keep_latest reducer: md 压缩包扇出时多个分支并发写此字段
     chunks_json_path: Annotated[str, _keep_latest]
 
-    # 文档主体识别结果, 如 "iPhone 13" (node_item_name_vect 产出)
-    # 带 _keep_latest reducer: md 压缩包扇出时多个分支并发写此字段
-    item_name: Annotated[str, _keep_latest]
-
 
 _DEFAULT_STATE: ImportGraphState = {
     "task_id": "",
@@ -69,7 +65,6 @@ _DEFAULT_STATE: ImportGraphState = {
     "markdown_file_paths": [],
     "origin_file_type": "",
     "file_title": "",
-    "item_name": "",
     "chunks_json_path": "",
 }
 

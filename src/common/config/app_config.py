@@ -40,22 +40,24 @@ class _AppConfig:
     # 聊天页历史展示不受此限制 (/history/{session_id} 返回该会话全部记录)。
     chat_message_lookback_count: int = 3 * 2
 
-    # ==== 查询阶段主体识别参数 ======
-    # 向量数据库召回条数
-    item_name_recall_limit: int = 5
+    # ==== 查询阶段文档级一级召回 (minirag_docs) 参数 ======
+    # 文档级召回条数
+    docs_recall_limit: int = 5
     # Milvus 向量检索超时时间 (秒)
     milvus_search_timeout: int = 30
     # 融合相似分数 确认阈值
-    item_name_confirm_threshold: float = 0.8
+    # 疑似文档不参与二级召回, 故确认阈值在旧值 0.8 基础上适当放宽以保覆盖率,
+    # 放宽引入的噪声由二级混合检索 + RRF + rerank 兜底 (具体值待实测标定)
+    docs_confirm_threshold: float = 0.75
     # 融合相似分数 疑似阈值
-    item_name_suspect_threshold: float = 0.5
+    docs_suspect_threshold: float = 0.5
     # 确认 topk
-    item_name_confirm_topk: int = 5
+    docs_confirm_topk: int = 5
     # 疑似 topk
-    item_name_suspect_topk: int = 5
-    # item_name 混合检索融合权重 (dense_weight, sparse_weight)
+    docs_suspect_topk: int = 5
+    # docs 混合检索融合权重 (dense_weight, sparse_weight)
     # 短文本以稀疏为主(0.7)，稠密为辅(0.3)
-    item_name_hybrid_weight: tuple[float, float] = (0.3, 0.7)
+    docs_hybrid_weight: tuple[float, float] = (0.3, 0.7)
 
     # chunks 召回条数
     chunks_recall_limit: int = 20

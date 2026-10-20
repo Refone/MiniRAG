@@ -3,7 +3,7 @@
 setup() 在 FastAPI lifespan 中执行, 检查分为两类:
 
 1. 硬依赖 (任一项失败则阻止后端启动):
-   - Milvus: 连通性 + item_name / chunks 集合初始化
+   - Milvus: 连通性 + docs / chunks 集合初始化
    - MinIO: 连通性 + bucket 初始化 (含匿名只读策略)
    - MongoDB: 连通性
    - 运行时目录: 上传 / MinerU 解压 / 日志目录, 存在且可写
@@ -25,9 +25,9 @@ from utils.logging_utils import logger
 
 
 def check_milvus() -> None:
-    """校验 Milvus 连通性, 并初始化 item_name / chunks 集合 (有则跳过, 无则创建)。"""
+    """校验 Milvus 连通性, 并初始化 docs / chunks 集合 (有则跳过, 无则创建)。"""
     MILVUS_CLIENT.check_health()
-    MILVUS_CLIENT.prepare_item_name_collection()
+    MILVUS_CLIENT.prepare_docs_collection()
     MILVUS_CLIENT.prepare_chunks_collection()
 
 

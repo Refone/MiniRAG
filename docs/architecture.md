@@ -20,8 +20,7 @@ flowchart TD
         E3(["node_md_img<br/>MinIO 图片处理"])
         E4(["node_document_split<br/>文档切分"])
         E5["Text Chunks"]
-        E6(["node_item_name_vect<br/>主体识别 · LLM"])
-        E7(["node_chunks_vect<br/>BGE-M3 向量化"])
+        E6(["node_document_embedding<br/>元数据 LLM · 双表入库"])
         E8[("Milvus<br/>VectorStore")]
 
         %% ===== 链路2: 查询与检索 (query_processor, 待实现) =====
@@ -45,8 +44,7 @@ flowchart TD
         E3 -->|"6"| E4
         E4 -->|"7"| E5
         E5 -->|"8"| E6
-        E6 -->|"9"| E7
-        E7 -->|"10"| E8
+        E6 -->|"9"| E8
 
         %% 链路2 边
         Q1 -->|"11"| Q2
@@ -65,15 +63,13 @@ flowchart TD
 
 ## 文档导入流程链
 
-导入链路由 `import_processor/main_graph.py` 的 `StateGraph(ImportNodeState)` 编排, 共 7 个节点, 节点名即函数名 (`func.__name__`)。PDF 与 Markdown 两条分支在 `node_md_img` 处汇合, 之后的切分 → 识别 → 向量化 → 落库对两类文档一致:
+导入链路由 `import_processor/main_graph.py` 的 `StateGraph(ImportGraphState)` 编排, 父图共 5 个节点 (entry / pdf_to_md / standalone_md / md_zip / md_tail 子图), 节点名即函数名 (`func.__name__`)。PDF 与 Markdown 两条分支在 `node_md_tail` 子图处汇合, 之后的图片处理 → 切分 → 嵌入入库对两类文档一致:
 
 1. **`node_entry`** — 入口节点: 读取 `task_id` / `origin_file_path`, 校验文件存在后用 `DocType.from_filename()` 识别类型; PDF 进入 `node_pdf_to_md`, Markdown 直接把 `origin_file_path` 写入 `markdown_file_path`; 文件不存在或类型未知则终止流程。✅ 已实现
 2. **`node_pdf_to_md`** — PDF 转 Markdown (仅 PDF 分支): 校验 `%PDF-` 文件头后调 MinerU 云端 API (申请上传地址 → PUT 上传 → 轮询转换结果 → 下载解压 `full.md`), 写入 `markdown_file_path` / `file_title`。✅ 已实现 (依赖 `MINERU_API_KEY`)
 3. **`node_md_img`** — 图片处理: 扫描 Markdown 中的图片链接, 上传 MinIO, (可选) 生成多模态描述, 替换为 MinIO URL。TODO 占位, 当前透传 state
 4. **`node_document_split`** — 文档切分: 按标题层级递归切分, 过长段落二次切分, 产出带 Metadata 的 chunk 列表写入 `chunks`。TODO 占位
-5. **`node_item_name_vect`** — 主体识别: 取标题等靠前内容, 调 LLM 归纳文档主体 (如 "iPhone 13"), 写入 `item_name` 供后续检索提速。TODO 占位
-6. **`node_chunks_vect`** — 向量化: 加载 BGE-M3, 为每个 chunk 计算稠密向量 + 稀疏向量, 准备落库。TODO 占位
-7. **`node_upsert_milvus`** — 写入向量库: 连接 Milvus, 按 `item_name` 删除旧数据, 批量插入新向量。TODO 占位
+5. **`node_document_embedding`** — 合并节点: 同名覆盖先完整删除旧文档 (MinIO 三份制品 + chunks + docs), 再上传制品、LLM 生成 keywords/abstract、写入 `minirag_docs` (查回 doc_id) 与 `minirag_chunks` (doc_id + chunk_index)。详见 docs/Milvs DB Refactor.md
 
 > 状态字段的「唯一事实来源」是 `import_processor/state.py` 的 `ImportNodeState`; 新增字段必须先在该 TypedDict 与 `__default_state` 中声明, 否则会被 LangGraph 静默丢弃。
 
@@ -113,9 +109,7 @@ mini-rag/
 │   │   │       ├── node_pdf_to_md.py           # PDF 转 Markdown, 走 MinerU API ✅
 │   │   │       ├── node_md_img.py              # 图片处理 (上传 MinIO + 生成描述) TODO
 │   │   │       ├── node_document_split.py      # 文档切分 (标题递归切分 + Metadata) TODO
-│   │   │       ├── node_item_name_vect.py # 主体识别 (LLM 归纳文档主体) TODO
-│   │   │       ├── node_chunks_vect.py       # BGE-M3 稠密/稀疏向量化 TODO
-│   │   │       └── node_upsert_milvus.py       # 写入向量库 (删旧 + 批量插) TODO
+│   │   │       └── node_document_embedding.py  # 合并节点: 制品上传 + 元数据 LLM + docs/chunks 双表入库
 │   │   └── query_processor/    # 查询流程: query-向量化-三路召回-生成答案 (空, 待实现)
 │   ├── utils/              # 工具逻辑
 │   │   ├── logging_utils.py # loguru 日志初始化 + 调用位置修正 (file:line:function)

@@ -1,8 +1,7 @@
 from collections import defaultdict
-from re import M
 
 from common.client import MILVUS_CLIENT
-from common.client.milvus_client import MilvusItemNameRecall
+from common.client.milvus_client import MilvusDocsRecall
 from common.config.app_config import APP_CONFIG
 from common.model import LLM
 from common.prompt.prompt_item_names_of_query import (
@@ -48,18 +47,16 @@ def step_3_rewrite_query(
     return response.content
 
 
-@step_log(desc="识别主体")
-def step_4_recognize_item_names(
+@step_log(desc="识别文档检索线索")
+def step_4_recognize_doc_queries(
     rewritten_query: str,
     history_summary: str,
 ) -> list[str]:
     """
-    输入参数:
-    - rewritten_query: str 重写后的查询
-    - history_summary: str 历史聊天记录摘要
+    从重写后的查询中识别检索线索 (询问主体), 用于一级召回 minirag_docs。
 
     返回:
-    list[str] 识别出的主体列表
+    list[str] 识别出的检索线索列表
     """
 
     prompt = PromptItemNamesOfQuery(
@@ -74,88 +71,84 @@ def step_4_recognize_item_names(
     return response.item_names
 
 
-@step_log(desc="从 Milvus item_name 表中选择匹配的主体")
-def step_5_select_item_from_milvus(
-    item_names: list[str],
-) -> dict[str, list[tuple[str, float]]]:
+@step_log(desc="从 Milvus docs 表中选择匹配的文档")
+def step_5_select_docs_from_milvus(
+    doc_queries: list[str],
+) -> dict[str, list[MilvusDocsRecall]]:
     """
-    输入参数:
-    - item_names: list[str] 识别出的询问主体列表
-        ["主体1", "主体2", ...]
+    一级召回: 每个检索线索在 minirag_docs 中混合检索 (摘要稠密 + 关键词稀疏)。
 
     返回:
-
-    dict[str, list[tuple[str, float]]] 匹配结果字典，键为主体，值为匹配的 item_name 及其得分列表
+    dict[str, list[MilvusDocsRecall]] 匹配结果字典，键为检索线索，值为文档命中列表
 
         {
-            "主体1": [("item_name1", distance), ("item_name2", distance), ...],
-            "主体2": [("item_name1", distance), ("item_name2", distance), ...],
+            "线索1": [{"id": 1, "score": 0.9, "file_title": "...", "docs_abstract": "..."}, ...],
             ...
         }
-
-    item_name* 对应 Milvus (minirag_item_name) 中要匹配的 item_name 字段。
     """
 
-    result_dict: dict[str, list[tuple[str, float]]] = defaultdict(list)
+    result_dict: dict[str, list[MilvusDocsRecall]] = defaultdict(list)
 
-    if not item_names:
+    if not doc_queries:
         return result_dict
 
-    reqs_list: list[list[MilvusItemNameRecall]] = MILVUS_CLIENT.hybrid_search_item_name(
-        texts=item_names
+    reqs_list: list[list[MilvusDocsRecall]] | None = MILVUS_CLIENT.hybrid_search_docs(
+        texts=doc_queries
     )
 
     if not reqs_list:
-        logger.warning("主体名称的混合搜索无结果或失败")
+        logger.warning("文档级混合搜索无结果或失败")
         return result_dict
 
-    for item_name, hits_list in zip(item_names, reqs_list):
+    for query, hits_list in zip(doc_queries, reqs_list):
         for hit in hits_list:
-            hit_item_name = hit["item_name"]
-            score = hit["score"]
-            result_dict[item_name].append((hit_item_name, score))
+            result_dict[query].append(hit)
 
         # 匹配量小，sort 带来的性能影响可以忽略
-        result_dict[item_name].sort(key=lambda x: x[1], reverse=True)
+        result_dict[query].sort(key=lambda x: x["score"], reverse=True)
 
     return result_dict
 
 
-@step_log(desc="根据主体匹配结果生成确认主体和疑似主体列表")
-def step_6_item_name_match_results(
-    result_dict: dict[str, list[tuple[str, float]]],
-) -> tuple[list[str], list[str]]:
+@step_log(desc="根据文档匹配结果生成确认/疑似文档列表")
+def step_6_docs_match_results(
+    result_dict: dict[str, list[MilvusDocsRecall]],
+) -> tuple[list[int], list[int], dict[int, str]]:
     """
-    输入参数:
-    - result_dict: dict[str, list[tuple[str, float]]] 匹配结果字典，键为主体，值为匹配的 item_name 及其得分列表
-
-        {
-            "主体1": [("item_name1", distance), ("item_name2", distance), ...],
-            "主体2": [("item_name1", distance), ("item_name2", distance), ...],
-            ...
-        }
-
     返回:
-    tuple[list[str], list[str]] 确认主体列表和疑似主体列表
+    tuple[list[int], list[int], dict[int, str]]:
+    - confirm_list: 确认文档 id 列表 (二级召回的唯一定位源)
+    - suspect_list: 疑似文档 id 列表 (仅 confirm 为空时用于终止提示)
+    - doc_titles: doc_id -> file_title 展示映射
+
+    阈值说明: 疑似文档不参与二级召回, 故确认阈值已适当放宽 (docs_confirm_threshold),
+    放宽引入的噪声由二级混合检索 + RRF + rerank 兜底。
     """
 
-    confirm_set = set()
-    suspect_set = set()
+    confirm_list: list[int] = []
+    suspect_list: list[int] = []
+    doc_titles: dict[int, str] = {}
 
-    for matche_list in result_dict.values():
+    for match_list in result_dict.values():
+        for hit in match_list:
+            doc_id = hit["id"]
+            score = hit["score"]
+            doc_titles.setdefault(doc_id, hit.get("file_title", ""))
 
-        for item_name, score in matche_list:
-            if score >= APP_CONFIG.item_name_confirm_threshold:
-                confirm_set.add(item_name)
-            elif score >= APP_CONFIG.item_name_suspect_threshold:
-                suspect_set.add(item_name)
+            if score >= APP_CONFIG.docs_confirm_threshold:
+                if doc_id not in confirm_list:
+                    confirm_list.append(doc_id)
+            elif score >= APP_CONFIG.docs_suspect_threshold:
+                if doc_id not in suspect_list:
+                    suspect_list.append(doc_id)
 
-    suspect_set -= confirm_set
+    # 确认与疑似互斥: 已确认的不再进入疑似
+    suspect_list = [doc_id for doc_id in suspect_list if doc_id not in confirm_list]
 
-    return (
-        list(confirm_set)[: APP_CONFIG.item_name_confirm_topk],
-        list(suspect_set)[: APP_CONFIG.item_name_suspect_topk],
-    )
+    confirm_list = confirm_list[: APP_CONFIG.docs_confirm_topk]
+    suspect_list = suspect_list[: APP_CONFIG.docs_suspect_topk]
+
+    return confirm_list, suspect_list, doc_titles
 
 
 @step_log(desc="将聊天消息落库 mongodb")
@@ -182,25 +175,31 @@ def node_intent_recognize(state: QueryGraphState) -> QueryGraphState:
     state["rewritten_query"] = rewritten_query if rewritten_query else original_query
     logger.info(f"重写后的查询: {state['rewritten_query']}")
 
-    item_names = step_4_recognize_item_names(rewritten_query, history_summary)
-    state["item_names"] = item_names if item_names else []
-    logger.info(f"识别的主体: {item_names}")
+    doc_queries = step_4_recognize_doc_queries(rewritten_query, history_summary)
+    state["doc_queries"] = doc_queries if doc_queries else []
+    logger.info(f"识别出的检索线索: {doc_queries}")
 
-    result_dict = step_5_select_item_from_milvus(item_names)
+    result_dict = step_5_select_docs_from_milvus(doc_queries)
     logger.info(f"从 Milvus 中选取的结果: {result_dict}")
 
-    confirm_list, suspect_list = step_6_item_name_match_results(result_dict)
-    logger.info(f"确认匹配: {confirm_list}")
-    logger.info(f"疑似匹配: {suspect_list}")
-    state["confirm_list"] = confirm_list if confirm_list else []
-    state["suspect_list"] = suspect_list if suspect_list else []
+    confirm_list, suspect_list, doc_titles = step_6_docs_match_results(result_dict)
+    logger.info(f"确认匹配文档: {confirm_list}")
+    logger.info(f"疑似匹配文档: {suspect_list}")
+    state["confirm_list"] = confirm_list
+    state["suspect_list"] = suspect_list
+    state["doc_titles"] = doc_titles
+
+    # 无确认文档时终止查询流程: 疑似文档仅用于提示, 不参与二级召回
     if not confirm_list:
         if suspect_list:
+            suspect_titles = "《" + "》《".join(
+                doc_titles.get(doc_id, "") for doc_id in suspect_list
+            ) + "》"
             state["answer"] = (
-                f"未能在文库中找到相关匹配, 您想询问的是否是: {', '.join(suspect_list)}?"
+                f"文库暂无内容与您的查询内容匹配，可能相关的文档有{suspect_titles}"
             )
         else:
-            state["answer"] = "未能在文库中找到相关匹配"
+            state["answer"] = "文库暂无内容与您的查询内容匹配"
 
     step_7_save_chat_message(
         original_query=original_query,

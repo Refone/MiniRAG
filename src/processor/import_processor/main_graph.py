@@ -13,7 +13,7 @@ from processor.import_processor.state import (
 from processor.import_processor.nodes import *
 
 # --------------------------------------------------------------------------- #
-# md 后续处理子图 (node_md_img -> document_split -> item_name -> chunks)
+# md 后续处理子图 (node_md_img -> document_split -> document_embedding)
 #
 # 独立编译为子图, 作为父图的一个节点 "node_md_tail" 使用:
 # - md 压缩包扇出时, 每个 md 分支 Send 到本子图, 分支内拥有独立的 state
@@ -26,23 +26,21 @@ class MdTailOutput(TypedDict):
 
     若不限制输出, 子图会把完整状态 (task_id / file_title 等) 写回父图通道,
     md 压缩包多分支并发完成时会在非 reducer 字段上触发 InvalidUpdateError。
+    (item_name 已随 node_item_name_vect 的合并移除)
     """
 
     markdown_file_path: Annotated[str, _keep_latest]
     chunks_json_path: Annotated[str, _keep_latest]
-    item_name: Annotated[str, _keep_latest]
 
 
 md_tail_workflow = StateGraph(ImportGraphState, output_schema=MdTailOutput)
 md_tail_workflow.add_node(node_md_img)
 md_tail_workflow.add_node(node_document_split)
-md_tail_workflow.add_node(node_item_name_vect)
-md_tail_workflow.add_node(node_chunks_vect)
+md_tail_workflow.add_node(node_document_embedding)
 md_tail_workflow.set_entry_point("node_md_img")
 md_tail_workflow.add_edge("node_md_img", "node_document_split")
-md_tail_workflow.add_edge("node_document_split", "node_item_name_vect")
-md_tail_workflow.add_edge("node_item_name_vect", "node_chunks_vect")
-md_tail_workflow.add_edge("node_chunks_vect", END)
+md_tail_workflow.add_edge("node_document_split", "node_document_embedding")
+md_tail_workflow.add_edge("node_document_embedding", END)
 md_tail_processor = md_tail_workflow.compile()
 
 # --------------------------------------------------------------------------- #

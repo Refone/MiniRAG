@@ -110,8 +110,11 @@
 
 1. LLM 生成 `docs_keywords`（英文逗号分隔）+ `docs_abstract`（新 prompt；可合并为一次结构化输出）；
 2. 向量化：keywords → sparse、abstract → dense；chunks 按现有分批 + 线程池逻辑批量向量化；
-3. 插入 `minirag_docs`（auto_id，无返回主键；携带 task_id / file_title / 三个 URL / keywords / abstract / 双向量）；
-4. **查回 id**：`query(filter="task_id == '...'", output_fields=["id"])`，按 **id 降序取第一条**（task_id 已采纳，查询无歧义；降序兜底规避 Milvus delete 延迟可见）；
+3. 插入 `minirag_docs`（auto_id；携带 task_id / file_title / 三个 URL / keywords / abstract / 双向量）。
+   实现备注: pymilvus 3.x 的 insert 会返回生成的主键 (ids), 优先直接使用;
+4. **查回 id（兜底）**：insert 未返回 ids 时按 `filter="task_id == '...'"` 查回,
+   查询用 `consistency_level="Strong"` 保证刚插入的行立即可见
+   (Bounded 一致性存在延迟可见窗口), 并按 **id 降序取第一条**（兜底规避 delete 延迟可见）；
 5. 插入 `minirag_chunks`：携带 `doc_id` + `chunk_index`（按 chunks.json 顺序 enumerate）。
 
 ### 4.3 同名覆盖 / 重导入：先完整删除，后插入新文档（单节点内串行）

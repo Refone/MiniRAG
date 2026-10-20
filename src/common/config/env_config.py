@@ -71,6 +71,11 @@ class MinioSettings(BaseSettings):
     secret_key: str = "minioadmin"
     bucket_name: str = "minirag"
     image_dir: str = "markdown-images"
+    # 文档三份制品 (原始文件 / 最终 markdown / chunks.json) 的目录,
+    # 对象路径为 <dir>/<task_id>/<file_title>/<文件名>
+    origin_dir: str = "origin-files"
+    markdown_dir: str = "final-markdowns"
+    chunks_dir: str = "chunks-json"
     secure: bool = False
 
 
@@ -97,7 +102,7 @@ class MilvusSettings(BaseSettings):
     model_config = SettingsConfigDict(**BASE_CONFIG, env_prefix="MILVUS_")
 
     endpoint: str = "127.0.0.1:19530"
-    collection_item_name: str = "minirag_item_name"
+    collection_docs: str = "minirag_docs"
     collection_chunks: str = "minirag_chunks"
 
 

@@ -23,7 +23,7 @@ wget https://github.com/milvus-io/milvus/raw/refs/heads/master/deployments/docke
 
 | 检查项 | 内容 |
 | --- | --- |
-| Milvus | TCP 连通性 + `minirag_item_name` / `minirag_chunks` 集合初始化 |
+| Milvus | TCP 连通性 + `minirag_docs` / `minirag_chunks` 集合初始化 |
 | MinIO | TCP 连通性 + `minirag` bucket 初始化 (含匿名只读策略) |
 | MongoDB | TCP 连通性 + `ping` |
 | 运行时目录 | `output/uploads` / `output/import` / `logs` 存在且可写 |

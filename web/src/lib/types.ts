@@ -22,7 +22,6 @@ export interface ChatMessage {
 export interface HistoryItem {
   role: string;
   text: string;
-  item_names: string[];
   timestamp: number;
 }
 

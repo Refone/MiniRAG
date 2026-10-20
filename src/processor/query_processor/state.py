@@ -54,11 +54,12 @@ class QueryGraphState(TypedDict):
     enable_hyde: bool  # 是否进行HyDE 搜索
 
     rewritten_query: str  # 重写后的问题
-    item_names: list[str]  # 识别出的询问主体 (用于匹配 Milvus item_name)
+    doc_queries: list[str]  # LLM 识别出的检索线索 (用于一级召回 minirag_docs)
 
-    # Milvus item_name 匹配结果
-    confirm_list: list[str]  # 确认匹配的列表
-    suspect_list: list[str]  # 疑似匹配的列表
+    # minirag_docs 一级召回匹配结果 (对象为文档)
+    confirm_list: list[int]  # 确认匹配的文档 id 列表 (二级召回唯一 doc_id 源)
+    suspect_list: list[int]  # 疑似匹配的文档 id 列表 (confirm 为空时用于终止提示)
+    doc_titles: dict[int, str]  # doc_id -> file_title 展示映射
 
     embedding_recalls: list[MilvusChunksRecall]  # 向量化查询匹配结果
     hyde_recalls: list[MilvusChunksRecall]  # HyDE 搜索匹配结果
@@ -75,9 +76,10 @@ _DEFAULT_STATE: QueryGraphState = {
     "enable_web_search": True,
     "enable_hyde": True,
     "rewritten_query": "",
-    "item_names": [],
+    "doc_queries": [],
     "confirm_list": [],
     "suspect_list": [],
+    "doc_titles": {},
     "embedding_recalls": [],
     "hyde_recalls": [],
     "web_matches": [],

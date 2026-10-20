@@ -1,5 +1,9 @@
 # Milvus 数据库设计
 
+> ⚠️ **历史版本**: 本文档描述的是 `minirag_item_name` / `minirag_chunks` 旧表设计,
+> 已被 `docs/Milvus minirag_docs_meta db design.md` 及重构定案
+> `docs/Milvs DB Refactor.md` 取代, 仅作历史参考。
+
 **文档级索引（kb_item_name）**
 
 核心定位：作为检索的 “一级筛选器”，快速锁定目标文档范围，减少全库切片检索的性能损耗。
