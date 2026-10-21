@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
+import rehypeRaw from "rehype-raw";
 import type { Element, Root } from "hast";
 import {
   findPendingImage,
@@ -11,6 +12,13 @@ interface MarkdownContentProps {
   text: string;
   /** 是否为流式输出中间态：开启时会把未写完的图片语法截下，显示占位 */
   streaming?: boolean;
+  /**
+   * 是否渲染原始 HTML（如 MinerU 输出的 <table> 等）。
+   * 聊天页默认关闭（LLM 输出不信任原始 HTML，防 XSS）；
+   * 文档管理页开启（内容来自用户自己导入的文档，需要与 demo-v4 一致地
+   * 渲染 HTML 表格等）。
+   */
+  allowHtml?: boolean;
 }
 
 /** 段落是否只含图片（允许空白文本节点） */
@@ -109,6 +117,7 @@ function ImagePlaceholder() {
 export function MarkdownContent({
   text,
   streaming = false,
+  allowHtml = false,
 }: MarkdownContentProps) {
   const normalized = useMemo(() => normalizeMarkdownDestinations(text), [text]);
   const pending = useMemo(
@@ -152,7 +161,12 @@ export function MarkdownContent({
     <div className="markdown">
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
-        rehypePlugins={[rehypeGroupImageParagraphs]}
+        rehypePlugins={
+          allowHtml
+            ? // rehype-raw 需在图片分组插件之前, 先把原始 HTML 解析为元素
+              [rehypeRaw, rehypeGroupImageParagraphs]
+            : [rehypeGroupImageParagraphs]
+        }
         components={components}
       >
         {renderText}

@@ -702,7 +702,7 @@ export function ImportPage() {
             ) : previewMode === "markdown" ? (
               <div className="preview-inner">
                 <div className="markdown">
-                  <MarkdownContent text={detail.markdown_text} />
+                  <MarkdownContent text={detail.markdown_text} allowHtml />
                 </div>
               </div>
             ) : previewMode === "features" ? (
@@ -758,7 +758,7 @@ export function ImportPage() {
                           </span>
                         </div>
                         <div className="chunk-card-body markdown">
-                          <MarkdownContent text={chunk.content} />
+                          <MarkdownContent text={chunk.content} allowHtml />
                         </div>
                       </div>
                       {idx < detail.chunks.length - 1 && (
