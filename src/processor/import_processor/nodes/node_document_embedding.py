@@ -54,15 +54,20 @@ def step_2_delete_old_doc(file_title: str) -> None:
     顺序与方案文档 (docs/feat/数据库重构/Milvs DB Refactor.md §4.3) 一致:
     删除全部完成前不做任何新写入, 避免新旧行并存导致检索双份命中。
     V1-7 起 MinIO 对象路径不含 task_id 层级, 单一前缀即覆盖该标题的
-    全部历史制品 (三份制品目录 + 图片目录), 同名覆盖语义不变。
+    全部历史制品 (三份制品目录), 同名覆盖语义不变。
+
+    注意: 图片目录 (markdown-images/<file_title>/) **不能**在这里清理——
+    本节点运行于 node_md_img 之后, 图片已由 node_md_img 重新上传,
+    此处再清理会把本次导入刚上传的图片删掉 (图片的覆盖清理由
+    node_md_img.step_4 的 clear_dir_if_exist + 重传完成; 文档删除接口
+    的图片清理在 docs_service.delete_doc 中, 与导入链路无关)。
     """
     # 1. 按 file_title 查回旧 docs 行 (同名覆盖判定键)
     old_rows = MILVUS_CLIENT.query_doc_rows_by_file_title(file_title)
     old_ids = [row["id"] for row in old_rows]
 
-    # 2. 清理 MinIO 旧制品: 三份制品目录 + 图片目录
+    # 2. 清理 MinIO 旧制品: 仅三份制品目录 (origin / markdown / chunks)
     del_cnt = MINIO_CLIENT.clear_doc_artifacts(file_title)
-    del_cnt += MINIO_CLIENT.clear_doc_images(file_title)
 
     # 3. 删旧 chunks: 按 doc_id 精确删除; 按 file_title 兜底清理历史遗留行
     MILVUS_CLIENT.delete_chunks_by_doc_ids(old_ids)
