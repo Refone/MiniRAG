@@ -545,6 +545,56 @@ export function ImportPage() {
         >
           <div className="stage-track">
             {/* 文档列表视图 */}
+            <section className="view view-import">
+              <header className="panel-header">
+                <button
+                  className="pill"
+                  type="button"
+                  onClick={() => setView("list")}
+                >
+                  文档列表
+                </button>
+                <div className="head-title">
+                  <h2>添加文档</h2>
+                  <span className="head-sub">
+                    支持 PDF / Markdown / Markdown ZIP
+                  </span>
+                </div>
+              </header>
+              <div className="import-body">
+                <div
+                  className={`upload-area${dragging ? " dragging" : ""}`}
+                  onClick={() => fileInputRef.current?.click()}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    setDragging(true);
+                  }}
+                  onDragLeave={() => setDragging(false)}
+                  onDrop={onDrop}
+                >
+                  <div className="upload-icon">☁️</div>
+                  <p>点击或拖拽文件到此处 (PDF / MD / ZIP)</p>
+                  <p className="sub">
+                    ZIP 为 markdown 合集，包内每个 md 将成为一篇独立文档
+                  </p>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    className="file-input"
+                    multiple
+                    accept=".pdf,.md,.markdown,.zip"
+                    onChange={onInputChange}
+                  />
+                </div>
+                <div className="file-list">
+                  {files.map((f) => (
+                    <ImportTaskItem key={f.id} file={f} />
+                  ))}
+                </div>
+              </div>
+            </section>
+
+            {/* 导入视图 */}
             <section className="view view-list">
               <header className="panel-header">
                 <button
@@ -593,56 +643,6 @@ export function ImportPage() {
                     />
                   ))
                 )}
-              </div>
-            </section>
-
-            {/* 导入视图 */}
-            <section className="view view-import">
-              <header className="panel-header">
-                <button
-                  className="pill"
-                  type="button"
-                  onClick={() => setView("list")}
-                >
-                  文档列表
-                </button>
-                <div className="head-title">
-                  <h2>添加文档</h2>
-                  <span className="head-sub">
-                    支持 PDF / Markdown / Markdown ZIP
-                  </span>
-                </div>
-              </header>
-              <div className="import-body">
-                <div
-                  className={`upload-area${dragging ? " dragging" : ""}`}
-                  onClick={() => fileInputRef.current?.click()}
-                  onDragOver={(e) => {
-                    e.preventDefault();
-                    setDragging(true);
-                  }}
-                  onDragLeave={() => setDragging(false)}
-                  onDrop={onDrop}
-                >
-                  <div className="upload-icon">☁️</div>
-                  <p>点击或拖拽文件到此处 (PDF / MD / ZIP)</p>
-                  <p className="sub">
-                    ZIP 为 markdown 合集，包内每个 md 将成为一篇独立文档
-                  </p>
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    className="file-input"
-                    multiple
-                    accept=".pdf,.md,.markdown,.zip"
-                    onChange={onInputChange}
-                  />
-                </div>
-                <div className="file-list">
-                  {files.map((f) => (
-                    <ImportTaskItem key={f.id} file={f} />
-                  ))}
-                </div>
               </div>
             </section>
           </div>
@@ -837,8 +837,18 @@ export function ImportPage() {
       {/* toast（左下角） */}
       <div className="toast-wrap">
         {toasts.map((t) => (
-          <div key={t.id} className={`toast toast-${t.kind}`}>
-            {t.text}
+          <div
+            key={t.id}
+            className={`toast${
+              t.kind === "success"
+                ? " success"
+                : t.kind === "error"
+                  ? " error"
+                  : ""
+            }`}
+          >
+            <span className="toast-dot" />
+            <span>{t.text}</span>
           </div>
         ))}
       </div>
