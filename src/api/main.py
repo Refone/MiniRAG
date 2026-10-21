@@ -1,6 +1,7 @@
 from contextlib import asynccontextmanager
 
 from fastapi import (
+    APIRouter,
     FastAPI,
     Request,
     BackgroundTasks,
@@ -9,13 +10,23 @@ from fastapi import (
     UploadFile,
 )
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 
 from api import __version__
-from api.schemas import QueryRequest, UploadResponse, UploadStatusResponse
+from api.schemas import (
+    QueryRequest,
+    UploadResponse,
+    UploadStatusResponse,
+    DocsListResponse,
+    DocsDetailResponse,
+    DocsDeleteResponse,
+)
 import uuid
 from pathlib import Path
+from common.client import MINIO_CLIENT
 from common.config.app_config import APP_CONFIG
+from common.config.env_config import ENV_CONFIG
+from service import docs_service
 from service.import_service import arun_import
 from service.query_service import arun_query
 from utils import task_utils
@@ -50,14 +61,18 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# 全部业务路由统一挂 /api 前缀 (nginx /api/ 原样透传, docker healthcheck
+# 探 /api/health 均据此成立); swagger 文档仍在 app 级 /docs 不受影响
+router = APIRouter(prefix="/api")
 
-@app.get("/health")
+
+@router.get("/health")
 async def health() -> dict:
     """健康检查, 同时用于 docker-compose healthcheck。"""
     return {"status": "ok", "version": __version__}
 
 
-@app.post("/upload", response_model=UploadResponse, status_code=202)
+@router.post("/upload", response_model=UploadResponse, status_code=202)
 async def import_document(
     request: Request,
     background_tasks: BackgroundTasks,
@@ -84,7 +99,7 @@ async def import_document(
     )
 
 
-@app.get("/upload/status/{task_id}", response_model=UploadStatusResponse)
+@router.get("/upload/status/{task_id}", response_model=UploadStatusResponse)
 async def import_status(
     request: Request,
     task_id: str,
@@ -105,7 +120,7 @@ async def import_status(
     )
 
 
-@app.post("/query")
+@router.post("/query")
 def query(
     request: Request,
     background_tasks: BackgroundTasks,
@@ -134,7 +149,7 @@ def query(
     }
 
 
-@app.get("/query/sse/{session_id}")
+@router.get("/query/sse/{session_id}")
 async def query_sse(
     request: Request,
     session_id: str,
@@ -150,7 +165,7 @@ async def query_sse(
     )
 
 
-@app.get("/history/{session_id}")
+@router.get("/history/{session_id}")
 def history(
     request: Request,
     session_id: str,
@@ -167,7 +182,7 @@ def history(
     return {"status": "ok", "history": message_list}
 
 
-@app.delete("/history/{session_id}")
+@router.delete("/history/{session_id}")
 def delete_history(
     request: Request,
     session_id: str,
@@ -179,3 +194,97 @@ def delete_history(
         "status": "ok",
         "msg": f"历史记录已删除: {session_id}, 删除条数: {deleted_count}",
     }
+
+
+# ------------------------------------------------------------------ #
+# 文档管理页
+# ------------------------------------------------------------------ #
+
+
+@router.get("/docs", response_model=DocsListResponse)
+def list_docs(
+    request: Request,
+    offset: int = 0,
+    limit: int = 20,
+) -> DocsListResponse:
+    logger.info(f"[{str(request.url)}], offset={offset}, limit={limit}")
+
+    # limit 校验范围 1~100 (越界 clamp); offset 为负时 Milvus 直接报错, 一并 clamp 到 0
+    offset = max(0, offset)
+    limit = max(1, min(limit, 100))
+
+    return docs_service.list_docs(offset=offset, limit=limit)
+
+
+@router.get("/docs/{doc_id}", response_model=DocsDetailResponse)
+def get_doc_detail(
+    request: Request,
+    doc_id: str,
+) -> DocsDetailResponse:
+    logger.info(f"[{str(request.url)}], doc_id={doc_id}")
+
+    try:
+        doc_id_int = int(doc_id)
+    except ValueError:
+        raise HTTPException(status_code=404, detail=f"文档不存在: doc_id={doc_id}")
+
+    try:
+        return docs_service.get_doc_detail(doc_id_int)
+    except docs_service.DocNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.delete("/docs/{doc_id}", response_model=DocsDeleteResponse)
+def delete_doc(
+    request: Request,
+    doc_id: str,
+) -> DocsDeleteResponse:
+    logger.info(f"[{str(request.url)}], doc_id={doc_id}")
+
+    try:
+        doc_id_int = int(doc_id)
+    except ValueError:
+        raise HTTPException(status_code=404, detail=f"文档不存在: doc_id={doc_id}")
+
+    try:
+        docs_service.delete_doc(doc_id_int)
+    except docs_service.DocNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except RuntimeError as e:
+        logger.error(f"删除文档级联清理未完整完成: doc_id={doc_id}, error={e}")
+        # 契约 (后端方案 §6): 部分失败 → 500 + {"success": false, "detail": ...}
+        return JSONResponse(
+            status_code=500,
+            content={"success": False, "detail": f"删除未完整完成: {e}"},
+        )
+
+    return DocsDeleteResponse(success=True)
+
+
+@router.get("/files/{object_name:path}")
+def get_file(
+    request: Request,
+    object_name: str,
+):
+    logger.info(f"[{str(request.url)}], object_name={object_name}")
+
+    # 安全加固: 仅允许四个业务目录前缀, 其余一律 404 (默认开启)
+    allowed_prefixes = {
+        f"{ENV_CONFIG.minio.image_dir}/",
+        f"{ENV_CONFIG.minio.origin_dir}/",
+        f"{ENV_CONFIG.minio.markdown_dir}/",
+        f"{ENV_CONFIG.minio.chunks_dir}/",
+    }
+    if not any(object_name.startswith(prefix) for prefix in allowed_prefixes):
+        raise HTTPException(status_code=404, detail=f"对象不存在: {object_name}")
+
+    try:
+        content_type, chunk_iter = MINIO_CLIENT.get_object_stream(object_name)
+    except Exception:
+        raise HTTPException(status_code=404, detail=f"对象不存在: {object_name}")
+
+    # media_type 为 stat 出的 content_type (PDF inline 预览 / 图片渲染 / JSON)
+    return StreamingResponse(chunk_iter, media_type=content_type)
+
+
+app.include_router(router)

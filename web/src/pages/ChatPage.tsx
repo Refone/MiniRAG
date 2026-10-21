@@ -217,7 +217,7 @@ export function ChatPage() {
     let connected = false;
     let failure: unknown = null;
     try {
-      const res = await fetch(`${API_BASE}/health`);
+      const res = await fetch(`${API_BASE}/api/health`);
       if (!res.ok) throw new Error(`health 返回 ${res.status}`);
       connected = true;
     } catch (err) {
@@ -240,7 +240,7 @@ export function ChatPage() {
   // 加载历史记录
   const loadHistory = useCallback(async () => {
     try {
-      const res = await fetch(`${API_BASE}/history/${sessionId}`);
+      const res = await fetch(`${API_BASE}/api/history/${sessionId}`);
       if (!res.ok) return;
       const data = await res.json();
       // 返回格式见 src/api/main.py
@@ -341,7 +341,7 @@ export function ChatPage() {
     enableWebSearch: boolean,
     enableHyde: boolean,
   ): Promise<QueryResponse> {
-    const res = await fetch(`${API_BASE}/query`, {
+    const res = await fetch(`${API_BASE}/api/query`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -404,7 +404,7 @@ export function ChatPage() {
 
       // 流式：SSE
       const { session_id } = data;
-      const es = new EventSource(`${API_BASE}/query/sse/${session_id}`);
+      const es = new EventSource(`${API_BASE}/api/query/sse/${session_id}`);
       esRef.current = es;
       es.addEventListener("open", () =>
         console.log(`[chat] SSE 已连接（/query/sse/${session_id}）`),
@@ -509,7 +509,7 @@ export function ChatPage() {
 
     try {
       console.log(`[chat] 清空会话历史（${sessionId}）`);
-      const res = await fetch(`${API_BASE}/history/${sessionId}`, {
+      const res = await fetch(`${API_BASE}/api/history/${sessionId}`, {
         method: "DELETE",
       });
       if (!res.ok) {

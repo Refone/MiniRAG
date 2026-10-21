@@ -9,7 +9,7 @@ export default function App() {
 
   const handlePageChange = (next: PageKey) => {
     if (next === page) return;
-    console.log(`[nav] 切换到「${next === "chat" ? "对话" : "文件导入"}」`);
+    console.log(`[nav] 切换到「${next === "chat" ? "对话" : "文档管理"}」`);
     setPage(next);
   };
 

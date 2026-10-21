@@ -21,6 +21,7 @@ class MilvusDocsField:
     ORIGIN_FILE_URL = "origin_file_url"
     FINAL_MARKDOWN_URL = "final_markdown_url"
     CHUNKS_URL = "chunks_url"
+    CREATED_AT = "created_at"
     DOCS_KEYWORDS = "docs_keywords"
     DOCS_ABSTRACT = "docs_abstract"
     KEYWORDS_SPARSE_VECTOR = "keywords_sparse_vector"
@@ -39,6 +40,7 @@ class MilvusDocsItem(TypedDict):
     origin_file_url: str
     final_markdown_url: str
     chunks_url: str
+    created_at: int  # 入库时间 (epoch 毫秒)
     docs_keywords: str
     docs_abstract: str
     keywords_sparse_vector: dict[int, float]
@@ -424,6 +426,97 @@ class MiniRagMilvusClient(MilvusClient):
         )
 
     # ------------------------------------------------------------------ #
+    # 文档管理页辅助 (list / detail / delete 与 files 代理使用)
+    # ------------------------------------------------------------------ #
+
+    def query_doc_by_id(self, doc_id: int) -> dict | None:
+        """按主键 id 查回单个 docs 行 (文档管理页详情/删除用)。
+
+        输出字段不含两个向量列 (向量查询无需返回, 直接显式列出标量列)。
+        consistency_level=Strong: 与 query_doc_id 同理, 规避 delete 的
+        Bounded 一致性延迟可见窗口 (否则删除后立刻重复删除会误判行仍存在)。
+        """
+        res = self.query(
+            collection_name=ENV_CONFIG.milvus.collection_docs,
+            filter=f"{MilvusDocsField.ID} == {doc_id}",
+            output_fields=[
+                MilvusDocsField.FILE_TITLE,
+                MilvusDocsField.ORIGIN_FILE_URL,
+                MilvusDocsField.FINAL_MARKDOWN_URL,
+                MilvusDocsField.CHUNKS_URL,
+                MilvusDocsField.DOCS_KEYWORDS,
+                MilvusDocsField.DOCS_ABSTRACT,
+            ],
+            limit=1,
+            consistency_level="Strong",
+        )
+        if not res:
+            return None
+        return res[0]
+
+    def query_docs_page(self, offset: int, limit: int) -> list[dict]:
+        """按 id 降序分页返回 docs 行 (文档管理页列表用)。
+
+        输出字段仅取列表页需要的标量列 (id / file_title / origin_file_url /
+        chunks_url), 不含 abstract_dense_vector / keywords_sparse_vector 向量列。
+        consistency_level=Strong: 删除后立刻刷新列表, 避免 Bounded 一致性
+        延迟导致 total 与 list 短暂不一致。
+        """
+        res = self.query(
+            collection_name=ENV_CONFIG.milvus.collection_docs,
+            filter="",
+            output_fields=[
+                MilvusDocsField.ID,
+                MilvusDocsField.FILE_TITLE,
+                MilvusDocsField.ORIGIN_FILE_URL,
+                MilvusDocsField.CHUNKS_URL,
+            ],
+            offset=offset,
+            limit=limit,
+            # 当前服务端 (Milvus 3.x) 接受的 order_by 格式为 "<field>:<asc|desc>",
+            # 空格形式 ("id desc") 会被当作字段名整体校验而报错
+            order_by=f"{MilvusDocsField.ID}:desc",
+            consistency_level="Strong",
+        )
+        return list(res) if res else []
+
+    def count_docs(self) -> int:
+        """统计 docs 集合行数 (Strong 一致性, 与 query_docs_page 对齐)。
+
+        优先用 count(*) 聚合查询一次取回; 若当前 pymilvus 版本对
+        output_fields=["count(*)"] 不支持 (抛异常或空返回), 回退为
+        offset 分页累加 (数据量大时较慢, 仅作兜底)。
+        """
+        try:
+            res = self.query(
+                collection_name=ENV_CONFIG.milvus.collection_docs,
+                output_fields=["count(*)"],
+                consistency_level="Strong",
+            )
+            if res:
+                return int(res[0]["count(*)"])
+            logger.warning("count(*) 聚合查询返回为空, 回退分页累加统计")
+        except Exception as e:
+            logger.warning(f"count(*) 聚合查询失败 ({e}), 回退分页累加统计")
+
+        total = 0
+        offset = 0
+        page_size = 16384
+        while True:
+            rows = self.query_docs_page(offset=offset, limit=page_size)
+            total += len(rows)
+            if len(rows) < page_size:
+                return total
+            offset += page_size
+
+    def delete_doc_by_id(self, doc_id: int) -> None:
+        """按主键 id 精确删除单个 docs 行 (文档管理页删除用)。"""
+        self.delete(
+            collection_name=ENV_CONFIG.milvus.collection_docs,
+            filter=f"{MilvusDocsField.ID} == {doc_id}",
+        )
+
+    # ------------------------------------------------------------------ #
     # 集合初始化
     # ------------------------------------------------------------------ #
 
@@ -462,6 +555,9 @@ class MiniRagMilvusClient(MilvusClient):
             field_name=MilvusDocsField.CHUNKS_URL,
             datatype=DataType.VARCHAR,
             max_length=0xFFFF,
+        ).add_field(
+            field_name=MilvusDocsField.CREATED_AT,
+            datatype=DataType.INT64,
         ).add_field(
             field_name=MilvusDocsField.DOCS_KEYWORDS,
             datatype=DataType.VARCHAR,

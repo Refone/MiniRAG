@@ -213,7 +213,8 @@ def step_4_upload_images_get_url(
 
     image_url_dict = {}
 
-    prefix = ENV_CONFIG.minio.image_dir + "/" + file_title
+    # 图片前缀统一带尾斜杠: <image_dir>/<file_title>/
+    prefix = f"{ENV_CONFIG.minio.image_dir}/{file_title}/"
 
     # 查询 MinIO 中是否已经存在同名文件夹, 若存在, 直接删除(同名则覆盖原则)
     del_cnt = MINIO_CLIENT.clear_dir_if_exist(prefix)

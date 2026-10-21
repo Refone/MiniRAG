@@ -48,22 +48,21 @@ def step_1_validate_and_get_data(
 
 
 @step_log(desc="同名覆盖: 完整删除旧文档数据")
-def step_2_delete_old_doc(task_id: str, file_title: str) -> None:
+def step_2_delete_old_doc(file_title: str) -> None:
     """按 file_title 找到旧 docs 行, 完整删除旧 chunks / docs / MinIO 制品。
 
     顺序与方案文档 (docs/feat/数据库重构/Milvs DB Refactor.md §4.3) 一致:
     删除全部完成前不做任何新写入, 避免新旧行并存导致检索双份命中。
+    V1-7 起 MinIO 对象路径不含 task_id 层级, 单一前缀即覆盖该标题的
+    全部历史制品 (三份制品目录 + 图片目录), 同名覆盖语义不变。
     """
     # 1. 按 file_title 查回旧 docs 行 (同名覆盖判定键)
     old_rows = MILVUS_CLIENT.query_doc_rows_by_file_title(file_title)
     old_ids = [row["id"] for row in old_rows]
 
-    # 2. 递归清理 MinIO 旧制品: 旧 task_id 前缀 (覆盖历史导入) +
-    #    当前 task_id 前缀 (同批次重跑残留)
-    task_ids = list({row["task_id"] for row in old_rows} | {task_id})
-    del_cnt = 0
-    for tid in task_ids:
-        del_cnt += MINIO_CLIENT.clear_doc_artifacts(tid, file_title)
+    # 2. 清理 MinIO 旧制品: 三份制品目录 + 图片目录
+    del_cnt = MINIO_CLIENT.clear_doc_artifacts(file_title)
+    del_cnt += MINIO_CLIENT.clear_doc_images(file_title)
 
     # 3. 删旧 chunks: 按 doc_id 精确删除; 按 file_title 兜底清理历史遗留行
     MILVUS_CLIENT.delete_chunks_by_doc_ids(old_ids)
@@ -110,7 +109,7 @@ def step_3_upload_artifacts(
     if origin_path.is_file():
         origin_url = MINIO_CLIENT.upload_file(
             prefix=MINIO_CLIENT.doc_artifact_prefix(
-                ENV_CONFIG.minio.origin_dir, task_id, file_title
+                ENV_CONFIG.minio.origin_dir, file_title
             ),
             as_name=origin_path.name,
             file_path=str(origin_path),
@@ -118,7 +117,7 @@ def step_3_upload_artifacts(
 
     markdown_url = MINIO_CLIENT.upload_file(
         prefix=MINIO_CLIENT.doc_artifact_prefix(
-            ENV_CONFIG.minio.markdown_dir, task_id, file_title
+            ENV_CONFIG.minio.markdown_dir, file_title
         ),
         as_name=md_path.name,
         file_path=str(md_path),
@@ -126,7 +125,7 @@ def step_3_upload_artifacts(
 
     chunks_url = MINIO_CLIENT.upload_file(
         prefix=MINIO_CLIENT.doc_artifact_prefix(
-            ENV_CONFIG.minio.chunks_dir, task_id, file_title
+            ENV_CONFIG.minio.chunks_dir, file_title
         ),
         as_name=chunks_path.name,
         file_path=str(chunks_path),
@@ -279,6 +278,7 @@ def step_6_insert_docs_and_query_id(
                 origin_file_url=origin_file_url,
                 final_markdown_url=final_markdown_url,
                 chunks_url=chunks_url,
+                created_at=int(time.time() * 1000),
                 docs_keywords=keywords,
                 docs_abstract=abstract,
                 keywords_sparse_vector=keywords_sparse,
@@ -363,7 +363,7 @@ def node_document_embedding(state: ImportGraphState) -> ImportGraphState:
     )
 
     # 2. 同名覆盖: 先完整删除旧文档 (chunks + docs + MinIO 制品)
-    step_2_delete_old_doc(task_id, file_title)
+    step_2_delete_old_doc(file_title)
 
     # 3. 上传新三份制品至 MinIO
     origin_file_url, final_markdown_url, chunks_url = step_3_upload_artifacts(

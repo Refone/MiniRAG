@@ -8,7 +8,7 @@ interface NavBarProps {
 
 const TABS: { key: PageKey; label: string; icon: string }[] = [
   { key: "chat", label: "对话", icon: "💬" },
-  { key: "import", label: "文件导入", icon: "📄" },
+  { key: "import", label: "文档管理", icon: "📚" },
 ];
 
 export function NavBar({ page, onPageChange }: NavBarProps) {
@@ -20,7 +20,7 @@ export function NavBar({ page, onPageChange }: NavBarProps) {
         <div className="logo" aria-hidden="true" />
         <div className="title">
           <strong>MiniRAG</strong>
-          <span>智能本地知识库 · 对话与文档导入</span>
+          <span>智能本地知识库 · 对话与文档管理</span>
         </div>
       </div>
 

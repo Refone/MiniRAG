@@ -1,10 +1,14 @@
 import json
+from collections.abc import Iterator
 from mimetypes import guess_type
 from minio import Minio
 from minio.deleteobjects import DeleteObject
 from utils.logging_utils import logger
 from utils.net_utils import probe_tcp
 from common.config.env_config import ENV_CONFIG
+
+# 入库的相对代理路径前缀 (upload_file 返回形态, docs_service 读回时去除)
+_PROXY_FILES_PREFIX = "/api/files/"
 
 
 class MiniRagMinioClient:
@@ -90,18 +94,19 @@ class MiniRagMinioClient:
 
         return delete_cnt
 
-    def doc_artifact_prefix(self, doc_dir: str, task_id: str, file_title: str) -> str:
-        """某文档单份制品在 MinIO 上的路径前缀: <doc_dir>/<task_id>/<file_title>。
+    def doc_artifact_prefix(self, doc_dir: str, file_title: str) -> str:
+        """某文档单份制品在 MinIO 上的路径前缀: <doc_dir>/<file_title>。
 
-        前缀命名包含 task_id: 避免不同导入批次的制品互相覆盖/误删。
+        对象路径统一为 <dir>/<file_title>/<文件名>, 不含 task_id 层级
+        (V1-7), 同名覆盖导入时单一前缀即可覆盖全部历史制品。
         """
-        return f"{doc_dir}/{task_id}/{file_title}"
+        return f"{doc_dir}/{file_title}"
 
-    def clear_doc_artifacts(self, task_id: str, file_title: str) -> int:
+    def clear_doc_artifacts(self, file_title: str) -> int:
         """递归清理该文档的三份制品目录 (origin / markdown / chunks)。
 
-        前缀带尾斜杠精确匹配到目录, 避免 task_id / file_title 前缀相似的
-        兄弟文档被误删; 幂等, 目录不存在时返回 0。
+        前缀带尾斜杠精确匹配到目录, 避免 file_title 前缀相似的兄弟文档
+        被误删; 幂等, 目录不存在时返回 0。
         """
         doc_dirs = (
             ENV_CONFIG.minio.origin_dir,
@@ -110,12 +115,24 @@ class MiniRagMinioClient:
         )
         total = 0
         for doc_dir in doc_dirs:
-            prefix = self.doc_artifact_prefix(doc_dir, task_id, file_title) + "/"
+            prefix = f"{doc_dir}/{file_title}/"
             del_cnt = self.clear_dir_if_exist(prefix)
             total += del_cnt
             if del_cnt:
                 logger.info(f"MinIO 制品清理: {prefix} 删除 {del_cnt} 个对象")
         return total
+
+    def clear_doc_images(self, file_title: str) -> int:
+        """递归清理该文档的图片目录 (markdown-images/<file_title>/)。
+
+        与三份制品分开封装: 删除文档时需一并清理, 否则图片成孤儿对象。
+        幂等, 目录不存在时返回 0。
+        """
+        prefix = f"{ENV_CONFIG.minio.image_dir}/{file_title}/"
+        del_cnt = self.clear_dir_if_exist(prefix)
+        if del_cnt:
+            logger.info(f"MinIO 图片清理: {prefix} 删除 {del_cnt} 个对象")
+        return del_cnt
 
     def remove_bucket(self) -> int:
         """删除 bucket 中的所有对象后删除 bucket，返回成功删除的对象数。
@@ -149,15 +166,19 @@ class MiniRagMinioClient:
         """上传一个文件
 
         Args:
-            prefix: 云端路径
+            prefix: 云端路径 (带或不带尾斜杠均可, 拼接时统一归一)
             as_name: 云端文件名
             file_path: 本地文件路径
         Returns:
-            云端文件 url
+            相对代理路径 /api/files/<object_name> (浏览器经前端同源入口访问,
+            入库即代理地址, 运行时零改写)
         """
+        # 归一化尾斜杠: 调用侧前缀带尾斜杠 (如 {dir}/{file_title}/) 时不产生双斜杠
+        object_name = f"{prefix.rstrip('/')}/{as_name}"
+
         res = self._minio.fput_object(
             bucket_name=self.bucket_name,
-            object_name=prefix + "/" + as_name,
+            object_name=object_name,
             file_path=file_path,
             content_type=guess_type(file_path)[0],
         )
@@ -166,7 +187,36 @@ class MiniRagMinioClient:
 
         rprint(res)
 
-        return f"http://{self.endpoint}/{self.bucket_name}/{prefix}/{as_name}"
+        return f"{_PROXY_FILES_PREFIX}{object_name}"
+
+    def get_object_stream(self, object_name: str) -> tuple[str, Iterator[bytes]]:
+        """流式读取一个对象, 供 FastAPI StreamingResponse 使用。
+
+        stat_object 在返回前同步执行 (对象不存在时立即抛 S3Error,
+        调用侧可据此返回 404), get_object 响应按 chunk 惰性迭代。
+
+        Returns:
+            (content_type, 字节块生成器)
+        """
+        stat = self._minio.stat_object(
+            bucket_name=self.bucket_name, object_name=object_name
+        )
+        response = self._minio.get_object(
+            bucket_name=self.bucket_name, object_name=object_name
+        )
+
+        def _iter_chunks() -> Iterator[bytes]:
+            try:
+                while True:
+                    chunk = response.read(64 * 1024)
+                    if not chunk:
+                        break
+                    yield chunk
+            finally:
+                response.close()
+                response.release_conn()
+
+        return stat.content_type or "application/octet-stream", _iter_chunks()
 
 
 if __name__ == "__main__":
