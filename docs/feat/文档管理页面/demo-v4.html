@@ -1,0 +1,2336 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="light">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>文档管理页面 · demo-v4（fake 数据）</title>
+    <!--
+  ═══════════════════════════════════════════════════════════════════
+  文档管理页面 · 交互原型 demo-v4（依据 交互评审v3.md 调整）
+  ───────────────────────────────────────────────────────────────────
+  · 纯静态单文件：无外部依赖，双击直接打开（file:// 可用）。
+  · 全部为 fake 数据：数据定义在脚本开头 FAKE_DOCS。
+  · v2 主要变更（详见 方案设计.md §10）：
+      1) Item 调整：移除摘要与展开按钮；标题下方显示原始文档类型（pdf | markdown）；
+         PDF / 切块文件 / 删除 三按钮放回 Item（PDF 按钮仅 pdf 文档显示）
+      2) 右半区标题区精简：仅剩 文档标题 + 三档开关
+      3) 开关改为三档分段开关：原文 ｜ 切块 ｜ 特征（交互/UI 照抄 tools/markdown-splitter
+         的 segmented 开关：滑动白 thumb + 按钮标签常显）
+         · 原文 = markdown 渲染；切块 = splitter split 风格 + ChunkRail；
+         · 特征 = 新子页：文档关键词 + 摘要
+      4) 移除 body-info 的 chunks 信息（切块模式由 Rail caption「total chunk: N」呈现）
+      5) 配色小幅调整：提高面板/背景/文字/rail 的区分度（幅度克制）
+      6) toast 移到左下角、离边缘稍远（左侧操作时注意力在左）
+  · v3 变更（详见 方案设计.md §11）：
+      7) 导入区正确提示并支持 markdown zip：上传文案改为 (PDF / MD / ZIP)，
+         说明「包内每个 md 将成为一篇独立文档」；演示任务新增 zip 扇出案例
+      8) rail-caption 右对齐，文案简化为「total: N」
+  · v4 变更（详见 方案设计.md §12）：
+      9) 右区新增缺省空白页（提示选择文档 + 三模式说明文字），其余 UI 不变
+      10) 反馈修订：空态扁平化——图标纯字形、模式说明纯文本，不加浮层/卡片样式
+      11) 反馈修订：模式说明改上中下三行居中，空态整体对齐滚动区视觉中心
+  ═══════════════════════════════════════════════════════════════════
+-->
+    <style>
+      /* ============ 主题变量（v2：微调配色，提升区分度；仍无渐变、Elevated Card） ============ */
+      :root {
+        color-scheme: light;
+        --bg: #eef1f5;
+        --panel: #ffffff;
+        --panel-2: #f2f5f9;
+        --text: #1f2d3d;
+        --muted: #67748a;
+        --brand: #1aa7ff;
+        --brand-press: #0e93e8;
+        --brand-tint: rgba(26, 167, 255, 0.1);
+        --danger: #e74c3c;
+        --danger-tint: rgba(231, 76, 60, 0.1);
+        --info: #3498db;
+        --warning: #f39c12;
+        --success: #2ecc71;
+        --seg-bg: #e6eaf1; /* 分段开关凹槽 */
+        --rail-bar: #c3cbd8;
+        --log-line: #56657a;
+        /* Elevated Card 阴影层级（v2 略加强） */
+        --sh-1:
+          0 1px 2px rgba(31, 45, 61, 0.07), 0 1px 6px rgba(31, 45, 61, 0.05);
+        --sh-2:
+          0 2px 8px rgba(31, 45, 61, 0.08), 0 10px 28px rgba(31, 45, 61, 0.1);
+        --sh-3:
+          0 6px 16px rgba(31, 45, 61, 0.12), 0 18px 44px rgba(31, 45, 61, 0.14);
+      }
+      [data-theme="dark"] {
+        color-scheme: dark;
+        --bg: #0a0e14;
+        --panel: #151a24;
+        --panel-2: #1d2430;
+        --text: #e7ecf5;
+        --muted: #97a3b8;
+        --brand: #2bb1ff;
+        --brand-press: #59c1ff;
+        --brand-tint: rgba(43, 177, 255, 0.14);
+        --danger: #e74c3c;
+        --danger-tint: rgba(231, 76, 60, 0.16);
+        --seg-bg: #222936;
+        --rail-bar: #47536b;
+        --log-line: #a9b4c5;
+        --sh-1: 0 1px 2px rgba(0, 0, 0, 0.45), 0 1px 6px rgba(0, 0, 0, 0.35);
+        --sh-2: 0 2px 8px rgba(0, 0, 0, 0.5), 0 12px 30px rgba(0, 0, 0, 0.5);
+        --sh-3: 0 8px 20px rgba(0, 0, 0, 0.6), 0 22px 52px rgba(0, 0, 0, 0.55);
+      }
+
+      /* ============ 基础 ============ */
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        height: 100%;
+      }
+      body {
+        margin: 0;
+        font-family:
+          "Segoe UI",
+          "Microsoft YaHei",
+          system-ui,
+          -apple-system,
+          Arial,
+          sans-serif;
+        background: var(--bg);
+        color: var(--text);
+      }
+      button {
+        font-family: inherit;
+      }
+
+      /* ============ 应用骨架 ============ */
+      .app-shell {
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+
+      /* ============ 顶部导航栏 ============ */
+      .navbar {
+        flex: 0 0 auto;
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        padding: 10px 20px;
+        background: var(--panel);
+        box-shadow: var(--sh-1);
+        position: relative;
+        z-index: 5;
+      }
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        min-width: 0;
+      }
+      .logo {
+        width: 34px;
+        height: 34px;
+        border-radius: 10px;
+        background: var(--brand);
+        box-shadow: 0 6px 14px rgba(26, 167, 255, 0.3);
+        flex: 0 0 auto;
+      }
+      .title {
+        display: flex;
+        flex-direction: column;
+        line-height: 1.1;
+        min-width: 0;
+      }
+      .title strong {
+        font-size: 14px;
+        white-space: nowrap;
+      }
+      .title span {
+        font-size: 12px;
+        color: var(--muted);
+        margin-top: 3px;
+      }
+      .tabs {
+        display: flex;
+        gap: 6px;
+        margin-left: auto;
+      }
+      .tab {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        background: var(--panel-2);
+        color: var(--muted);
+        padding: 7px 14px;
+        border-radius: 999px;
+        font-size: 13px;
+        cursor: pointer;
+        border: none;
+        box-shadow: var(--sh-1);
+        transition:
+          color 0.15s,
+          background 0.15s;
+      }
+      .tab:hover {
+        color: var(--text);
+      }
+      .tab.active {
+        background: var(--brand);
+        color: #fff;
+      }
+      .tab.active:hover {
+        background: var(--brand-press);
+      }
+      .theme-toggle {
+        flex: 0 0 auto;
+        border: none;
+        background: var(--panel-2);
+        color: var(--text);
+        padding: 7px 12px;
+        border-radius: 999px;
+        font-size: 13px;
+        cursor: pointer;
+        box-shadow: var(--sh-1);
+      }
+
+      /* ============ 文档管理页：左右两张 Elevated Card ============ */
+      .docs-page {
+        flex: 1 1 auto;
+        min-height: 0;
+        display: flex;
+        gap: 16px;
+        padding: 16px;
+      }
+      .elevated {
+        background: var(--panel);
+        border-radius: 16px;
+        box-shadow: var(--sh-2);
+      }
+
+      /* ---- 左卡片 ---- */
+      .left-panel {
+        flex: 0 0 360px;
+        width: 360px;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+
+      /* 横向滑轨舞台：[导入视图][列表视图] 并排，宽 200% */
+      .left-stage {
+        position: relative;
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow: hidden;
+      }
+      .stage-track {
+        display: flex;
+        width: 200%;
+        height: 100%;
+        transform: translateX(-50%);
+        transition: transform 0.45s cubic-bezier(0.33, 1, 0.68, 1);
+      }
+      .left-stage.show-import .stage-track {
+        transform: translateX(0);
+      }
+      .view {
+        flex: 0 0 50%;
+        width: 50%;
+        min-width: 0;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+
+      /* panel-header：切换按钮（两视图同位）+ 标题块 + 操作 */
+      .panel-header {
+        flex: 0 0 auto;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 12px 14px;
+      }
+      .head-title {
+        flex: 1 1 auto;
+        min-width: 0;
+      }
+      .head-title h2 {
+        margin: 0;
+        font-size: 15px;
+        font-weight: 600;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .head-sub {
+        display: block;
+        margin-top: 3px;
+        font-size: 12px;
+        color: var(--muted);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .pill {
+        flex: 0 0 auto;
+        border: none;
+        background: var(--panel-2);
+        color: var(--muted);
+        padding: 7px 14px;
+        border-radius: 999px;
+        font-size: 13px;
+        cursor: pointer;
+        box-shadow: var(--sh-1);
+        transition:
+          color 0.15s,
+          background 0.15s,
+          transform 0.05s;
+      }
+      .pill:hover {
+        color: var(--text);
+      }
+      .pill:active {
+        transform: translateY(1px);
+      }
+      .pill.primary {
+        background: var(--brand);
+        color: #fff;
+      }
+      .pill.primary:hover {
+        background: var(--brand-press);
+        color: #fff;
+      }
+      .pill:disabled {
+        opacity: 0.55;
+        cursor: default;
+      }
+      .shimmer {
+        color: transparent;
+        background-image: linear-gradient(
+          100deg,
+          #9aa6b2 30%,
+          #e8ecf1 50%,
+          #9aa6b2 70%
+        );
+        background-size: 200% 100%;
+        background-clip: text;
+        -webkit-background-clip: text;
+        animation: shimmer 1.1s ease-in-out infinite;
+      }
+      @keyframes shimmer {
+        0% {
+          background-position: 120% 0;
+        }
+        100% {
+          background-position: -80% 0;
+        }
+      }
+
+      /* ---- 文档列表（v2 item：标题 + 类型文字 + 三按钮） ---- */
+      .doc-list-scroll {
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow-y: auto;
+        padding: 4px 12px 14px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      .doc-list-empty {
+        margin: auto;
+        text-align: center;
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.8;
+      }
+      .doc-item {
+        padding: 10px 12px;
+        border-radius: 12px;
+        background: var(--panel);
+        box-shadow: var(--sh-1);
+        cursor: pointer;
+        transition:
+          box-shadow 0.15s,
+          background 0.15s;
+      }
+      .doc-item:hover {
+        box-shadow: var(--sh-2);
+      }
+      .doc-item.selected {
+        background: var(--brand-tint);
+        box-shadow: var(--sh-2);
+      }
+      .doc-title {
+        font-weight: 600;
+        font-size: 14px;
+        line-height: 1.4;
+        word-break: break-all;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+      }
+      /* 标题下方一行：类型文字（左）+ 操作按钮（右） */
+      .doc-meta-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        margin-top: 6px;
+      }
+      .doc-type {
+        font-size: 12px;
+        color: var(--muted);
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        white-space: nowrap;
+      }
+      .doc-actions {
+        display: inline-flex;
+        gap: 6px;
+        flex: 0 0 auto;
+      }
+      .mini-btn {
+        border: none;
+        background: var(--panel-2);
+        color: var(--muted);
+        padding: 3px 10px;
+        border-radius: 999px;
+        font-size: 11.5px;
+        cursor: pointer;
+        box-shadow: var(--sh-1);
+        transition:
+          color 0.15s,
+          background 0.15s;
+        white-space: nowrap;
+      }
+      .mini-btn:hover {
+        color: var(--text);
+      }
+      .mini-btn.pdf {
+        color: var(--brand);
+      }
+      .mini-btn.pdf:hover {
+        background: var(--brand-tint);
+        color: var(--brand);
+      }
+      .mini-btn.danger {
+        color: var(--danger);
+      }
+      .mini-btn.danger:hover {
+        background: var(--danger-tint);
+        color: var(--danger);
+      }
+
+      /* ---- 导入视图 ---- */
+      .import-body {
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow-y: auto;
+        padding: 4px 14px 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+      .upload-area {
+        border: 2px dashed var(--info);
+        border-radius: 12px;
+        background: var(--panel);
+        padding: 26px 18px;
+        text-align: center;
+        cursor: pointer;
+        transition: background-color 0.2s;
+      }
+      .upload-area:hover {
+        background-color: var(--brand-tint);
+      }
+      .upload-icon {
+        font-size: 36px;
+        color: var(--info);
+        margin-bottom: 8px;
+      }
+      .upload-area p {
+        margin: 0;
+      }
+      .upload-area .sub {
+        font-size: 12px;
+        color: var(--muted);
+        margin-top: 6px;
+      }
+      .file-list {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      .file-item {
+        background: var(--panel-2);
+        border-radius: 10px;
+        box-shadow: var(--sh-1);
+        padding: 12px;
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 10px;
+      }
+      .file-info {
+        display: flex;
+        flex-direction: column;
+        flex: 1;
+        min-width: 0;
+      }
+      .file-name {
+        font-weight: 600;
+        font-size: 13px;
+        word-break: break-all;
+      }
+      .file-size {
+        font-size: 12px;
+        color: var(--muted);
+        margin-top: 3px;
+      }
+      .status-badge {
+        flex: 0 0 auto;
+        padding: 4px 10px;
+        border-radius: 999px;
+        font-size: 12px;
+        font-weight: 700;
+        color: #fff;
+        white-space: nowrap;
+      }
+      .status-uploading {
+        background-color: var(--warning);
+      }
+      .status-processing {
+        background-color: var(--info);
+      }
+      .status-completed {
+        background-color: var(--success);
+      }
+      .status-error {
+        background-color: var(--danger);
+      }
+      .log-details {
+        margin-top: 8px;
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .log-details summary {
+        cursor: pointer;
+        user-select: none;
+      }
+      .log-list {
+        margin: 6px 0 0 4px;
+        padding: 0;
+        list-style: none;
+      }
+      .log-list li {
+        margin: 3px 0;
+        line-height: 1.5;
+        color: var(--log-line);
+        display: flex;
+        gap: 6px;
+        align-items: baseline;
+      }
+      .log-ico {
+        flex: 0 0 auto;
+        width: 14px;
+        text-align: center;
+      }
+      .log-ico.done {
+        color: var(--success);
+      }
+      .log-ico.running {
+        color: var(--info);
+      }
+      .log-ico.failed {
+        color: var(--danger);
+      }
+
+      /* ---- 右卡片：预览 ---- */
+      .preview-panel {
+        flex: 1 1 auto;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+
+      /* v2：标题区只剩 标题 + 三档分段开关 */
+      .preview-header {
+        flex: 0 0 auto;
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        padding: 14px 20px;
+      }
+      .ph-title {
+        flex: 1 1 auto;
+        min-width: 0;
+        font-size: 16px;
+        font-weight: 600;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .ph-title.empty {
+        color: var(--muted);
+        font-weight: 400;
+      }
+
+      /* ---- 三档分段开关（照抄 tools/markdown-splitter 的 segmented 设计） ---- */
+      .segmented {
+        flex: 0 0 auto;
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+        background: var(--seg-bg);
+        border-radius: 10px;
+        padding: 3px;
+        gap: 2px;
+      }
+      .seg-thumb {
+        position: absolute;
+        top: 3px;
+        bottom: 3px;
+        left: 0;
+        width: 0;
+        background: var(--panel);
+        border-radius: 8px;
+        box-shadow: var(--sh-2);
+        transition:
+          transform 0.22s cubic-bezier(0.4, 0, 0.2, 1),
+          width 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+      .seg-btn {
+        position: relative;
+        z-index: 1;
+        border: none;
+        background: transparent;
+        padding: 6px 14px;
+        font-size: 13px;
+        font-weight: 550;
+        color: var(--muted);
+        cursor: pointer;
+        white-space: nowrap;
+        border-radius: 8px;
+        transition: color 0.18s;
+      }
+      .seg-btn:hover {
+        color: var(--text);
+      }
+      .seg-btn.active {
+        color: var(--text);
+      }
+      .segmented.disabled {
+        opacity: 0.5;
+        pointer-events: none;
+      }
+
+      /* preview-body：切块模式 = 滚动区 + 右侧 ChunkRail */
+      .preview-body {
+        flex: 1 1 auto;
+        min-height: 0;
+        display: flex;
+      }
+      .preview-scroll {
+        flex: 1 1 auto;
+        min-width: 0;
+        overflow-y: auto;
+        padding: 4px 24px 40px;
+      }
+      .preview-inner {
+        max-width: 820px;
+        margin: 0 auto;
+      }
+
+      /* 空态（v4：缺省空白页，扁平无浮层，视觉中心对齐）
+   滚动区上下 padding 不对称 (4px/40px)：负 margin + 高度补偿抵消，
+   保证空态在滚动区「视口」内真正垂直居中 */
+      .preview-empty {
+        height: calc(100% + 44px); /* 100% 内容盒 + 上下 padding 之和 */
+        margin-top: -48px; /* 抵消顶部 padding */
+        min-height: 320px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        color: var(--muted);
+        text-align: center;
+      }
+      .preview-empty-icon {
+        font-size: 44px;
+        opacity: 0.8;
+      }
+      .preview-empty-title {
+        margin: 4px 0 0;
+        font-size: 15px;
+        font-weight: 600;
+        color: var(--text);
+      }
+      .preview-empty-sub {
+        margin: 0;
+        font-size: 13px;
+      }
+      .empty-mode-hints {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        margin-top: 14px;
+      }
+      .empty-mode-hint {
+        font-size: 12px;
+        line-height: 1.7;
+        color: var(--muted);
+      }
+      .empty-mode-hint strong {
+        color: var(--text);
+        font-size: 12.5px;
+        margin-right: 6px;
+      }
+
+      /* 骨架屏 */
+      .skeleton {
+        border-radius: 8px;
+        background: linear-gradient(
+          100deg,
+          var(--panel-2) 30%,
+          #c9d1dd 50%,
+          var(--panel-2) 70%
+        );
+        background-size: 200% 100%;
+        animation: shimmer 1.2s ease-in-out infinite;
+      }
+      [data-theme="dark"] .skeleton {
+        background-image: linear-gradient(
+          100deg,
+          var(--panel-2) 30%,
+          #2e3747 50%,
+          var(--panel-2) 70%
+        );
+      }
+      .sk-line {
+        height: 14px;
+        margin-bottom: 12px;
+      }
+      .sk-line.w60 {
+        width: 60%;
+      }
+      .sk-line.w80 {
+        width: 80%;
+      }
+      .sk-line.w40 {
+        width: 40%;
+      }
+
+      /* markdown 渲染（内容排版沿用 global.css 子集） */
+      .markdown {
+        font-size: 15px;
+        line-height: 1.7;
+        overflow-wrap: break-word;
+      }
+      .markdown > :first-child {
+        margin-top: 0;
+      }
+      .markdown h1,
+      .markdown h2,
+      .markdown h3,
+      .markdown h4 {
+        margin: 1em 0 0.5em;
+        font-weight: 600;
+        line-height: 1.35;
+      }
+      .markdown h1 {
+        font-size: 1.4em;
+      }
+      .markdown h2 {
+        font-size: 1.25em;
+      }
+      .markdown h3 {
+        font-size: 1.1em;
+      }
+      .markdown h4 {
+        font-size: 1em;
+      }
+      .markdown ul,
+      .markdown ol {
+        margin: 0.5em 0;
+        padding-left: 1.5em;
+      }
+      .markdown li {
+        margin: 0.25em 0;
+      }
+      .markdown blockquote {
+        margin: 0.6em 0;
+        padding: 2px 12px;
+        border-left: 3px solid var(--brand);
+        background: var(--panel-2);
+        border-radius: 0 8px 8px 0;
+        color: var(--muted);
+      }
+      .markdown code {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 0.85em;
+        background: var(--panel-2);
+        border-radius: 5px;
+        padding: 0.1em 0.35em;
+      }
+      .markdown pre {
+        margin: 0.6em 0;
+        padding: 12px 14px;
+        background: var(--panel-2);
+        border-radius: 10px;
+        overflow-x: auto;
+      }
+      .markdown pre code {
+        background: none;
+        padding: 0;
+        white-space: pre;
+      }
+      .markdown a {
+        color: var(--brand);
+        text-decoration: none;
+      }
+      .markdown a:hover {
+        text-decoration: underline;
+      }
+      .markdown hr {
+        border: none;
+        border-top: 1px solid #c3cbd8;
+        margin: 1em 0;
+      }
+      .markdown table {
+        border-collapse: collapse;
+        margin: 0.6em 0;
+        max-width: 100%;
+        display: block;
+        overflow-x: auto;
+      }
+      .markdown th,
+      .markdown td {
+        border: 1px solid #c3cbd8;
+        padding: 6px 10px;
+        font-size: 0.92em;
+      }
+      .markdown th {
+        background: var(--panel-2);
+        font-weight: 600;
+      }
+      .demo-img {
+        display: inline-flex;
+        flex-direction: column;
+        gap: 2px;
+        align-items: flex-start;
+        border-radius: 10px;
+        background: var(--panel-2);
+        color: var(--text);
+        box-shadow: var(--sh-1);
+        padding: 8px 12px;
+        margin: 4px 0;
+        font-size: 13px;
+      }
+      .demo-img small {
+        font-size: 11px;
+        color: var(--muted);
+        word-break: break-all;
+      }
+
+      /* ---- 特征子页（关键词 + 摘要） ---- */
+      .feature-card {
+        border-radius: 12px;
+        background: var(--panel);
+        box-shadow: var(--sh-2);
+        padding: 14px 18px;
+        margin-bottom: 12px;
+      }
+      .feature-title {
+        margin: 0 0 10px;
+        font-size: 10px;
+        font-weight: 650;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+      .feature-chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+      .kw-chip {
+        font-size: 13px;
+        padding: 4px 12px;
+        border-radius: 999px;
+        background: var(--brand-tint);
+        color: var(--brand);
+        box-shadow: var(--sh-1);
+      }
+      .feature-abstract {
+        margin: 0;
+        font-size: 14px;
+        line-height: 1.8;
+        color: var(--text);
+        white-space: pre-wrap;
+        overflow-wrap: break-word;
+      }
+
+      /* ---- chunks 卡片（splitter split 风格 + Elevated Card 化） ---- */
+      .chunk-card {
+        border-radius: 12px;
+        background: var(--panel);
+        box-shadow: var(--sh-2);
+        overflow: hidden;
+      }
+      .chunk-card-head {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 8px 14px;
+        background: var(--panel-2);
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .chunk-badge {
+        background: var(--brand-tint);
+        color: var(--brand);
+        font-weight: 650;
+        font-size: 11px;
+        padding: 2px 9px;
+        border-radius: 999px;
+        white-space: nowrap;
+      }
+      .chunk-title-stack {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 11.5px;
+        color: var(--text);
+        font-weight: 550;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        min-width: 0;
+      }
+      .chunk-level {
+        flex: 0 0 auto;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 10.5px;
+        font-weight: 650;
+        color: #7c3aed;
+        background: #f3e8ff;
+        padding: 2px 7px;
+        border-radius: 6px;
+      }
+      [data-theme="dark"] .chunk-level {
+        background: #2c2140;
+        color: #c4a6ff;
+      }
+      .chunk-size-note {
+        margin-left: auto;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 11px;
+        color: var(--muted);
+        white-space: nowrap;
+      }
+      .chunk-card-body {
+        padding: 14px 20px;
+        font-size: 14px;
+      }
+
+      /* split 边界标记（切分可视化，虚线为内容语义而非 UI 分割线） */
+      .split-marker {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin: 12px 4px;
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--muted);
+        letter-spacing: 0.02em;
+      }
+      .split-marker::before,
+      .split-marker::after {
+        content: "";
+        flex: 1;
+        border-top: 1.5px dashed #b9c2d0;
+      }
+      .split-marker .scissors {
+        color: var(--brand);
+      }
+
+      /* ---- ChunkRail（最右侧长度分布条，仿 splitter，方向镜像） ---- */
+      .chunk-rail {
+        flex: 0 0 132px;
+        width: 132px;
+        min-height: 0;
+        overflow-y: auto;
+        overflow-x: hidden;
+        padding: 16px 12px 40px 8px;
+        background: var(--panel-2);
+        border-radius: 0 16px 16px 0;
+        scrollbar-width: thin;
+      }
+      .chunk-rail[hidden] {
+        display: none;
+      }
+      .rail-caption {
+        position: sticky;
+        top: 0;
+        z-index: 1;
+        padding-bottom: 8px;
+        text-align: right;
+        font-size: 10px;
+        font-weight: 650;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--muted);
+        background: var(--panel-2);
+      }
+      .rail-row {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 6px;
+        margin-bottom: 6px;
+      }
+      .rail-bar {
+        display: block;
+        height: 9px;
+        min-width: 4px;
+        padding: 0;
+        border: none;
+        border-radius: 3px;
+        background: var(--rail-bar);
+        cursor: pointer;
+        transition: background 0.15s;
+      }
+      .rail-bar:hover {
+        background: var(--muted);
+      }
+      .rail-bar.active {
+        background: var(--brand);
+        box-shadow: 0 0 0 2px var(--brand-tint);
+      }
+      .rail-num {
+        flex: 0 0 22px;
+        width: 22px;
+        text-align: right;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 10px;
+        color: var(--muted);
+      }
+      .rail-tip {
+        position: fixed;
+        z-index: 60;
+        padding: 5px 9px;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 11.5px;
+        line-height: 1.3;
+        color: #fff;
+        background: rgba(31, 35, 40, 0.92);
+        border-radius: 7px;
+        white-space: nowrap;
+        pointer-events: none;
+        transform: translateY(-50%);
+      }
+      .rail-tip[hidden] {
+        display: none;
+      }
+
+      /* toast（v2：左下角、离边缘稍远） */
+      .toast-wrap {
+        position: fixed;
+        left: 24px;
+        bottom: 24px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        z-index: 100;
+      }
+      .toast {
+        display: flex;
+        align-items: flex-start;
+        gap: 8px;
+        background: var(--panel);
+        border-radius: 12px;
+        padding: 10px 14px;
+        box-shadow: var(--sh-3);
+        font-size: 13px;
+        max-width: 340px;
+        animation: toast-in 0.2s ease-out;
+      }
+      .toast-dot {
+        flex: 0 0 auto;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        margin-top: 6px;
+        background: var(--info);
+      }
+      .toast.success .toast-dot {
+        background: var(--success);
+      }
+      .toast.error .toast-dot {
+        background: var(--danger);
+      }
+      @keyframes toast-in {
+        from {
+          opacity: 0;
+          transform: translateY(8px);
+        }
+        to {
+          opacity: 1;
+          transform: none;
+        }
+      }
+
+      /* 确认弹窗（Elevated） */
+      .modal-mask {
+        position: fixed;
+        inset: 0;
+        z-index: 90;
+        background: rgba(15, 20, 30, 0.45);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .modal-mask.hidden {
+        display: none;
+      }
+      .modal {
+        width: 380px;
+        max-width: calc(100vw - 40px);
+        background: var(--panel);
+        border-radius: 16px;
+        padding: 20px;
+        box-shadow: var(--sh-3);
+      }
+      .modal h3 {
+        margin: 0 0 10px;
+        font-size: 16px;
+      }
+      .modal .doc-title {
+        display: block;
+        margin: 4px 0 10px;
+        font-weight: 600;
+        word-break: break-all;
+      }
+      .modal p {
+        margin: 0 0 14px;
+        font-size: 13px;
+        color: var(--muted);
+        line-height: 1.6;
+      }
+      .modal-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
+      }
+      .btn {
+        border: none;
+        padding: 8px 16px;
+        border-radius: 999px;
+        font-size: 13px;
+        cursor: pointer;
+        background: var(--panel-2);
+        color: var(--text);
+        box-shadow: var(--sh-1);
+      }
+      .btn.primary {
+        background: var(--danger);
+        color: #fff;
+      }
+
+      /* demo 水印（非产品 UI，正式版不存在；v2 移至右下角给左下 toast 让位） */
+      .watermark {
+        position: fixed;
+        right: 10px;
+        bottom: 8px;
+        z-index: 80;
+        font-size: 11px;
+        color: var(--muted);
+        opacity: 0.4;
+        pointer-events: none;
+      }
+
+      /* 响应式（demo 简化处理） */
+      @media (max-width: 940px) {
+        .left-panel {
+          flex-basis: 320px;
+          width: 320px;
+        }
+      }
+      @media (max-width: 780px) {
+        .docs-page {
+          flex-direction: column;
+        }
+        .left-panel {
+          flex: 0 0 46%;
+          width: 100%;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app-shell">
+      <!-- 顶部导航（扁平无渐变；无 demo-badge） -->
+      <nav class="navbar">
+        <div class="brand">
+          <div class="logo"></div>
+          <div class="title">
+            <strong>智能本地知识库</strong>
+            <span>对话与文档管理</span>
+          </div>
+        </div>
+        <div class="tabs">
+          <button class="tab" type="button"><span>💬</span>对话</button>
+          <button class="tab active" type="button">
+            <span>📚</span>文档管理
+          </button>
+        </div>
+        <button class="theme-toggle" id="themeToggle" type="button">
+          🌙 深色
+        </button>
+      </nav>
+
+      <!-- 文档管理页：左卡片（列表 ⇄ 导入 横向滑动）+ 右卡片（预览） -->
+      <main class="docs-page">
+        <aside class="left-panel elevated">
+          <div class="left-stage" id="leftStage">
+            <div class="stage-track">
+              <!-- 滑轨左半：导入视图 -->
+              <section class="view view-import">
+                <header class="panel-header">
+                  <button class="pill" id="backToListBtn" type="button">
+                    文档列表
+                  </button>
+                  <div class="head-title">
+                    <h2>添加文档</h2>
+                    <span class="head-sub"
+                      >支持 PDF / Markdown / Markdown ZIP</span
+                    >
+                  </div>
+                </header>
+                <div class="import-body">
+                  <div class="upload-area" id="uploadArea">
+                    <div class="upload-icon">☁️</div>
+                    <p>点击或拖拽文件到此处 (PDF / MD / ZIP)</p>
+                    <p class="sub">
+                      ZIP 为 markdown 合集，包内每个 md
+                      将成为一篇独立文档；demo：点击将模拟一次上传任务（真实环境为选择本地文件）
+                    </p>
+                  </div>
+                  <div class="file-list" id="importFileList"></div>
+                </div>
+              </section>
+
+              <!-- 滑轨右半：文档列表视图 -->
+              <section class="view view-list">
+                <header class="panel-header">
+                  <button class="pill primary" id="addDocBtn" type="button">
+                    添加文档
+                  </button>
+                  <div class="head-title">
+                    <h2>文档列表</h2>
+                    <span class="head-sub"
+                      ><span id="docCountText">当前文档总数: 5</span></span
+                    >
+                  </div>
+                  <button class="pill" id="refreshBtn" type="button">
+                    刷新
+                  </button>
+                </header>
+                <div class="doc-list-scroll" id="docListScroll"></div>
+              </section>
+            </div>
+          </div>
+        </aside>
+
+        <!-- 右卡片：预览（v2 标题区 = 标题 + 三档开关） -->
+        <section class="preview-panel elevated">
+          <header class="preview-header">
+            <span class="ph-title empty" id="phTitle">未选择文档</span>
+            <div
+              class="segmented disabled"
+              id="modeSwitch"
+              role="group"
+              aria-label="预览模式"
+            >
+              <div class="seg-thumb"></div>
+              <button
+                class="seg-btn active"
+                data-value="markdown"
+                type="button"
+              >
+                原文
+              </button>
+              <button class="seg-btn" data-value="chunks" type="button">
+                切块
+              </button>
+              <button class="seg-btn" data-value="features" type="button">
+                特征
+              </button>
+            </div>
+          </header>
+          <div class="preview-body">
+            <div class="preview-scroll" id="previewScroll"></div>
+            <aside
+              class="chunk-rail"
+              id="chunkRail"
+              aria-label="Chunk 长度分布"
+              hidden
+            ></aside>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <!-- 删除确认弹窗 -->
+    <div class="modal-mask hidden" id="modalMask">
+      <div class="modal">
+        <h3>删除文档？</h3>
+        <span class="doc-title" id="modalDocTitle"></span>
+        <p>
+          删除后该文档的 Milvus 索引（docs / chunks）与 MinIO 制品（原始文件 /
+          markdown / chunks.json）将被一并移除，<b>不可恢复</b>。
+        </p>
+        <div class="modal-actions">
+          <button class="btn" id="modalCancelBtn" type="button">取消</button>
+          <button class="btn primary" id="modalOkBtn" type="button">
+            确认删除
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="toast-wrap" id="toastWrap"></div>
+    <div id="railTip" class="rail-tip" role="tooltip" hidden></div>
+    <div class="watermark">demo-v4 · fake 数据（水印非正式版 UI）</div>
+
+    <script>
+      "use strict";
+
+      /* ═══════════════════════════════════════════════════════════════
+       * fake 数据（修改这里即可换演示内容）
+       * ═══════════════════════════════════════════════════════════════ */
+      const FAKE_DOCS = [
+        {
+          doc_id: 1004,
+          file_title: "MiniRAG 架构设计笔记",
+          file_type: "markdown",
+          docs_keywords: "MiniRAG, 架构设计, 文档切分, 检索",
+          docs_abstract:
+            "记录 MiniRAG 系统的整体设计：两段式链路（导入与问答）、按标题切分、元数据一次生成多处复用，以及 Milvus + MinIO 的存储分工。",
+          markdown: `# MiniRAG 架构设计笔记
+
+## 1. 总体思路
+MiniRAG 是一个面向本地知识库的检索增强生成系统，核心是「导入链路重、查询链路轻」：文档入库时一次性完成解析、切分、元数据生成与向量化，查询时只做两级召回与生成。
+
+> 设计原则：元数据一次生成、多处复用；切分结果可回溯、可预览。
+
+## 2. 导入链路
+导入分为若干节点，依次完成解析、切分、元数据生成与向量化：
+
+1. 上传文件，后端受理并生成 task_id，前端轮询进度；
+2. PDF 经 MinerU 解析为 markdown；
+3. 图片经 VLM 生成摘要并替换为 MinIO 链接；
+4. 按标题切分，生成 chunks.json；
+5. LLM 生成关键词与摘要，向量化后写入 Milvus。
+
+示例配置：
+
+~~~bash
+MINERU_BASE_URL=https://mineru.net/api/v4
+EMBEDDING_MODEL=text-embedding-v4
+~~~
+
+## 3. 存储设计
+三份制品统一存 MinIO，索引存 Milvus：
+
+| 制品 | 目录 | 用途 |
+| --- | --- | --- |
+| 原始文件 | origin-files | 溯源与 PDF 预览 |
+| 最终 markdown | final-markdowns | 文档预览 |
+| chunks.json | chunks-json | 切分视图 |
+
+![架构示意图](http://minio:9000/minirag/markdown-images/MiniRAG 架构设计笔记/arch.png)
+
+## 4. 后续规划
+- 支持更多文件类型；
+- 检索质量评估与调参；
+- 文档管理页面（本需求）。`,
+        },
+        {
+          doc_id: 1003,
+          file_title: "华为擎云 S520 Gen2 用户指南-(YTGZ,Windows11_03,zh-cn)",
+          file_type: "pdf",
+          docs_keywords: "擎云 S520, 用户指南, 快速上手, 常见问题",
+          docs_abstract:
+            "华为擎云 S520 Gen2 的官方用户指南：产品简介、开箱与系统初始化步骤、常见问题排查（无法开机 / 指纹失效 / 风扇噪音）。",
+          markdown: `# 华为擎云 S520 Gen2 用户指南
+
+## 1. 产品简介
+华为擎云 S520 Gen2 是一款面向政企办公的 14 英寸轻薄本，搭载第 13 代智能英特尔酷睿处理器，支持 Wi-Fi 6 与指纹识别，整机重量约 1.4kg。
+
+> 提示：首次开机前请连接电源适配器，电量低于 5% 时无法开机。
+
+## 2. 快速上手
+### 2.1 开箱与检查
+1. 取出主机与电源适配器，核对装箱清单；
+2. 检查机身有无运输损伤；
+3. 长按电源键 2 秒开机。
+
+### 2.2 系统初始化
+- 选择语言与键盘布局；
+- 连接 Wi-Fi 网络；
+- 登录或创建微软账户。
+
+初始化完成后可在终端执行以下命令查看系统信息：
+
+~~~bash
+sudo dmidecode -t system
+~~~
+
+## 3. 常见问题
+| 现象 | 处理方法 |
+| --- | --- |
+| 无法开机 | 连接适配器充电 10 分钟后重试 |
+| 指纹失效 | 在「设置-账户-登录选项」中重新录入 |
+| 风扇噪音大 | 更新 BIOS 与散热固件 |
+
+![机身接口示意图](http://minio:9000/minirag/markdown-images/华为擎云 S520 Gen2 用户指南/io-ports.png)`,
+        },
+        {
+          doc_id: 1002,
+          file_title: "万用表 RS-12 使用说明",
+          file_type: "pdf",
+          docs_keywords: "万用表, RS-12, 电压测量, 电阻测量",
+          docs_abstract:
+            "万用表 RS-12 的使用说明：安全须知、直流电压与电阻的测量步骤、日常维护保养要点。",
+          markdown: `# 万用表 RS-12 使用说明
+
+## 1. 安全须知
+测量前请确认挡位正确，严禁在电阻挡位测量电压；测量高电压时双手不要接触表笔金属部分。
+
+## 2. 基本测量
+### 2.1 直流电压
+1. 旋转挡位至 V 直流区域，量程略高于被测电压；
+2. 红表笔插 VΩ 孔、黑表笔插 COM 孔；
+3. 并联接入被测电路，读取示数。
+
+### 2.2 电阻测量
+- 先断电再测量；
+- 短接表笔调零后再读数；
+- 量程由大到小逐级切换，指针偏转越接近中值越准。
+
+## 3. 维护保养
+长期不用请取出电池，存放于干燥、无强磁场环境；表笔破损及时更换。`,
+        },
+        {
+          doc_id: 1001,
+          file_title: "2026 Q3 产品评审会议纪要",
+          file_type: "markdown",
+          docs_keywords: "会议纪要, 产品评审, 检索质量, 部署",
+          docs_abstract:
+            "2026 年第三季度产品评审会：确认两级召回方案、文档管理页纳入本期范围、部署形态暂定 docker compose。",
+          markdown: `# 2026 Q3 产品评审会议纪要
+
+## 1. 会议信息
+- 时间：2026-09-28 14:00
+- 地点：A 栋 3F 会议室
+- 参会：产品、研发、测试全体
+
+## 2. 议题结论
+1. 检索质量：确认文档级 + 切片级两级召回方案；
+2. 文档管理页：本期新增导入之外的管理与预览能力；
+3. 部署形态：docker compose 一键起，暂不上 K8s。
+
+> 行动项：文档管理页的需求文档与原型本周内完成评审。
+
+## 3. 遗留问题
+- 摘要长度对召回的影响待实测；
+- MinIO 制品回收策略待定。`,
+        },
+        {
+          doc_id: 1000,
+          file_title: "机房巡检标准作业指导书-(2026-06)",
+          file_type: "pdf",
+          docs_keywords: "机房巡检, 作业指导书, 异常处理",
+          docs_abstract:
+            "机房日常巡检的标准化作业指导：巡检前准备、巡检项目清单、异常情况的分级处理流程。",
+          markdown: `# 机房巡检标准作业指导书
+
+## 1. 巡检前准备
+携带温湿度计与巡检记录表，确认门禁权限正常，进入机房前登记。
+
+## 2. 巡检项目
+1. 检查空调运行状态与设定温度；
+2. 检查 UPS 负载率与告警灯；
+3. 检查消防气体钢瓶压力；
+4. 记录温湿度并拍照留存。
+
+## 3. 异常处理
+- 温度超限：通知运维值班并开启备用空调；
+- UPS 告警：切换旁路并报修；
+- 消防报警：按应急预案处置并上报。`,
+        },
+      ];
+
+      /* 新导入的文档（demo 演示「导入完成 → 列表自动刷新」时插入） */
+      const FAKE_NEW_DOC = {
+        doc_id: 1005,
+        file_title: "产品手册-新版本-(2026-10)",
+        file_type: "pdf",
+        docs_keywords: "产品手册, 新版本, 2026-10",
+        docs_abstract:
+          "demo 模拟刚导入完成的文档：真实环境下导入任务 complete 后列表会自动刷新。",
+        markdown: `# 产品手册（新版本）
+
+## 1. 版本说明
+本手册对应 2026-10 发布版本，主要变更：新增文档管理能力。
+
+## 2. 快速开始
+1. 打开「文档管理」页；
+2. 点击「添加文档」导入文件；
+3. 在列表中选择文档预览。`,
+      };
+
+      /* ═══════════════════════════════════════════════════════════════
+       * 模拟后端切分（简化移植 src/utils/markdown_splitter.py）
+       * ═══════════════════════════════════════════════════════════════ */
+      function fakeSplitByTitle(md) {
+        const chunks = [];
+        const lines = md.split(/\r?\n/);
+        const titleRe = /^(#{1,6})\s+(.*)$/;
+        let titleStack = [];
+        let level = 0;
+        let contentLines = [];
+        const flush = () => {
+          const content = contentLines.join("\n").trim();
+          if (content)
+            chunks.push({ content, level, title_stack: [...titleStack] });
+        };
+        for (const line of lines) {
+          if (!line.trim()) {
+            contentLines.push(line);
+            continue;
+          }
+          const m = titleRe.exec(line);
+          if (m) {
+            flush();
+            contentLines = [];
+            level = m[1].length;
+            const text = m[2];
+            while (titleStack.length < level) titleStack.push(null);
+            titleStack[level - 1] = text;
+            titleStack.length = level;
+          } else {
+            contentLines.push(line);
+          }
+        }
+        flush();
+        return chunks;
+      }
+
+      /* ═══════════════════════════════════════════════════════════════
+       * 迷你 markdown 渲染器（demo 用，真实实现复用 react-markdown）
+       * ═══════════════════════════════════════════════════════════════ */
+      function escapeHtml(s) {
+        return String(s)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;");
+      }
+      function inlineMd(s) {
+        let out = escapeHtml(s);
+        out = out.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (_m, alt, url) => {
+          const name = decodeURIComponent(url.split("/").pop() || url);
+          return `<span class="demo-img">📷 ${escapeHtml(alt || name)}<small>minio://markdown-images/…/${escapeHtml(name)}</small></span>`;
+        });
+        out = out.replace(
+          /\[([^\]]+)\]\(([^)\s]+)\)/g,
+          '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>',
+        );
+        out = out.replace(/`([^`]+)`/g, "<code>$1</code>");
+        out = out.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+        out = out.replace(/\*([^*]+)\*/g, "<em>$1</em>");
+        return out;
+      }
+      function splitTableRow(line) {
+        return line
+          .trim()
+          .replace(/^\|/, "")
+          .replace(/\|$/, "")
+          .split("|")
+          .map((s) => s.trim());
+      }
+      function renderMarkdown(src) {
+        const lines = src.split(/\r?\n/);
+        const html = [];
+        const fenceRe = /^\s*(`{3,}|~{3,})/;
+        const isTableStart = (i) =>
+          lines[i].includes("|") &&
+          i + 1 < lines.length &&
+          /^\s*\|?[\s:|-]+\|?\s*$/.test(lines[i + 1]) &&
+          lines[i + 1].includes("-");
+        const startsBlock = (i) => {
+          const l = lines[i];
+          return (
+            /^\s*(#{1,6}\s|>|[-*+]\s|\d+[.)]\s)/.test(l) ||
+            fenceRe.test(l) ||
+            isTableStart(i) ||
+            /^\s*(-{3,}|\*{3,})\s*$/.test(l)
+          );
+        };
+
+        let i = 0;
+        while (i < lines.length) {
+          const line = lines[i];
+          if (fenceRe.test(line)) {
+            const fence = line.trim().charAt(0);
+            const buf = [];
+            i++;
+            while (
+              i < lines.length &&
+              !new RegExp("^\\s*" + fence + "{3,}").test(lines[i])
+            ) {
+              buf.push(lines[i]);
+              i++;
+            }
+            i++;
+            html.push(`<pre><code>${escapeHtml(buf.join("\n"))}</code></pre>`);
+            continue;
+          }
+          const h = /^(#{1,6})\s+(.*)$/.exec(line);
+          if (h) {
+            const n = h[1].length;
+            html.push(`<h${n}>${inlineMd(h[2])}</h${n}>`);
+            i++;
+            continue;
+          }
+          if (/^\s*(-{3,}|\*{3,})\s*$/.test(line)) {
+            html.push("<hr>");
+            i++;
+            continue;
+          }
+          if (/^\s*>/.test(line)) {
+            const buf = [];
+            while (i < lines.length && /^\s*>/.test(lines[i])) {
+              buf.push(lines[i].replace(/^\s*>\s?/, ""));
+              i++;
+            }
+            html.push(`<blockquote>${inlineMd(buf.join(" "))}</blockquote>`);
+            continue;
+          }
+          if (isTableStart(i)) {
+            const head = splitTableRow(lines[i]);
+            i += 2;
+            const rows = [];
+            while (i < lines.length && lines[i].includes("|")) {
+              rows.push(splitTableRow(lines[i]));
+              i++;
+            }
+            html.push(
+              "<table><thead><tr>" +
+                head.map((c) => `<th>${inlineMd(c)}</th>`).join("") +
+                "</tr></thead><tbody>" +
+                rows
+                  .map(
+                    (r) =>
+                      "<tr>" +
+                      r.map((c) => `<td>${inlineMd(c)}</td>`).join("") +
+                      "</tr>",
+                  )
+                  .join("") +
+                "</tbody></table>",
+            );
+            continue;
+          }
+          if (/^\s*[-*+]\s+/.test(line)) {
+            const buf = [];
+            while (i < lines.length && /^\s*[-*+]\s+/.test(lines[i])) {
+              buf.push(lines[i].replace(/^\s*[-*+]\s+/, ""));
+              i++;
+            }
+            html.push(
+              "<ul>" +
+                buf.map((x) => `<li>${inlineMd(x)}</li>`).join("") +
+                "</ul>",
+            );
+            continue;
+          }
+          if (/^\s*\d+[.)]\s+/.test(line)) {
+            const buf = [];
+            while (i < lines.length && /^\s*\d+[.)]\s+/.test(lines[i])) {
+              buf.push(lines[i].replace(/^\s*\d+[.)]\s+/, ""));
+              i++;
+            }
+            html.push(
+              "<ol>" +
+                buf.map((x) => `<li>${inlineMd(x)}</li>`).join("") +
+                "</ol>",
+            );
+            continue;
+          }
+          if (!line.trim()) {
+            i++;
+            continue;
+          }
+          const buf = [];
+          while (i < lines.length && lines[i].trim() && !startsBlock(i)) {
+            buf.push(lines[i]);
+            i++;
+          }
+          html.push(`<p>${inlineMd(buf.join(" "))}</p>`);
+        }
+        return html.join("\n");
+      }
+
+      /* ═══════════════════════════════════════════════════════════════
+       * 页面状态与 DOM 引用
+       * ═══════════════════════════════════════════════════════════════ */
+      const $ = (sel) => document.querySelector(sel);
+      const leftStage = $("#leftStage");
+      const docListScroll = $("#docListScroll");
+      const docCountText = $("#docCountText");
+      const refreshBtn = $("#refreshBtn");
+      const importFileList = $("#importFileList");
+      const phTitle = $("#phTitle");
+      const modeSwitch = $("#modeSwitch");
+      const previewScroll = $("#previewScroll");
+      const chunkRail = $("#chunkRail");
+      const railTip = $("#railTip");
+      const modalMask = $("#modalMask");
+      const modalDocTitle = $("#modalDocTitle");
+      const toastWrap = $("#toastWrap");
+
+      const state = {
+        docs: FAKE_DOCS.map((d) => ({ ...d })),
+        selectedId: null,
+        previewMode: "markdown", // "markdown" 原文 | "chunks" 切块 | "features" 特征
+        refreshing: false,
+        importSeeded: false,
+        deletingId: null,
+        previewTimer: null,
+        railSizes: [],
+        activeBarIndex: -1,
+        railFrame: 0,
+      };
+
+      for (const doc of state.docs) doc.chunks = fakeSplitByTitle(doc.markdown);
+
+      /* ═══════════════════════════════════════════════════════════════
+       * 通用小组件
+       * ═══════════════════════════════════════════════════════════════ */
+      function toast(msg, kind = "info", ms = 3200) {
+        const el = document.createElement("div");
+        el.className = `toast ${kind}`;
+        el.innerHTML = `<span class="toast-dot"></span><span>${escapeHtml(msg)}</span>`;
+        toastWrap.appendChild(el);
+        setTimeout(() => el.remove(), ms);
+      }
+      function findDoc(docId) {
+        return state.docs.find((d) => d.doc_id === docId);
+      }
+
+      /* ═══════════════════════════════════════════════════════════════
+       * 左卡片：文档列表（v2 item：标题 + 类型文字 + PDF/切块文件/删除）
+       * ═══════════════════════════════════════════════════════════════ */
+      function renderDocList() {
+        docCountText.textContent = `当前文档总数: ${state.docs.length}`;
+        if (state.docs.length === 0) {
+          docListScroll.innerHTML = `<div class="doc-list-empty">📭 文库为空<br>点击左上角「添加文档」导入第一篇文档</div>`;
+          return;
+        }
+        docListScroll.innerHTML = "";
+        for (const doc of state.docs) {
+          const item = document.createElement("div");
+          item.className =
+            "doc-item" + (doc.doc_id === state.selectedId ? " selected" : "");
+          const pdfBtn =
+            doc.file_type === "pdf"
+              ? '<button class="mini-btn pdf" data-action="pdf" type="button">PDF</button>'
+              : "";
+          item.innerHTML = `
+      <div class="doc-title">${escapeHtml(doc.file_title)}</div>
+      <div class="doc-meta-row">
+        <span class="doc-type">${escapeHtml(doc.file_type)}</span>
+        <span class="doc-actions">
+          ${pdfBtn}
+          <button class="mini-btn" data-action="chunks" type="button">切块文件</button>
+          <button class="mini-btn danger" data-action="delete" type="button">删除</button>
+        </span>
+      </div>`;
+
+          item.addEventListener("click", () => selectDoc(doc.doc_id));
+          /* 按 data-action 精确绑定：PDF 按钮仅 pdf 文档存在，需空值保护 */
+          item
+            .querySelector('[data-action="pdf"]')
+            ?.addEventListener("click", (e) => {
+              e.stopPropagation();
+              toast(
+                `demo：真实环境将新标签页打开 GET /api/docs/${doc.doc_id}/artifact?kind=origin（PDF 预览）`,
+                "info",
+              );
+            });
+          item
+            .querySelector('[data-action="chunks"]')
+            .addEventListener("click", (e) => {
+              e.stopPropagation();
+              openChunksJson(doc);
+            });
+          item
+            .querySelector('[data-action="delete"]')
+            .addEventListener("click", (e) => {
+              e.stopPropagation();
+              openDeleteModal(doc);
+            });
+
+          docListScroll.appendChild(item);
+        }
+      }
+
+      /* ═══════════════════════════════════════════════════════════════
+       * 横向切换：列表 ⇄ 导入（同一位置切换按钮，无需移动鼠标）
+       * ═══════════════════════════════════════════════════════════════ */
+      function setView(view) {
+        leftStage.classList.toggle("show-import", view === "import");
+        if (view === "import") seedImportTasks();
+      }
+
+      /* 刷新（点击后总数文字变 Shimmer「正在刷新...」） */
+      function refreshList() {
+        if (state.refreshing) return;
+        state.refreshing = true;
+        refreshBtn.disabled = true;
+        docCountText.textContent = "正在刷新...";
+        docCountText.classList.add("shimmer");
+        setTimeout(() => {
+          docCountText.classList.remove("shimmer");
+          renderDocList();
+          refreshBtn.disabled = false;
+          state.refreshing = false;
+          toast("列表已刷新（demo：真实环境为重新 GET /api/docs）", "success");
+        }, 900);
+      }
+
+      /* ═══════════════════════════════════════════════════════════════
+       * 右卡片：选中与预览（三档模式）
+       * ═══════════════════════════════════════════════════════════════ */
+      function selectDoc(docId) {
+        const doc = findDoc(docId);
+        if (!doc) return;
+        state.selectedId = docId;
+        state.previewMode = "markdown"; // 新选中默认「原文」
+        renderDocList();
+        phTitle.textContent = doc.file_title;
+        phTitle.classList.remove("empty");
+        enableModeSwitch(true);
+        setSegActive(state.previewMode);
+        showSkeleton();
+        if (state.previewTimer) clearTimeout(state.previewTimer);
+        state.previewTimer = setTimeout(() => renderPreviewContent(doc), 500); // 模拟 fetch 延迟
+      }
+
+      function enableModeSwitch(on) {
+        modeSwitch.classList.toggle("disabled", !on);
+      }
+      function setSegActive(mode) {
+        modeSwitch.querySelectorAll(".seg-btn").forEach((b) => {
+          b.classList.toggle("active", b.dataset.value === mode);
+        });
+        updateSegThumb();
+      }
+
+      function showSkeleton() {
+        hideRail();
+        previewScroll.innerHTML = `<div class="preview-inner">
+    <div class="skeleton sk-line w60"></div>
+    <div class="skeleton sk-line"></div>
+    <div class="skeleton sk-line"></div>
+    <div class="skeleton sk-line w80"></div>
+    <div class="skeleton sk-line w40"></div>
+  </div>`;
+      }
+
+      function renderPreviewContent(doc) {
+        if (state.previewMode === "chunks") renderChunksView(doc);
+        else if (state.previewMode === "features") renderFeaturesView(doc);
+        else renderMarkdownView(doc);
+      }
+
+      function renderMarkdownView(doc) {
+        hideRail();
+        const inner = document.createElement("div");
+        inner.className = "preview-inner";
+        inner.innerHTML = `<div class="markdown">${renderMarkdown(doc.markdown)}</div>`;
+        previewScroll.innerHTML = "";
+        previewScroll.appendChild(inner);
+      }
+
+      /* 特征子页：关键词 + 摘要 */
+      function renderFeaturesView(doc) {
+        hideRail();
+        const kwChips = doc.docs_keywords
+          .split(/[,，]/)
+          .map((k) => k.trim())
+          .filter(Boolean)
+          .map((k) => `<span class="kw-chip">${escapeHtml(k)}</span>`)
+          .join("");
+        const inner = document.createElement("div");
+        inner.className = "preview-inner";
+        inner.innerHTML = `
+    <div class="feature-card">
+      <h3 class="feature-title">关键词</h3>
+      <div class="feature-chips">${kwChips || '<span class="doc-type">—</span>'}</div>
+    </div>
+    <div class="feature-card">
+      <h3 class="feature-title">摘要</h3>
+      <p class="feature-abstract">${escapeHtml(doc.docs_abstract || "（无摘要）")}</p>
+    </div>`;
+        previewScroll.innerHTML = "";
+        previewScroll.appendChild(inner);
+      }
+
+      function renderChunksView(doc) {
+        const inner = document.createElement("div");
+        inner.className = "preview-inner";
+        doc.chunks.forEach((chunk, idx) => {
+          const title = (chunk.title_stack || []).filter(Boolean).join(" › ");
+          const level = Number.isFinite(chunk.level) ? chunk.level : 0;
+          const card = document.createElement("div");
+          card.className = "chunk-card";
+          card.dataset.chunkIndex = String(idx);
+          card.innerHTML = `
+      <div class="chunk-card-head">
+        <span class="chunk-badge">Chunk ${idx + 1}</span>
+        ${title ? `<span class="chunk-title-stack" title="${escapeHtml(title)}">${escapeHtml(title)}</span>` : ""}
+        <span class="chunk-level">${level > 0 ? "H" + level : "top"}</span>
+        <span class="chunk-size-note">${chunk.content.length.toLocaleString()} chars</span>
+      </div>
+      <div class="chunk-card-body markdown">${renderMarkdown(chunk.content)}</div>`;
+          inner.appendChild(card);
+          if (idx < doc.chunks.length - 1) {
+            const marker = document.createElement("div");
+            marker.className = "split-marker";
+            marker.innerHTML = `<span class="scissors">✂</span> split ${idx + 1} → ${idx + 2}`;
+            inner.appendChild(marker);
+          }
+        });
+        previewScroll.innerHTML = "";
+        previewScroll.appendChild(inner);
+        renderRail(doc);
+      }
+
+      /* ═══════════════════════════════════════════════════════════════
+       * ChunkRail：total chunk 标题 / bar 自右向左 / 最右编号 / 点击跳转 /
+       * 滚动联动高亮 / 悬停大小
+       * ═══════════════════════════════════════════════════════════════ */
+      const RAIL_MIN_RATIO = 0.05;
+      const RAIL_TOP_PAD = 34;
+      const RAIL_BOTTOM_PAD = 12;
+
+      function hideRail() {
+        chunkRail.hidden = true;
+        chunkRail.innerHTML = "";
+        state.railSizes = [];
+        state.activeBarIndex = -1;
+        hideTip();
+      }
+
+      function renderRail(doc) {
+        state.railSizes = doc.chunks.map((c) => (c.content || "").length);
+        const max = state.railSizes.reduce((m, n) => Math.max(m, n), 0) || 1;
+        let html = `<div class="rail-caption">total: ${state.railSizes.length}</div>`;
+        state.railSizes.forEach((n, i) => {
+          const pct = Math.max(RAIL_MIN_RATIO, n / max) * 100;
+          html += `
+      <div class="rail-row">
+        <button class="rail-bar" type="button" data-index="${i}" aria-label="Chunk ${i + 1}, ${n} chars" style="width:${pct.toFixed(2)}%"></button>
+        <span class="rail-num">${i + 1}</span>
+      </div>`;
+        });
+        chunkRail.innerHTML = html;
+        chunkRail.hidden = false;
+        state.activeBarIndex = -1;
+        setActiveBar(activeIndexFromScroll());
+      }
+
+      function railBars() {
+        return chunkRail.querySelectorAll(".rail-bar");
+      }
+
+      function setActiveBar(index) {
+        if (!state.railSizes.length) return;
+        const next = Math.min(
+          state.railSizes.length - 1,
+          Math.max(0, Number.isFinite(index) ? index : 0),
+        );
+        if (next === state.activeBarIndex) return;
+        const bars = railBars();
+        const prev = bars[state.activeBarIndex];
+        if (prev) prev.classList.remove("active");
+        const bar = bars[next];
+        if (bar) {
+          bar.classList.add("active");
+          ensureBarVisible(bar);
+        }
+        state.activeBarIndex = next;
+      }
+
+      function ensureBarVisible(bar) {
+        const railRect = chunkRail.getBoundingClientRect();
+        const r = bar.getBoundingClientRect();
+        if (r.top < railRect.top + RAIL_TOP_PAD) {
+          chunkRail.scrollTop -= railRect.top + RAIL_TOP_PAD - r.top;
+        } else if (r.bottom > railRect.bottom - RAIL_BOTTOM_PAD) {
+          chunkRail.scrollTop += r.bottom - (railRect.bottom - RAIL_BOTTOM_PAD);
+        }
+      }
+
+      function activeIndexFromScroll() {
+        const cards = previewScroll.querySelectorAll("[data-chunk-index]");
+        if (!cards.length) return 0;
+        const containerTop = previewScroll.getBoundingClientRect().top;
+        let index = Number(cards[0].dataset.chunkIndex) || 0;
+        for (const el of cards) {
+          if (el.getBoundingClientRect().top <= containerTop + 8) {
+            index = Number(el.dataset.chunkIndex) || 0;
+          } else {
+            break;
+          }
+        }
+        return index;
+      }
+
+      function onPreviewScroll() {
+        hideTip();
+        if (!state.railSizes.length || state.railFrame) return;
+        state.railFrame = requestAnimationFrame(() => {
+          state.railFrame = 0;
+          setActiveBar(activeIndexFromScroll());
+        });
+      }
+
+      function scrollToChunk(index) {
+        const el = previewScroll.querySelector(`[data-chunk-index="${index}"]`);
+        if (!el) return;
+        const top =
+          el.getBoundingClientRect().top -
+          previewScroll.getBoundingClientRect().top +
+          previewScroll.scrollTop -
+          12;
+        previewScroll.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
+        setActiveBar(index);
+      }
+
+      function showTip(bar) {
+        const index = Number(bar.dataset.index);
+        const n = state.railSizes[index] || 0;
+        railTip.textContent = `Chunk ${index + 1} · ${n.toLocaleString("zh-CN")} chars`;
+        railTip.hidden = false;
+        const r = bar.getBoundingClientRect();
+        const tip = railTip.getBoundingClientRect();
+        let left = r.left - tip.width - 10;
+        if (left < 8)
+          left = Math.min(window.innerWidth - tip.width - 8, r.right + 10);
+        const half = tip.height / 2;
+        const top = Math.min(
+          Math.max(r.top + r.height / 2, half + 6),
+          window.innerHeight - half - 6,
+        );
+        railTip.style.left = `${left}px`;
+        railTip.style.top = `${top}px`;
+      }
+      function hideTip() {
+        railTip.hidden = true;
+      }
+
+      chunkRail.addEventListener("click", (e) => {
+        const bar = e.target.closest(".rail-bar");
+        if (bar) scrollToChunk(Number(bar.dataset.index));
+      });
+      chunkRail.addEventListener("mouseover", (e) => {
+        const bar = e.target.closest(".rail-bar");
+        if (bar) showTip(bar);
+      });
+      chunkRail.addEventListener("mouseleave", hideTip);
+      chunkRail.addEventListener("mouseout", (e) => {
+        const to = e.relatedTarget;
+        if (!to || typeof to.closest !== "function" || !to.closest(".rail-bar"))
+          hideTip();
+      });
+      chunkRail.addEventListener("scroll", hideTip, { passive: true });
+      previewScroll.addEventListener("scroll", onPreviewScroll, {
+        passive: true,
+      });
+      window.addEventListener("resize", hideTip);
+
+      /* ═══════════════════════════════════════════════════════════════
+       * 三档分段开关（交互/UI 照抄 tools/markdown-splitter 的 segmented）
+       * ═══════════════════════════════════════════════════════════════ */
+      const segThumb = modeSwitch.querySelector(".seg-thumb");
+      function updateSegThumb() {
+        const active = modeSwitch.querySelector(".seg-btn.active");
+        if (!active) return;
+        segThumb.style.width = active.offsetWidth + "px";
+        segThumb.style.transform = `translateX(${active.offsetLeft}px)`;
+      }
+      modeSwitch.addEventListener("click", (e) => {
+        const btn = e.target.closest(".seg-btn");
+        if (!btn || btn.classList.contains("active")) return;
+        if (!state.selectedId) return;
+        setSegActive(btn.dataset.value);
+        state.previewMode = btn.dataset.value;
+        const doc = findDoc(state.selectedId);
+        if (!doc) return;
+        showSkeleton();
+        if (state.previewTimer) clearTimeout(state.previewTimer);
+        state.previewTimer = setTimeout(() => renderPreviewContent(doc), 300);
+      });
+      requestAnimationFrame(updateSegThumb);
+      window.addEventListener("resize", updateSegThumb);
+
+      /* 空态复位 */
+      function resetPreview() {
+        state.selectedId = null;
+        state.previewMode = "markdown";
+        enableModeSwitch(false);
+        setSegActive("markdown");
+        phTitle.textContent = "未选择文档";
+        phTitle.classList.add("empty");
+        hideRail();
+        previewScroll.innerHTML = `
+    <div class="preview-empty">
+      <div class="preview-empty-icon">📄</div>
+      <p class="preview-empty-title">在左侧选择一篇文档</p>
+      <p class="preview-empty-sub">选中后此处将渲染文档内容，右上角开关切换视图</p>
+    </div>`;
+        if (state.previewTimer) {
+          clearTimeout(state.previewTimer);
+          state.previewTimer = null;
+        }
+      }
+
+      /* ═══════════════════════════════════════════════════════════════
+       * 删除：二次确认弹窗；Chunks Json：新标签页查看（demo 用 Blob URL）
+       * ═══════════════════════════════════════════════════════════════ */
+      function openDeleteModal(doc) {
+        state.deletingId = doc.doc_id;
+        modalDocTitle.textContent = `《${doc.file_title}》`;
+        modalMask.classList.remove("hidden");
+      }
+      function confirmDelete() {
+        const docId = state.deletingId;
+        state.deletingId = null;
+        modalMask.classList.add("hidden");
+        const doc = findDoc(docId);
+        state.docs = state.docs.filter((d) => d.doc_id !== docId);
+        if (state.selectedId === docId) resetPreview();
+        renderDocList();
+        toast(
+          `已删除《${doc.file_title}》（demo：真实环境将级联删除 Milvus docs/chunks 与 MinIO 三份制品）`,
+          "success",
+        );
+      }
+
+      function openChunksJson(doc) {
+        const blob = new Blob([JSON.stringify(doc.chunks, null, 2)], {
+          type: "application/json",
+        });
+        window.open(URL.createObjectURL(blob), "_blank");
+        toast(
+          `demo：真实环境将新标签页打开 GET /api/docs/${doc.doc_id}/artifact?kind=chunks`,
+          "info",
+        );
+      }
+
+      /* ═══════════════════════════════════════════════════════════════
+       * 导入视图：模拟上传任务（真实实现为 upload + 轮询平移）
+       * ═══════════════════════════════════════════════════════════════ */
+      const FAKE_TASKS = [
+        {
+          name: "产品手册-新版本.pdf",
+          sizeKB: "1.24 MB",
+          steps: [
+            "上传文件",
+            "PDF 解析 (MinerU)",
+            "图片识别 (VLM)",
+            "文档切分与向量化",
+          ],
+          failAt: null,
+        },
+        {
+          name: "旧版说明.md",
+          sizeKB: "38.2 KB",
+          steps: [
+            "上传文件",
+            "文档切分",
+            "关键词/摘要生成",
+            "文档切分与向量化",
+          ],
+          failAt: "文档切分与向量化",
+        },
+        {
+          name: "巡检手册合集.zip",
+          sizeKB: "2.61 MB",
+          steps: ["上传文件", "解压 zip 并扇出分支", "各 md 并行处理"],
+          failAt: null,
+          fanoutMsg: "包内 3 个 md 已各成为一篇独立文档",
+        },
+      ];
+      const STATUS_LABELS = {
+        uploading: "上传中...",
+        processing: "处理中...",
+        completed: "已完成",
+        error: "失败",
+      };
+
+      function seedImportTasks() {
+        if (state.importSeeded) return;
+        state.importSeeded = true;
+        FAKE_TASKS.forEach((task) => {
+          const item = createUploadItem(task);
+          importFileList.appendChild(item);
+          runUploadSimulation(item, task);
+        });
+      }
+
+      function createUploadItem(task) {
+        const item = document.createElement("div");
+        item.className = "file-item";
+        item.innerHTML = `
+    <div class="file-info">
+      <span class="file-name">${escapeHtml(task.name)}</span>
+      <span class="file-size">${task.sizeKB}</span>
+      <details class="log-details" open>
+        <summary>已耗时 0.0s，点击收起 / 展开</summary>
+        <ul class="log-list"></ul>
+      </details>
+    </div>
+    <div class="status-badge status-uploading">${STATUS_LABELS.uploading}</div>`;
+        return item;
+      }
+
+      function runUploadSimulation(item, task) {
+        const startedAt = Date.now();
+        const badge = item.querySelector(".status-badge");
+        const summary = item.querySelector("summary");
+        const logList = item.querySelector(".log-list");
+        const tick = setInterval(() => {
+          summary.textContent = `已耗时 ${((Date.now() - startedAt) / 1000).toFixed(1)}s，点击收起 / 展开`;
+        }, 500);
+
+        let step = 0;
+        let done = 0;
+        const advance = () => {
+          if (step < task.steps.length) {
+            badge.textContent =
+              STATUS_LABELS[step === 0 ? "uploading" : "processing"];
+            badge.className =
+              "status-badge " +
+              (step === 0 ? "status-uploading" : "status-processing");
+            const label = task.steps[step];
+            if (step === 0) done = 1;
+            renderLogLines(logList, task.steps.slice(0, done), [label], []);
+            step++;
+            setTimeout(advance, 1000 + Math.random() * 600);
+            return;
+          }
+          clearInterval(tick);
+          summary.textContent = `已耗时 ${((Date.now() - startedAt) / 1000).toFixed(1)}s，点击收起 / 展开`;
+          if (task.failAt) {
+            badge.textContent = STATUS_LABELS.error;
+            badge.className = "status-badge status-error";
+            renderLogLines(logList, task.steps, [], [task.failAt]);
+            toast(
+              `导入失败：${task.name}（demo 模拟「${task.failAt}」节点失败）`,
+              "error",
+              5000,
+            );
+          } else {
+            badge.textContent = STATUS_LABELS.completed;
+            badge.className = "status-badge status-completed";
+            renderLogLines(logList, task.steps, [], []);
+            toast(
+              `导入完成：${task.name}${task.fanoutMsg ? "，" + task.fanoutMsg : ""}`,
+              "success",
+            );
+            autoRefreshAfterImport();
+          }
+        };
+        setTimeout(advance, 800);
+      }
+
+      function renderLogLines(logList, doneList, runningList, failedList) {
+        const line = (kind, text) => {
+          const ico = kind === "done" ? "✓" : kind === "running" ? "⏳" : "✗";
+          return `<li><span class="log-ico ${kind}">${ico}</span><span>${escapeHtml(text)}</span></li>`;
+        };
+        logList.innerHTML =
+          doneList.map((t) => line("done", t)).join("") +
+          failedList.map((t) => line("failed", t)).join("") +
+          runningList.map((t) => line("running", t)).join("");
+      }
+
+      function addFakeUpload() {
+        const task = {
+          name: `演示文档-${Date.now() % 1000}.pdf`,
+          sizeKB: "512.0 KB",
+          steps: ["上传文件", "PDF 解析 (MinerU)", "文档切分与向量化"],
+          failAt: null,
+        };
+        const item = createUploadItem(task);
+        importFileList.prepend(item);
+        runUploadSimulation(item, task);
+      }
+
+      /* 导入完成 → 列表自动刷新（后台刷新，不强制切回列表视图） */
+      function autoRefreshAfterImport() {
+        if (findDoc(FAKE_NEW_DOC.doc_id)) return;
+        const newDoc = { ...FAKE_NEW_DOC };
+        newDoc.chunks = fakeSplitByTitle(newDoc.markdown);
+        state.docs = [newDoc, ...state.docs];
+        renderDocList();
+        toast("文档列表已自动刷新（导入完成 → 后台刷新）", "success");
+      }
+
+      /* ═══════════════════════════════════════════════════════════════
+       * 事件绑定
+       * ═══════════════════════════════════════════════════════════════ */
+      $("#addDocBtn").addEventListener("click", () => setView("import"));
+      $("#backToListBtn").addEventListener("click", () => setView("list"));
+      $("#uploadArea").addEventListener("click", addFakeUpload);
+      refreshBtn.addEventListener("click", refreshList);
+      $("#modalCancelBtn").addEventListener("click", () => {
+        state.deletingId = null;
+        modalMask.classList.add("hidden");
+      });
+      $("#modalOkBtn").addEventListener("click", confirmDelete);
+
+      /* 主题切换 */
+      const themeToggle = $("#themeToggle");
+      function applyTheme(theme) {
+        document.documentElement.dataset.theme = theme;
+        themeToggle.textContent = theme === "dark" ? "☀️ 浅色" : "🌙 深色";
+        localStorage.setItem("docs_demo_theme", theme);
+      }
+      applyTheme(
+        localStorage.getItem("docs_demo_theme") ||
+          (window.matchMedia?.("(prefers-color-scheme: dark)").matches
+            ? "dark"
+            : "light"),
+      );
+      themeToggle.addEventListener("click", () => {
+        applyTheme(
+          document.documentElement.dataset.theme === "dark" ? "light" : "dark",
+        );
+      });
+
+      /* 初始渲染：列表就绪，右半区为空态 */
+      renderDocList();
+      resetPreview();
+    </script>
+  </body>
+</html>
