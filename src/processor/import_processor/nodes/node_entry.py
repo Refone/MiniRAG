@@ -9,7 +9,7 @@ from utils.logging_utils import logger
 from utils.node_utils import trace_node
 
 
-@trace_node(desc="识别文档类别")
+@trace_node(desc="识别文档类别", need_push=True)
 def node_entry(state: ImportGraphState) -> ImportGraphState:
     """校验文档, 确认文件存在且类型受支持"""
     origin_file_path = Path(state["origin_file_path"])

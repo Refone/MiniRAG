@@ -301,7 +301,7 @@ def step_6_new_content_to_disk(md_path: Path, md_content: str) -> Path:
     return fixed_md_path
 
 
-@trace_node(desc="Markdown 图片识别")
+@trace_node(desc="Markdown 图片识别", need_push=True)
 def node_md_img(state: ImportGraphState) -> ImportGraphState:
     """
     图片处理节点 (生成图片的文字描述信息)

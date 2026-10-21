@@ -16,7 +16,6 @@ from api import __version__
 from api.schemas import (
     QueryRequest,
     UploadResponse,
-    UploadStatusResponse,
     DocsListResponse,
     DocsDetailResponse,
     DocsDeleteResponse,
@@ -91,6 +90,10 @@ async def import_document(
     dest.unlink(missing_ok=True)
     dest.write_bytes(await file.read())
 
+    # 先建 SSE 队列再挂后台任务, 保证任务执行期间的进度推送有处可去
+    # (前端上传成功后即连 /api/upload/sse/{task_id} 消费)
+    sse_create_queue(task_id)
+
     background_tasks.add_task(arun_import, task_id=task_id, origin_file_path=str(dest))
 
     return UploadResponse(
@@ -99,24 +102,20 @@ async def import_document(
     )
 
 
-@router.get("/upload/status/{task_id}", response_model=UploadStatusResponse)
-async def import_status(
+@router.get("/upload/sse/{task_id}")
+async def upload_sse(
     request: Request,
     task_id: str,
-) -> UploadStatusResponse:
-
+):
+    """导入任务进度 SSE 推流 (对齐 /query/sse/{session_id} 的机制)。"""
     logger.info(f"[{str(request.url)}], task_id={task_id}")
 
-    status = task_utils.get_task_status(task_id)
-    if not status:
-        raise HTTPException(status_code=404, detail=f"任务不存在: {task_id}")
-
-    return UploadStatusResponse(
-        task_id=task_id,
-        status=status,
-        running_nodes=task_utils.get_task_running_nodes(task_id),
-        done_nodes=task_utils.get_task_done_nodes(task_id),
-        result=task_utils.get_task_results(task_id),
+    return StreamingResponse(
+        sse_generator(
+            sse_id=task_id,
+            request=request,
+        ),
+        media_type="text/event-stream",
     )
 
 

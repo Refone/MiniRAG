@@ -200,7 +200,7 @@ def step_3_download_and_unzip(zip_url: str, file_title: str) -> Path:
     return md_path
 
 
-@trace_node(desc="PDF 转 Markdown")
+@trace_node(desc="PDF 转 Markdown", need_push=True)
 def node_pdf_to_md(state: ImportGraphState) -> ImportGraphState:
     """
     串联三步

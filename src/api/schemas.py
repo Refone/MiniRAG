@@ -8,16 +8,6 @@ class UploadResponse(BaseModel):
     status: str
 
 
-class UploadStatusResponse(BaseModel):
-    """GET /upload/status/{task_id} 的响应: 任务进度快照。"""
-
-    task_id: str
-    status: str
-    running_nodes: list[str]
-    done_nodes: list[str]
-    result: dict[str, str]
-
-
 class QueryRequest(BaseModel):
     """POST /query 的请求体 (前端 ChatPage.tsx 以 JSON body 提交)。"""
 

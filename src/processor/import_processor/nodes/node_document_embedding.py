@@ -356,7 +356,7 @@ def step_7_insert_chunks(
     )
 
 
-@trace_node(desc="文档嵌入入库")
+@trace_node(desc="文档嵌入入库", need_push=True)
 def node_document_embedding(state: ImportGraphState) -> ImportGraphState:
     """合并节点: 同名覆盖先完整删除旧文档, 再上传制品 + 生成元数据 + 写入两表。
 

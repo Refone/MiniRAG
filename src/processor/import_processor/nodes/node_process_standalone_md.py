@@ -166,7 +166,7 @@ def step_4_replace_image_urls(md_path: Path, url_to_local: dict[str, str]) -> No
     md_path.write_text(new_text, encoding="utf-8")
 
 
-@trace_node(desc="处理 Markdown 独文件")
+@trace_node(desc="处理 Markdown 独文件", need_push=True)
 def node_process_standalone_md(state: ImportGraphState) -> ImportGraphState:
 
     origin_md, file_title = step_1_validate_and_setup(state)

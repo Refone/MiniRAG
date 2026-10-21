@@ -20,17 +20,6 @@ function resolveApiBase(fallbackPort: number): string {
 export const API_BASE = resolveApiBase(8000);
 
 /**
- * 上传任务状态响应 /api/upload/status/{task_id}
- */
-export interface UploadStatusResponse {
-  task_id: string;
-  status: string;
-  running_nodes: string[];
-  done_nodes: string[];
-  result: Record<string, any>;
-}
-
-/**
  * 上传任务响应 /api/upload
  */
 export interface ImportUploadResponse {

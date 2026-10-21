@@ -79,7 +79,7 @@ def step_3_backup_chunks_json(
     return chunk_json_path
 
 
-@trace_node(desc="文档切分")
+@trace_node(desc="文档切分", need_push=True)
 def node_document_split(state: ImportGraphState) -> ImportGraphState:
     """
     文档切分节点

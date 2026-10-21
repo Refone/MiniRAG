@@ -6,7 +6,8 @@
  *   - GET    /api/docs?offset&limit    { total, list: [{doc_id,title,type,pdf_link,chunks_link}] }
  *   - GET    /api/docs/{doc_id}        { title, markdown_text, chunks:[{content,level,title_stack}], keywords, abstract }
  *   - DELETE /api/docs/{doc_id}        { success }
- * 上传链路沿用既有两步式异步（POST /api/upload → 轮询 /api/upload/status/{task_id}），
+ * 上传链路为两步式异步（POST /api/upload → SSE 推流 /api/upload/sse/{task_id}，
+ * 机制与 ChatPage 的 /api/query/sse/{session_id} 一致），
  * 任务 complete 后自动刷新文档列表（demo-v4「导入完成 → 列表自动刷新」）。
  */
 
@@ -27,9 +28,8 @@ import {
   type DocsDetailResponse,
   type DocsListItem,
   type ImportUploadResponse,
-  type UploadStatusResponse,
 } from "@/lib/api";
-import type { ImportFile, ImportStatus } from "@/lib/types";
+import type { ImportFile, ImportStatus, StatusResponse } from "@/lib/types";
 import { MarkdownContent } from "@/components/Markdown";
 import { CompleteIcon } from "@/components/CompleteIcon";
 import { FailedIcon } from "@/components/FailedIcon";
@@ -55,6 +55,14 @@ const STATUS_CLASSES: Record<ImportStatus, string> = {
 
 function makeId(): string {
   return "file-" + Math.random().toString(36).slice(2, 11);
+}
+
+function parseEventData<T>(data: string): T | null {
+  try {
+    return JSON.parse(data || "{}") as T;
+  } catch {
+    return null;
+  }
 }
 
 type PreviewMode = "markdown" | "chunks" | "features";
@@ -257,8 +265,8 @@ export function ImportPage() {
   const [files, setFiles] = useState<ImportFile[]>([]);
   const [dragging, setDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const intervalsRef = useRef<Record<string, number>>({});
-  const pollingErrorReportedRef = useRef<Set<string>>(new Set());
+  /** 每个进行中任务的 SSE 连接（fileId → EventSource） */
+  const esRef = useRef<Record<string, EventSource>>({});
   /** 已完成并触发过列表刷新的任务, 避免重复刷新 */
   const refreshedTasksRef = useRef<Set<string>>(new Set());
 
@@ -397,65 +405,84 @@ export function ImportPage() {
   );
 
   /* ================================================================== */
-  /* 导入（沿用原两步式异步）                                             */
+  /* 导入（两步式异步 + SSE 推流）                                        */
   /* ================================================================== */
 
   const updateFile = (id: string, patch: Partial<ImportFile>) => {
     setFiles((prev) => prev.map((f) => (f.id === id ? { ...f, ...patch } : f)));
   };
 
-  const clearPolling = (id: string) => {
-    const timer = intervalsRef.current[id];
-    if (timer) {
-      window.clearInterval(timer);
-      delete intervalsRef.current[id];
-    }
-  };
-
-  // 卸载时清理所有轮询定时器
+  // 卸载时关闭所有 SSE 连接
   useEffect(() => {
-    const timers = intervalsRef.current;
+    const sources = esRef.current;
     return () => {
-      Object.values(timers).forEach((t) => window.clearInterval(t));
+      Object.values(sources).forEach((es) => es.close());
     };
   }, []);
 
-  const pollStatus = (taskId: string, fileId: string) => {
-    const interval = window.setInterval(async () => {
-      try {
-        const res = await fetch(`${API_BASE}/api/upload/status/${taskId}`);
-        const data: UploadStatusResponse = await res.json();
+  /** 上传受理成功后建立 SSE 连接, 实时接收任务进度 (对齐 ChatPage 的推流机制) */
+  const startSseStream = (taskId: string, fileId: string) => {
+    const es = new EventSource(`${API_BASE}/api/upload/sse/${taskId}`);
+    esRef.current[fileId] = es;
+    let closed = false;
+    let terminal = false;
 
-        updateFile(fileId, {
-          done: data.done_nodes || [],
-          running: data.running_nodes || [],
-        });
+    const close = () => {
+      if (closed) return;
+      closed = true;
+      es.close();
+      delete esRef.current[fileId];
+    };
 
-        if (data.status === "complete") {
-          console.log(`[import] 任务 ${taskId} 处理完成`);
-          updateFile(fileId, { status: "completed" });
-          clearPolling(fileId);
-          // demo-v4: 导入完成 → 列表自动刷新（同一任务只触发一次）
-          if (!refreshedTasksRef.current.has(taskId)) {
-            refreshedTasksRef.current.add(taskId);
-            pushToast("info", "文档列表已自动刷新（导入完成 → 后台刷新）");
-            loadDocs();
-          }
-        } else if (data.status === "failed") {
-          console.error(`[import] 任务 ${taskId} 处理失败`);
-          updateFile(fileId, { status: "error" });
-          clearPolling(fileId);
-        } else if (data.status === "processing" || data.status === "pending") {
-          updateFile(fileId, { status: "processing" });
+    es.addEventListener("open", () =>
+      console.log(`[import] SSE 已连接（/upload/sse/${taskId}）`),
+    );
+
+    es.addEventListener("progress", (e) => {
+      const d = parseEventData<StatusResponse>((e as MessageEvent).data);
+      if (!d) return;
+      updateFile(fileId, {
+        done: d.done_list || [],
+        running: d.running_list || [],
+      });
+      if (d.status === "complete") {
+        console.log(`[import] 任务 ${taskId} 处理完成`);
+        terminal = true;
+        updateFile(fileId, { status: "completed" });
+        // demo-v4: 导入完成 → 列表自动刷新（同一任务只触发一次）
+        if (!refreshedTasksRef.current.has(taskId)) {
+          refreshedTasksRef.current.add(taskId);
+          pushToast("info", "文档列表已自动刷新（导入完成 → 后台刷新）");
+          loadDocs();
         }
-      } catch (e) {
-        if (!pollingErrorReportedRef.current.has(taskId)) {
-          pollingErrorReportedRef.current.add(taskId);
-          console.error("[import] 轮询任务状态失败", e);
-        }
+      } else if (d.status === "failed") {
+        console.error(`[import] 任务 ${taskId} 处理失败`);
+        terminal = true;
+        updateFile(fileId, { status: "error" });
+      } else if (d.status === "processing" || d.status === "pending") {
+        updateFile(fileId, { status: "processing" });
       }
-    }, 2000);
-    intervalsRef.current[fileId] = interval;
+    });
+
+    // 不在终态事件时关流, 等收到服务端 __close__ 信号再关闭连接
+    es.addEventListener("__close__", () => {
+      console.log(`[import] SSE 收到 __close__，关闭连接（task ${taskId}）`);
+      close();
+    });
+
+    es.addEventListener("error", (e) => {
+      // 原生连接错误与服务端 event: error 共用此回调 (后者是带 data 的 MessageEvent)
+      let msg = "SSE 连接中断/失败";
+      try {
+        const raw = (e as MessageEvent).data;
+        if (raw) msg = JSON.parse(raw).error || msg;
+      } catch {
+        /* ignore */
+      }
+      console.warn(`[import] SSE 中断：${msg}`);
+      if (!terminal) updateFile(fileId, { status: "error" });
+      close();
+    });
   };
 
   const uploadFile = async (file: File) => {
@@ -483,9 +510,9 @@ export function ImportPage() {
       if (!response.ok) throw new Error("Upload failed");
       const result: ImportUploadResponse = await response.json();
       const taskId = result.task_id;
-      console.log(`[import] 上传成功：${file.name} → 任务 ${taskId}，开始轮询状态`);
+      console.log(`[import] 上传成功：${file.name} → 任务 ${taskId}，建立 SSE 推流`);
       updateFile(id, { status: "processing" });
-      pollStatus(taskId, id);
+      startSseStream(taskId, id);
     } catch (error) {
       console.error(`[import] 上传失败：${file.name}`, error);
       updateFile(id, { status: "error" });

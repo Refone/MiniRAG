@@ -333,7 +333,7 @@ def step_3_check_md_content(md_dir: Path, file_title: str) -> list[Path]:
     return md_paths
 
 
-@trace_node(desc="处理 Markdown 压缩包")
+@trace_node(desc="处理 Markdown 压缩包", need_push=True)
 def node_process_md_zip(state: ImportGraphState) -> ImportGraphState:
     """
     串联三步:
