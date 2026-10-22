@@ -282,7 +282,13 @@ def get_file(
         raise HTTPException(status_code=404, detail=f"对象不存在: {object_name}")
 
     # media_type 为 stat 出的 content_type (PDF inline 预览 / 图片渲染 / JSON)
-    return StreamingResponse(chunk_iter, media_type=content_type)
+    # Session-MVVM V0: MinIO 对象以唯一 object_name 存放、无覆盖写, 可安全长缓存,
+    # 浏览器 HTTP 缓存兜底跨刷新场景 (docs/feat/Session-MVVM/方案设计-V0.md §4.5.2)
+    return StreamingResponse(
+        chunk_iter,
+        media_type=content_type,
+        headers={"Cache-Control": "public, max-age=86400, immutable"},
+    )
 
 
 app.include_router(router)

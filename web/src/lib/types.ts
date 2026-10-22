@@ -1,5 +1,8 @@
 export type PageKey = "chat" | "import";
 
+/** 文档管理页预览模式（原 ImportPage 内部类型，Session-MVVM 上移至全局类型） */
+export type PreviewMode = "markdown" | "chunks" | "features";
+
 export interface ProgressView {
   done: string[];
   running: string[];

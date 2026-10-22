@@ -6,9 +6,12 @@
  *   - GET    /api/docs?offset&limit    { total, list: [{doc_id,title,type,pdf_link,chunks_link}] }
  *   - GET    /api/docs/{doc_id}        { title, markdown_text, chunks:[{content,level,title_stack}], keywords, abstract }
  *   - DELETE /api/docs/{doc_id}        { success }
- * 上传链路为两步式异步（POST /api/upload → SSE 推流 /api/upload/sse/{task_id}，
- * 机制与 ChatPage 的 /api/query/sse/{session_id} 一致），
+ * 上传链路为两步式异步（POST /api/upload → SSE 推流 /api/upload/sse/{task_id}），
  * 任务 complete 后自动刷新文档列表（demo-v4「导入完成 → 列表自动刷新」）。
+ *
+ * Session-MVVM V0 改造：
+ * - 列表/详情/预览模式/导入任务/SSE/toast 全部上移至 docsStore（切 Tab 不断流）；
+ * - 页面仅保留纯视觉私有状态：view 左滑、拖拽态、删除弹窗、ChunkRail、refs。
  */
 
 import {
@@ -20,16 +23,9 @@ import {
   type ChangeEvent,
   type DragEvent,
 } from "react";
-import {
-  API_BASE,
-  deleteDoc,
-  getDocsDetail,
-  getDocsList,
-  type DocsDetailResponse,
-  type DocsListItem,
-  type ImportUploadResponse,
-} from "@/lib/api";
-import type { ImportFile, ImportStatus, StatusResponse } from "@/lib/types";
+import type { DocsListItem } from "@/lib/api";
+import type { ImportFile, PreviewMode } from "@/lib/types";
+import { useDocsStore, type ToastItem } from "@/stores/docsStore";
 import { MarkdownContent } from "@/components/Markdown";
 import { CompleteIcon } from "@/components/CompleteIcon";
 import { FailedIcon } from "@/components/FailedIcon";
@@ -39,31 +35,19 @@ import { LoadingIcon } from "@/components/LoadingIcon";
 /* 常量 & 小工具                                                        */
 /* ------------------------------------------------------------------ */
 
-const STATUS_LABELS: Record<ImportStatus, string> = {
+const STATUS_LABELS: Record<ImportFile["status"], string> = {
   uploading: "上传中...",
   processing: "处理中...",
   completed: "已完成",
   error: "失败",
 };
 
-const STATUS_CLASSES: Record<ImportStatus, string> = {
+const STATUS_CLASSES: Record<ImportFile["status"], string> = {
   uploading: "status-uploading",
   processing: "status-processing",
   completed: "status-completed",
   error: "status-error",
 };
-
-function makeId(): string {
-  return "file-" + Math.random().toString(36).slice(2, 11);
-}
-
-function parseEventData<T>(data: string): T | null {
-  try {
-    return JSON.parse(data || "{}") as T;
-  } catch {
-    return null;
-  }
-}
 
 /**
  * 剥离行内 Markdown 语法，只保留纯文本。
@@ -82,8 +66,6 @@ function stripInlineMarkdown(s: string): string {
     .trim();
 }
 
-type PreviewMode = "markdown" | "chunks" | "features";
-
 const MODE_ORDER: Record<PreviewMode, number> = {
   markdown: 0,
   chunks: 1,
@@ -95,14 +77,6 @@ const MODE_LABELS: Record<PreviewMode, string> = {
   chunks: "切块",
   features: "特征",
 };
-
-type ToastKind = "info" | "success" | "error";
-
-interface ToastItem {
-  id: number;
-  kind: ToastKind;
-  text: string;
-}
 
 /* ------------------------------------------------------------------ */
 /* 导入任务条目（沿用原 ImportPage 的两步式异步展示）                    */
@@ -248,44 +222,29 @@ function DocItem({
 /* ------------------------------------------------------------------ */
 
 export function ImportPage() {
-  /* ---- 左区视图 ---- */
+  /* ---- docsStore 订阅 ---- */
+  const docs = useDocsStore((s) => s.docs);
+  const total = useDocsStore((s) => s.total);
+  const refreshing = useDocsStore((s) => s.refreshing);
+  const selectedId = useDocsStore((s) => s.selectedId);
+  const detail = useDocsStore((s) => s.detail);
+  const detailLoading = useDocsStore((s) => s.detailLoading);
+  const previewMode = useDocsStore((s) => s.previewMode);
+  const files = useDocsStore((s) => s.files);
+  const toasts = useDocsStore((s) => s.toasts);
+  const loadDocs = useDocsStore((s) => s.loadDocs);
+  const ensureDocsLoaded = useDocsStore((s) => s.ensureDocsLoaded);
+  const selectDoc = useDocsStore((s) => s.selectDoc);
+  const switchMode = useDocsStore((s) => s.switchMode);
+  const uploadFiles = useDocsStore((s) => s.uploadFiles);
+  const removeDoc = useDocsStore((s) => s.removeDoc);
+
+  /* ---- 页面私有状态（Activity 保活保留） ---- */
   const [view, setView] = useState<"list" | "import">("list");
-
-  /* ---- 文档列表 ---- */
-  const [docs, setDocs] = useState<DocsListItem[]>([]);
-  const [total, setTotal] = useState(0);
-  const [refreshing, setRefreshing] = useState(false);
-
-  /* ---- 右区预览 ---- */
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [detail, setDetail] = useState<DocsDetailResponse | null>(null);
-  const [detailLoading, setDetailLoading] = useState(false);
-  const [previewMode, setPreviewMode] = useState<PreviewMode>("markdown");
-
-  /* ---- 删除 ---- */
+  const [dragging, setDragging] = useState(false);
   const [deleting, setDeleting] = useState<DocsListItem | null>(null);
   const [deletingBusy, setDeletingBusy] = useState(false);
-
-  /* ---- toast ---- */
-  const [toasts, setToasts] = useState<ToastItem[]>([]);
-  const toastIdRef = useRef(0);
-  const pushToast = useCallback((kind: ToastKind, text: string) => {
-    toastIdRef.current += 1;
-    const id = toastIdRef.current;
-    setToasts((prev) => [...prev, { id, kind, text }]);
-    window.setTimeout(() => {
-      setToasts((prev) => prev.filter((t) => t.id !== id));
-    }, 3200);
-  }, []);
-
-  /* ---- 导入 ---- */
-  const [files, setFiles] = useState<ImportFile[]>([]);
-  const [dragging, setDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  /** 每个进行中任务的 SSE 连接（fileId → EventSource） */
-  const esRef = useRef<Record<string, EventSource>>({});
-  /** 已完成并触发过列表刷新的任务, 避免重复刷新 */
-  const refreshedTasksRef = useRef<Set<string>>(new Set());
 
   /* ---- ChunkRail ---- */
   const previewScrollRef = useRef<HTMLDivElement>(null);
@@ -298,63 +257,32 @@ export function ImportPage() {
   } | null>(null);
 
   /* ================================================================== */
-  /* 文档列表                                                             */
+  /* 初始化与联动                                                        */
   /* ================================================================== */
 
-  const loadDocs = useCallback(async () => {
-    setRefreshing(true);
-    try {
-      const data = await getDocsList(0, 100);
-      setDocs(data.list);
-      setTotal(data.total);
-    } catch (e) {
-      console.error("[docs] 拉取文档列表失败", e);
-      pushToast("error", `文档列表加载失败: ${(e as Error).message}`);
-    } finally {
-      setRefreshing(false);
-    }
-  }, [pushToast]);
-
-  // 进入页面自动拉取一次
+  // 进入页面自动拉取一次（store 内幂等，重复挂载不重复请求）
   useEffect(() => {
-    loadDocs();
-  }, [loadDocs]);
+    ensureDocsLoaded();
+  }, [ensureDocsLoaded]);
 
-  /* ================================================================== */
-  /* 右区预览                                                             */
-  /* ================================================================== */
-
-  const resetPreview = useCallback(() => {
-    setSelectedId(null);
-    setDetail(null);
-    setDetailLoading(false);
-    setPreviewMode("markdown");
-    setRailActive(-1);
-  }, []);
-
-  const selectDoc = useCallback(
-    (docId: string) => {
-      setSelectedId(docId);
-      setDetail(null);
-      setPreviewMode("markdown");
+  // 切换文档/预览模式时重置 ChunkRail 高亮。
+  // 同 ChatPage 滚动守卫: <Activity> 切回会重建 effects, 用 ref 记录上一次
+  // 键值, 仅在真正切换时重置, 切回 Tab 时保留原高亮 (与保留的滚动位置一致)。
+  const prevSelKeyRef = useRef<string | null>(null);
+  useEffect(() => {
+    const key = `${selectedId ?? ""}:${previewMode}`;
+    if (prevSelKeyRef.current !== key) {
+      prevSelKeyRef.current = key;
       setRailActive(-1);
-      setDetailLoading(true);
-      getDocsDetail(docId)
-        .then((data) => setDetail(data))
-        .catch((e) => {
-          console.error("[docs] 拉取文档详情失败", e);
-          pushToast("error", `文档加载失败: ${(e as Error).message}`);
-          setSelectedId(null);
-        })
-        .finally(() => setDetailLoading(false));
-    },
-    [pushToast],
-  );
+    }
+  }, [selectedId, previewMode]);
 
-  const switchMode = useCallback((mode: PreviewMode) => {
-    setPreviewMode(mode);
-    setRailActive(-1);
-  }, []);
+  const handleSelectDoc = useCallback(
+    (docId: string) => {
+      void selectDoc(docId);
+    },
+    [selectDoc],
+  );
 
   const selectedDoc = useMemo(
     () => docs.find((d) => d.doc_id === selectedId) ?? null,
@@ -422,123 +350,12 @@ export function ImportPage() {
   );
 
   /* ================================================================== */
-  /* 导入（两步式异步 + SSE 推流）                                        */
+  /* 导入 / 删除                                                         */
   /* ================================================================== */
-
-  const updateFile = (id: string, patch: Partial<ImportFile>) => {
-    setFiles((prev) => prev.map((f) => (f.id === id ? { ...f, ...patch } : f)));
-  };
-
-  // 卸载时关闭所有 SSE 连接
-  useEffect(() => {
-    const sources = esRef.current;
-    return () => {
-      Object.values(sources).forEach((es) => es.close());
-    };
-  }, []);
-
-  /** 上传受理成功后建立 SSE 连接, 实时接收任务进度 (对齐 ChatPage 的推流机制) */
-  const startSseStream = (taskId: string, fileId: string) => {
-    const es = new EventSource(`${API_BASE}/api/upload/sse/${taskId}`);
-    esRef.current[fileId] = es;
-    let closed = false;
-    let terminal = false;
-
-    const close = () => {
-      if (closed) return;
-      closed = true;
-      es.close();
-      delete esRef.current[fileId];
-    };
-
-    es.addEventListener("open", () =>
-      console.log(`[import] SSE 已连接（/upload/sse/${taskId}）`),
-    );
-
-    es.addEventListener("progress", (e) => {
-      const d = parseEventData<StatusResponse>((e as MessageEvent).data);
-      if (!d) return;
-      updateFile(fileId, {
-        done: d.done_list || [],
-        running: d.running_list || [],
-      });
-      if (d.status === "complete") {
-        console.log(`[import] 任务 ${taskId} 处理完成`);
-        terminal = true;
-        updateFile(fileId, { status: "completed" });
-        // demo-v4: 导入完成 → 列表自动刷新（同一任务只触发一次）
-        if (!refreshedTasksRef.current.has(taskId)) {
-          refreshedTasksRef.current.add(taskId);
-          pushToast("info", "文档列表已自动刷新（导入完成 → 后台刷新）");
-          loadDocs();
-        }
-      } else if (d.status === "failed") {
-        console.error(`[import] 任务 ${taskId} 处理失败`);
-        terminal = true;
-        updateFile(fileId, { status: "error" });
-      } else if (d.status === "processing" || d.status === "pending") {
-        updateFile(fileId, { status: "processing" });
-      }
-    });
-
-    // 不在终态事件时关流, 等收到服务端 __close__ 信号再关闭连接
-    es.addEventListener("__close__", () => {
-      console.log(`[import] SSE 收到 __close__，关闭连接（task ${taskId}）`);
-      close();
-    });
-
-    es.addEventListener("error", (e) => {
-      // 原生连接错误与服务端 event: error 共用此回调 (后者是带 data 的 MessageEvent)
-      let msg = "SSE 连接中断/失败";
-      try {
-        const raw = (e as MessageEvent).data;
-        if (raw) msg = JSON.parse(raw).error || msg;
-      } catch {
-        /* ignore */
-      }
-      console.warn(`[import] SSE 中断：${msg}`);
-      if (!terminal) updateFile(fileId, { status: "error" });
-      close();
-    });
-  };
-
-  const uploadFile = async (file: File) => {
-    const id = makeId();
-    const newFile: ImportFile = {
-      id,
-      name: file.name,
-      sizeKB: (file.size / 1024).toFixed(2) + " KB",
-      status: "uploading",
-      startedAt: Date.now(),
-      done: [],
-      running: [],
-    };
-    setFiles((prev) => [newFile, ...prev]);
-    console.log(`[import] 开始上传：${file.name}（${newFile.sizeKB}）`);
-
-    const formData = new FormData();
-    formData.append("file", file);
-
-    try {
-      const response = await fetch(`${API_BASE}/api/upload`, {
-        method: "POST",
-        body: formData,
-      });
-      if (!response.ok) throw new Error("Upload failed");
-      const result: ImportUploadResponse = await response.json();
-      const taskId = result.task_id;
-      console.log(`[import] 上传成功：${file.name} → 任务 ${taskId}，建立 SSE 推流`);
-      updateFile(id, { status: "processing" });
-      startSseStream(taskId, id);
-    } catch (error) {
-      console.error(`[import] 上传失败：${file.name}`, error);
-      updateFile(id, { status: "error" });
-    }
-  };
 
   const handleFiles = (fileList: FileList | null) => {
     if (!fileList) return;
-    Array.from(fileList).forEach(uploadFile);
+    uploadFiles(fileList);
   };
 
   const onDrop = (e: DragEvent<HTMLDivElement>) => {
@@ -552,26 +369,12 @@ export function ImportPage() {
     e.target.value = "";
   };
 
-  /* ================================================================== */
-  /* 删除                                                                 */
-  /* ================================================================== */
-
   const confirmDelete = async () => {
     if (!deleting || deletingBusy) return;
     setDeletingBusy(true);
-    try {
-      await deleteDoc(deleting.doc_id);
-      pushToast("success", `已删除《${deleting.title}》`);
-      setDocs((prev) => prev.filter((d) => d.doc_id !== deleting.doc_id));
-      setTotal((t) => Math.max(0, t - 1));
-      if (selectedId === deleting.doc_id) resetPreview();
-    } catch (e) {
-      console.error("[docs] 删除失败", e);
-      pushToast("error", `删除失败: ${(e as Error).message}`);
-    } finally {
-      setDeletingBusy(false);
-      setDeleting(null);
-    }
+    await removeDoc(deleting.doc_id, deleting.title);
+    setDeletingBusy(false);
+    setDeleting(null);
   };
 
   /* ================================================================== */
@@ -660,7 +463,7 @@ export function ImportPage() {
                   className="pill"
                   type="button"
                   disabled={refreshing}
-                  onClick={loadDocs}
+                  onClick={() => void loadDocs({ force: true })}
                 >
                   刷新
                 </button>
@@ -678,7 +481,7 @@ export function ImportPage() {
                       key={doc.doc_id}
                       doc={doc}
                       selected={doc.doc_id === selectedId}
-                      onSelect={() => selectDoc(doc.doc_id)}
+                      onSelect={() => handleSelectDoc(doc.doc_id)}
                       onOpenPdf={() => doc.pdf_link && window.open(doc.pdf_link, "_blank")}
                       onOpenChunks={() =>
                         window.open(doc.chunks_link, "_blank")
@@ -881,7 +684,7 @@ export function ImportPage() {
 
       {/* toast（左下角） */}
       <div className="toast-wrap">
-        {toasts.map((t) => (
+        {toasts.map((t: ToastItem) => (
           <div
             key={t.id}
             className={`toast${

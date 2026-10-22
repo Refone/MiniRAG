@@ -1,8 +1,9 @@
-import { useMemo } from "react";
+import { useMemo, type ImgHTMLAttributes } from "react";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
 import type { Element, Root } from "hast";
+import { useImageUrl } from "@/lib/imageCache";
 import {
   findPendingImage,
   normalizeMarkdownDestinations,
@@ -104,6 +105,26 @@ function ImagePlaceholder() {
 }
 
 /**
+ * 站内图片经 imageCache 的 Blob 缓存渲染 (Session-MVVM V0, 设计文档 §5.3):
+ * 首次 fetch→blob→objectURL 入缓存, 组件重挂/切 Tab 后直接复用解码结果;
+ * 外部 http(s) 图片原样渲染 (多数无 CORS, 交给浏览器 HTTP 缓存)。
+ */
+function CachedImg(props: ImgHTMLAttributes<HTMLImageElement>) {
+  const { src, alt, ...rest } = props;
+  const resolved = useImageUrl(typeof src === "string" ? src : undefined);
+  return (
+    <img
+      src={resolved}
+      alt={alt}
+      {...rest}
+      loading="lazy"
+      referrerPolicy="no-referrer"
+      className="markdown-img"
+    />
+  );
+}
+
+/**
  * AI 回复的 Markdown 渲染：
  * - 使用 react-markdown + GFM（表格、删除线、任务列表、自动链接）
  * - 默认不渲染原始 HTML（安全，防 XSS）
@@ -132,16 +153,7 @@ export function MarkdownContent({
       <a {...rest} target="_blank" rel="noopener noreferrer" />
     ),
     img: ({ node: _node, src, alt, ...rest }) => {
-      const imgEl = (
-        <img
-          src={src}
-          alt={alt}
-          {...rest}
-          loading="lazy"
-          referrerPolicy="no-referrer"
-          className="markdown-img"
-        />
-      );
+      const imgEl = <CachedImg src={src} alt={alt} {...rest} />;
       // 图片可点击: 新标签页打开原图
       if (typeof src !== "string" || src.length === 0) return imgEl;
       return (

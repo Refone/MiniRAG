@@ -10,41 +10,8 @@ import { CompleteIcon } from "@/components/CompleteIcon";
 import { LoadingIcon } from "@/components/LoadingIcon";
 import { MarkdownContent } from "@/components/Markdown";
 import { API_BASE } from "@/lib/api";
-import { formatTime, nowTime, parseAnswerAndImages } from "@/lib/chatUtils";
-import type {
-  ChatMessage,
-  HistoryItem,
-  ProgressView,
-  QueryResponse,
-  StatusResponse,
-} from "@/lib/types";
-
-const WELCOME_TEXT =
-  "你好，我是智能知识库小助手。你可以直接提问，我会在“阶段进度”里展示处理过程。";
-const WELCOME_HINT = "提示：可以问“如何使用万用表测量电压？”";
-const SESSION_KEY = "kb_session_id";
-
-function makeId(prefix: string): string {
-  return `${prefix}-${Math.random().toString(36).slice(2)}${Date.now().toString(36)}`;
-}
-
-function getSessionId(): string {
-  let id = localStorage.getItem(SESSION_KEY);
-  if (!id) {
-    id =
-      "sess-" + Math.random().toString(36).slice(2) + Date.now().toString(36);
-    localStorage.setItem(SESSION_KEY, id);
-  }
-  return id;
-}
-
-function parseEventData<T>(data: string): T | null {
-  try {
-    return JSON.parse(data || "{}") as T;
-  } catch {
-    return null;
-  }
-}
+import { useChatStore } from "@/stores/chatStore";
+import type { ChatMessage, ProgressView } from "@/lib/types";
 
 interface AnswerContentProps {
   text: string;
@@ -166,26 +133,24 @@ function MessageBubble({ message }: { message: ChatMessage }) {
   );
 }
 
+/**
+ * 对话页 (Session-MVVM V0 改造后):
+ * - 消息流/发送/开关/SSE 全部在 chatStore (切 Tab 不断流);
+ * - 页面仅保留纯视觉私有状态: input 草稿、健康检查、refs、滚动/自适应。
+ */
 export function ChatPage() {
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    {
-      id: "welcome",
-      role: "bot",
-      text: WELCOME_TEXT,
-      time: "",
-      hint: WELCOME_HINT,
-      typing: false,
-      streaming: false,
-      progress: null,
-      error: null,
-    },
-  ]);
+  const messages = useChatStore((s) => s.messages);
+  const sending = useChatStore((s) => s.sending);
+  const enableWebSearch = useChatStore((s) => s.enableWebSearch);
+  const enableHyde = useChatStore((s) => s.enableHyde);
+  const setEnableWebSearch = useChatStore((s) => s.setEnableWebSearch);
+  const setEnableHyde = useChatStore((s) => s.setEnableHyde);
+  const send = useChatStore((s) => s.send);
+  const clearHistory = useChatStore((s) => s.clearHistory);
+
+  /* ---- 页面私有状态 (Activity 保活保留) ---- */
   const [input, setInput] = useState("");
-  const [enableWebSearch, setEnableWebSearch] = useState(true);
-  const [enableHyde, setEnableHyde] = useState(true);
   const [apiConnected, setApiConnected] = useState(false);
-  const [sending, setSending] = useState(false);
-  const [sessionId] = useState(getSessionId);
 
   const chatRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -193,26 +158,28 @@ export function ChatPage() {
   const pageRef = useRef<HTMLDivElement>(null);
   /** composer 卡片：测量 footer 等固定开销 */
   const composerRef = useRef<HTMLDivElement>(null);
-  const esRef = useRef<EventSource | null>(null);
   /** 上一次的健康检查结果：只在「已连接/不可用」变化时打日志，否则 5 秒一次会刷屏 */
   const healthRef = useRef<boolean | null>(null);
 
-  const updateMessage = useCallback(
-    (id: string, patch: Partial<ChatMessage>) => {
-      setMessages((prev) =>
-        prev.map((m) => (m.id === id ? { ...m, ...patch } : m)),
-      );
-    },
-    [],
-  );
-
-  // 自动滚动到底部
+  // 自动滚动到底部（贴底跟随模式）。
+  // <Activity> 切回 visible 会重建 effects: 若无条件滚底, 每次切回 Tab 都会被
+  // 强制跳到会话末尾, 破坏"会话 cursor 保留" (PRD 需求)。这里用 pinnedRef 记录
+  // 用户是否处于底部 (仅由真实滚动事件更新): 贴底时发送/流式增量跟随到底;
+  // 用户上翻阅读后不再强制滚动, 切回 Tab 保持原位置。
+  const pinnedRef = useRef(true);
   useEffect(() => {
     const el = chatRef.current;
-    if (el) el.scrollTop = el.scrollHeight;
+    if (!el) return;
+    if (pinnedRef.current) el.scrollTop = el.scrollHeight;
+    const onScroll = () => {
+      pinnedRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+    };
+    el.addEventListener("scroll", onScroll, { passive: true });
+    return () => el.removeEventListener("scroll", onScroll);
   }, [messages]);
 
-  // 健康检查（60 秒轮询）
+  // 健康检查（60 秒轮询）。保留在页面: Activity 隐藏时 effect 销毁、轮询暂停,
+  // 恢复时重建 (设计文档 §4.1 决策)。
   const checkHealth = useCallback(async () => {
     let connected = false;
     let failure: unknown = null;
@@ -236,54 +203,6 @@ export function ChatPage() {
     const timer = setInterval(checkHealth, 60000);
     return () => clearInterval(timer);
   }, [checkHealth]);
-
-  // 加载历史记录
-  const loadHistory = useCallback(async () => {
-    try {
-      const res = await fetch(`${API_BASE}/api/history/${sessionId}`);
-      if (!res.ok) return;
-      const data = await res.json();
-      // 返回格式见 src/api/main.py
-      // { status: string, history: HistoryItem[] }
-      const items: HistoryItem[] = Array.isArray(data.history)
-        ? data.history
-        : [];
-      if (items.length === 0) return;
-      console.log(`[chat] 已加载历史记录 ${items.length} 条`);
-
-      const historyMessages: ChatMessage[] = items
-        .slice()
-        .reverse()
-        .map((item, idx) => {
-          // 兼容旧记录: 旧版图片放在结尾【图片】区块、经独立 image_urls 通道展示。
-          // 现在图片一律内嵌正文, 这里把区块 URL 转成 Markdown 内嵌图片 (与正文已有 URL 去重)。
-          const { text, images } = parseAnswerAndImages(item.text || "");
-          const legacyImages = images.filter((u) => !text.includes(u));
-          const displayText =
-            legacyImages.length > 0
-              ? `${text}\n\n${legacyImages.map((u) => `![参考图片](${u})`).join("\n\n")}`
-              : text;
-          return {
-            id: `hist-${idx}-${item.timestamp ?? Date.now()}`,
-            role: item.role === "user" ? "user" : "bot",
-            text: displayText,
-            time: formatTime(item.timestamp),
-            typing: false,
-            streaming: false,
-            progress: null,
-            error: null,
-          };
-        });
-
-      setMessages((prev) => [prev[0], ...historyMessages]);
-    } catch {
-      /* 历史加载失败静默处理 */
-    }
-  }, [sessionId]);
-
-  useEffect(() => {
-    loadHistory();
-  }, [loadHistory]);
 
   // 自动聚焦输入框
   useEffect(() => {
@@ -330,171 +249,12 @@ export function ChatPage() {
     return () => ro.disconnect();
   }, []);
 
-  // 卸载时关闭 EventSource
-  useEffect(() => {
-    return () => esRef.current?.close();
-  }, []);
-
-  async function submitQuery(
-    text: string,
-    session: string,
-    enableWebSearch: boolean,
-    enableHyde: boolean,
-  ): Promise<QueryResponse> {
-    const res = await fetch(`${API_BASE}/api/query`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        query: text,
-        session_id: session,
-        enable_web_search: enableWebSearch,
-        enable_hyde: enableHyde,
-      }),
-    });
-    if (!res.ok) {
-      const msg = await res.text();
-      throw new Error(msg || "请求失败");
-    }
-    return await res.json();
-  }
-
-  const onSend = useCallback(async () => {
+  const onSend = useCallback(() => {
     const text = input.trim();
     if (!text || sending) return;
     setInput("");
-    setSending(true);
-
-    const userMsg: ChatMessage = {
-      id: makeId("user"),
-      role: "user",
-      text,
-      time: nowTime(),
-      typing: false,
-      streaming: false,
-      progress: null,
-      error: null,
-    };
-    const botId = makeId("bot");
-    const botMsg: ChatMessage = {
-      id: botId,
-      role: "bot",
-      text: "",
-      time: nowTime(),
-      typing: true,
-      streaming: true,
-      progress: { done: [], running: [], status: "pending" },
-      error: null,
-    };
-    setMessages((prev) => [...prev, userMsg, botMsg]);
-
-    console.log(
-      `[chat] 发送问题（网络搜索=${enableWebSearch}，HyDE 搜索=${enableHyde}，${text.length} 字）`,
-    );
-
-    try {
-      const data = await submitQuery(
-        text,
-        sessionId,
-        enableWebSearch,
-        enableHyde,
-      );
-      updateMessage(botId, {
-        progress: { done: [], running: [], status: "pending" },
-      });
-
-      // 流式：SSE
-      const { session_id } = data;
-      const es = new EventSource(`${API_BASE}/api/query/sse/${session_id}`);
-      esRef.current = es;
-      es.addEventListener("open", () =>
-        console.log(`[chat] SSE 已连接（/query/sse/${session_id}）`),
-      );
-      let rawAnswerText = "";
-      let closed = false;
-
-      const close = () => {
-        if (!closed) {
-          closed = true;
-          es.close();
-        }
-      };
-
-      es.addEventListener("progress", (e) => {
-        const d = parseEventData<StatusResponse>((e as MessageEvent).data);
-        updateMessage(botId, {
-          progress: {
-            done: d?.done_list || [],
-            running: d?.running_list || [],
-            status: d?.status || "processing",
-          },
-        });
-        if (d?.status === "completed") {
-          updateMessage(botId, { typing: false });
-          setSending(false);
-        }
-      });
-
-      es.addEventListener("delta", (e) => {
-        const d = parseEventData<{ delta?: string }>((e as MessageEvent).data);
-        const delta = d?.delta || "";
-        if (delta) {
-          rawAnswerText += delta;
-          updateMessage(botId, { text: rawAnswerText, typing: false });
-        }
-      });
-
-      es.addEventListener("final", (e) => {
-        const d = parseEventData<StatusResponse>((e as MessageEvent).data);
-        const finalText =
-          d && typeof d.answer === "string" && d.answer.trim().length > 0
-            ? d.answer
-            : rawAnswerText || "";
-        console.log(`[chat] 回答完成（${finalText.length} 字）`);
-        updateMessage(botId, {
-          typing: false,
-          streaming: false,
-          text: finalText,
-        });
-        setSending(false);
-      });
-
-      // 不在 final 时关流，等收到服务端 __close__ 信号再关闭连接
-      es.addEventListener("__close__", () => {
-        console.log(`[chat] SSE 收到 __close__，关闭连接`);
-        updateMessage(botId, { streaming: false });
-        close();
-      });
-
-      es.addEventListener("error", (e) => {
-        let msg = "SSE 连接中断/失败";
-        try {
-          const raw = (e as MessageEvent).data;
-          if (raw) msg = JSON.parse(raw).error || msg;
-        } catch {
-          /* ignore */
-        }
-        console.warn(`[chat] SSE 中断：${msg}`);
-        rawAnswerText += `\n\n（错误：${msg}）`;
-        updateMessage(botId, {
-          typing: false,
-          streaming: false,
-          text: rawAnswerText,
-        });
-        setSending(false);
-        close();
-      });
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      console.error("[chat] 发送问题失败", msg);
-      updateMessage(botId, {
-        typing: false,
-        streaming: false,
-        progress: null,
-        error: msg,
-      });
-      setSending(false);
-    }
-  }, [input, sending, enableWebSearch, enableHyde, sessionId, updateMessage]);
+    void send(text);
+  }, [input, sending, send]);
 
   const onKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -503,26 +263,11 @@ export function ChatPage() {
     }
   };
 
-  const clearHistory = useCallback(async () => {
+  const handleClearHistory = useCallback(() => {
     if (!window.confirm("确定要清空当前会话的历史记录吗？这将无法恢复。"))
       return;
-
-    try {
-      console.log(`[chat] 清空会话历史（${sessionId}）`);
-      const res = await fetch(`${API_BASE}/api/history/${sessionId}`, {
-        method: "DELETE",
-      });
-      if (!res.ok) {
-        console.error("[chat] 服务端清空失败，状态码:", res.status);
-        window.alert("服务端清空失败，仅清空本地显示");
-      }
-    } catch (e) {
-      console.error("[chat] 服务端清空失败", e);
-      window.alert("服务端清空失败，仅清空本地显示");
-    }
-
-    setMessages((prev) => prev.slice(0, 1));
-  }, [sessionId]);
+    void clearHistory();
+  }, [clearHistory]);
 
   return (
     <div className="chat-page" ref={pageRef}>
@@ -578,7 +323,7 @@ export function ChatPage() {
             <button
               type="button"
               className="composer-clear"
-              onClick={clearHistory}
+              onClick={handleClearHistory}
             >
               清空历史会话
             </button>

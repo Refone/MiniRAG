@@ -1,11 +1,21 @@
-import { useState } from "react";
+import { Activity, useEffect, useState } from "react";
 import { NavBar } from "@/components/NavBar";
 import { ChatPage } from "@/pages/ChatPage";
 import { ImportPage } from "@/pages/ImportPage";
+import { useChatStore } from "@/stores/chatStore";
+import { useDocsStore } from "@/stores/docsStore";
 import type { PageKey } from "@/lib/types";
 
 export default function App() {
   const [page, setPage] = useState<PageKey>("chat");
+  const ensureHistoryLoaded = useChatStore((s) => s.ensureHistoryLoaded);
+  const ensureDocsLoaded = useDocsStore((s) => s.ensureDocsLoaded);
+
+  // 会话级数据幂等初始化 (StrictMode 双调用安全: store 内有布尔标记, 只拉一次)
+  useEffect(() => {
+    void ensureHistoryLoaded();
+    ensureDocsLoaded();
+  }, [ensureHistoryLoaded, ensureDocsLoaded]);
 
   const handlePageChange = (next: PageKey) => {
     if (next === page) return;
@@ -16,8 +26,16 @@ export default function App() {
   return (
     <div className="app-shell">
       <NavBar page={page} onPageChange={handlePageChange} />
+      {/* Session-MVVM V0: <Activity> 双保活。隐藏页 display:none 且 effects 销毁,
+          state/DOM 保留 —— 滚动/草稿/预览模式等视觉状态切 Tab 不丢失。
+          注意: SSE 已上移至 store, 不随 Activity 隐藏断流 (设计文档 §2.2 A2)。 */}
       <main className="app-body">
-        {page === "chat" ? <ChatPage /> : <ImportPage />}
+        <Activity mode={page === "chat" ? "visible" : "hidden"}>
+          <ChatPage />
+        </Activity>
+        <Activity mode={page === "import" ? "visible" : "hidden"}>
+          <ImportPage />
+        </Activity>
       </main>
     </div>
   );

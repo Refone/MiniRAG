@@ -1,3 +1,5 @@
+import type { HistoryItem, QueryResponse } from "@/lib/types";
+
 function resolveApiBase(fallbackPort: number): string {
   const explicit = import.meta.env["VITE_API_BASE"] as string | undefined;
   if (explicit) return explicit.replace(/\/+$/, "");
@@ -109,6 +111,64 @@ export async function getDocsDetail(docId: string): Promise<DocsDetailResponse> 
 export async function deleteDoc(docId: string): Promise<DocsDeleteResponse> {
   const res = await fetch(`${API_BASE}/api/docs/${encodeURIComponent(docId)}`, {
     method: "DELETE",
+  });
+  await throwOnError(res);
+  return await res.json();
+}
+
+/* ------------------------------------------------------------------ */
+/* 会话页 API (Session-MVVM V0: 自 ChatPage 收敛至此)                    */
+/* ------------------------------------------------------------------ */
+
+/** POST /api/query 请求体 (两步式第一步, 随后经 /api/query/sse/{session_id} 推流) */
+export interface QueryPayload {
+  query: string;
+  session_id: string;
+  enable_web_search: boolean;
+  enable_hyde: boolean;
+}
+
+/** POST /api/query → 返回 session_id (SSE 推流入口) */
+export async function postQuery(payload: QueryPayload): Promise<QueryResponse> {
+  const res = await fetch(`${API_BASE}/api/query`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  await throwOnError(res);
+  return await res.json();
+}
+
+/** GET /api/history/{sessionId} → 历史消息列表 (后端格式 { status, history: HistoryItem[] }) */
+export async function getHistory(sessionId: string): Promise<HistoryItem[]> {
+  const res = await fetch(
+    `${API_BASE}/api/history/${encodeURIComponent(sessionId)}`,
+  );
+  await throwOnError(res);
+  const data = await res.json();
+  return Array.isArray(data.history) ? data.history : [];
+}
+
+/** DELETE /api/history/{sessionId} (清空会话历史) */
+export async function deleteHistory(sessionId: string): Promise<void> {
+  const res = await fetch(
+    `${API_BASE}/api/history/${encodeURIComponent(sessionId)}`,
+    { method: "DELETE" },
+  );
+  await throwOnError(res);
+}
+
+/* ------------------------------------------------------------------ */
+/* 上传 (Session-MVVM V0: 自 ImportPage 收敛至此)                       */
+/* ------------------------------------------------------------------ */
+
+/** POST /api/upload (multipart/form-data) → 返回 task_id, 随后经 /api/upload/sse/{task_id} 推流 */
+export async function postUpload(file: File): Promise<ImportUploadResponse> {
+  const formData = new FormData();
+  formData.append("file", file);
+  const res = await fetch(`${API_BASE}/api/upload`, {
+    method: "POST",
+    body: formData,
   });
   await throwOnError(res);
   return await res.json();
