@@ -1,4 +1,4 @@
-import { useMemo, type ImgHTMLAttributes } from "react";
+import { memo, useMemo, type ImgHTMLAttributes } from "react";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
@@ -134,8 +134,11 @@ function CachedImg(props: ImgHTMLAttributes<HTMLImageElement>) {
  * - 纯图片段落由 rehype 插件归类：单图居中，连续多图合并为一行并排
  * - 流式输出时，未写完的图片语法（![说明](URL…）不渲染，代之以 shimmer 文字占位，
  *   等语法闭合后再渲染图片
+ *
+ * 性能 (测试反馈 #3/#4): 用 memo 包裹 —— 进度等不改变 text 的更新不再触发
+ * markdown 重解析与整段 DOM 重渲染。
  */
-export function MarkdownContent({
+export const MarkdownContent = memo(function MarkdownContent({
   text,
   streaming = false,
   allowHtml = false,
@@ -186,4 +189,4 @@ export function MarkdownContent({
       {pending && <ImagePlaceholder />}
     </div>
   );
-}
+});

@@ -15,8 +15,10 @@
  */
 
 import {
+  memo,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -25,6 +27,7 @@ import {
 } from "react";
 import type { DocsListItem } from "@/lib/api";
 import type { ImportFile, PreviewMode } from "@/lib/types";
+import { useScrollRestore } from "@/lib/scrollRestore";
 import { useDocsStore, type ToastItem } from "@/stores/docsStore";
 import { MarkdownContent } from "@/components/Markdown";
 import { CompleteIcon } from "@/components/CompleteIcon";
@@ -84,7 +87,8 @@ const MODE_LABELS: Record<PreviewMode, string> = {
 
 type LogLine = { kind: "done" | "running" | "failed"; text: string };
 
-function ImportTaskItem({ file }: { file: ImportFile }) {
+/** 导入任务条目。memo 剪枝: 父级进度更新时仅重渲染受影响的条目 (测试反馈 #3) */
+const ImportTaskItem = memo(function ImportTaskItem({ file }: { file: ImportFile }) {
   const failed = file.status === "error";
   const failedNode =
     failed && file.done.length > 0 ? file.done[file.done.length - 1] : null;
@@ -142,7 +146,7 @@ function ImportTaskItem({ file }: { file: ImportFile }) {
       </div>
     </div>
   );
-}
+});
 
 /* ------------------------------------------------------------------ */
 /* 文档列表条目                                                        */
@@ -157,7 +161,7 @@ interface DocItemProps {
   onDelete: () => void;
 }
 
-function DocItem({
+const DocItem = memo(function DocItem({
   doc,
   selected,
   onSelect,
@@ -215,7 +219,7 @@ function DocItem({
       </div>
     </div>
   );
-}
+});
 
 /* ------------------------------------------------------------------ */
 /* 主组件                                                              */
@@ -255,6 +259,28 @@ export function ImportPage() {
     left: number;
     top: number;
   } | null>(null);
+
+  /* ---- 滚动守卫 (测试反馈 #4): 三个独立列表各自保存/恢复 ---- */
+  const docListRef = useRef<HTMLDivElement>(null);
+  const importBodyRef = useRef<HTMLDivElement>(null);
+  useScrollRestore(docListRef);
+  useScrollRestore(importBodyRef);
+  useScrollRestore(previewScrollRef);
+
+  // Activity 切回后重算 ChunkRail 高亮 (滚动位置恢复后保持一致)
+  useLayoutEffect(() => {
+    const container = previewScrollRef.current;
+    if (!container) return;
+    const cards = container.querySelectorAll<HTMLElement>("[data-chunk-index]");
+    if (!cards.length) return;
+    const containerTop = container.getBoundingClientRect().top;
+    let index = 0;
+    cards.forEach((el, i) => {
+      if (el.getBoundingClientRect().top <= containerTop + 8) index = i;
+    });
+    setRailActive(index);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   /* ================================================================== */
   /* 初始化与联动                                                        */
@@ -408,7 +434,7 @@ export function ImportPage() {
                   </span>
                 </div>
               </header>
-              <div className="import-body">
+              <div className="import-body" ref={importBodyRef}>
                 <div
                   className={`upload-area${dragging ? " dragging" : ""}`}
                   onClick={() => fileInputRef.current?.click()}
@@ -468,7 +494,7 @@ export function ImportPage() {
                   刷新
                 </button>
               </header>
-              <div className="doc-list-scroll">
+              <div className="doc-list-scroll" ref={docListRef}>
                 {docs.length === 0 ? (
                   <div className="doc-list-empty">
                     📭 文库为空

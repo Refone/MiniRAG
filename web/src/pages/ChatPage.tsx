@@ -1,4 +1,5 @@
 import {
+  memo,
   useCallback,
   useEffect,
   useRef,
@@ -10,6 +11,7 @@ import { CompleteIcon } from "@/components/CompleteIcon";
 import { LoadingIcon } from "@/components/LoadingIcon";
 import { MarkdownContent } from "@/components/Markdown";
 import { API_BASE } from "@/lib/api";
+import { useScrollRestore } from "@/lib/scrollRestore";
 import { useChatStore } from "@/stores/chatStore";
 import type { ChatMessage, ProgressView } from "@/lib/types";
 
@@ -73,7 +75,11 @@ function ProgressDetails({ progress }: { progress: ProgressView }) {
   );
 }
 
-function MessageBubble({ message }: { message: ChatMessage }) {
+const MessageBubble = memo(function MessageBubble({
+  message,
+}: {
+  message: ChatMessage;
+}) {
   if (message.role === "user") {
     return (
       <div className="msg user">
@@ -131,7 +137,7 @@ function MessageBubble({ message }: { message: ChatMessage }) {
       </div>
     </div>
   );
-}
+});
 
 /**
  * 对话页 (Session-MVVM V0 改造后):
@@ -161,22 +167,20 @@ export function ChatPage() {
   /** 上一次的健康检查结果：只在「已连接/不可用」变化时打日志，否则 5 秒一次会刷屏 */
   const healthRef = useRef<boolean | null>(null);
 
-  // 自动滚动到底部（贴底跟随模式）。
-  // <Activity> 切回 visible 会重建 effects: 若无条件滚底, 每次切回 Tab 都会被
-  // 强制跳到会话末尾, 破坏"会话 cursor 保留" (PRD 需求)。这里用 pinnedRef 记录
-  // 用户是否处于底部 (仅由真实滚动事件更新): 贴底时发送/流式增量跟随到底;
-  // 用户上翻阅读后不再强制滚动, 切回 Tab 保持原位置。
-  const pinnedRef = useRef(true);
+  // 滚动守卫 + 贴底跟随模式 (测试反馈 #4/#2):
+  // - DOM 由 <Activity> 完整保留, 不做"记录偏移 + 事后滑动";
+  // - 浏览器可能重置 display:none 容器的 scrollTop, useScrollRestore 持续被动
+  //   记录并在切回时于 paint 前恢复, 无可见跳动;
+  // - 贴底 (pinnedRef) 时消息变化跟随到底: 发送/流式增量跟随, 用户上翻阅读后
+  //   不再强制滚动, 切回 Tab 保持原位置。
+  const { pinnedRef } = useScrollRestore(chatRef, { followBottom: true });
+
+  // 贴底时消息变化跟随到底 (发送/流式增量)
   useEffect(() => {
     const el = chatRef.current;
     if (!el) return;
     if (pinnedRef.current) el.scrollTop = el.scrollHeight;
-    const onScroll = () => {
-      pinnedRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
-    };
-    el.addEventListener("scroll", onScroll, { passive: true });
-    return () => el.removeEventListener("scroll", onScroll);
-  }, [messages]);
+  }, [messages, pinnedRef]);
 
   // 健康检查（60 秒轮询）。保留在页面: Activity 隐藏时 effect 销毁、轮询暂停,
   // 恢复时重建 (设计文档 §4.1 决策)。
