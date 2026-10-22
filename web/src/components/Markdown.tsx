@@ -5,9 +5,9 @@ import rehypeRaw from "rehype-raw";
 import type { Element, Root } from "hast";
 import { useImageUrl } from "@/lib/imageCache";
 import {
+  cleanImageSrc,
   findPendingImage,
   normalizeMarkdownDestinations,
-  stripZeroWidth,
 } from "@/lib/chatUtils";
 
 interface MarkdownContentProps {
@@ -112,8 +112,8 @@ function ImagePlaceholder() {
  * 稳定类型 + useImageUrl 无状态同步读缓存 → 重渲染/重挂载均不闪。
  */
 const MarkdownImg: Components["img"] = ({ node: _node, src, alt, ...rest }) => {
-  // 剥离零宽字符 (BUG-005): LLM 输出常在图链目标夹带 U+200B 等不可见字符
-  const cleanSrc = typeof src === "string" ? stripZeroWidth(src) : src;
+  // 统一清洗 src (BUG-005/BUG-007): 零宽字符 + 前导 "](" 伪影
+  const cleanSrc = typeof src === "string" ? cleanImageSrc(src) : src;
   const resolved = useImageUrl(cleanSrc);
   const imgEl = (
     <img

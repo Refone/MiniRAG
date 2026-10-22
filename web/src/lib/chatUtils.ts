@@ -30,6 +30,18 @@ export function stripZeroWidth(s: string): string {
   return String(s ?? "").replace(/[\u200B-\u200D\u2060\uFEFF]/g, "");
 }
 
+/**
+ * 图片 src 统一清洗 (BUG-005 + BUG-007):
+ * - 剥离零宽字符 (U+200B 等): 否则浏览器请求 %E2%80%8B/api/files/... → 404;
+ * - 剥离 LLM 伪影前导 "](" (BUG-007): 模型偶发输出 ![说明](](url), CommonMark
+ *   会把 src 解析成以 "]" 开头的相对路径 (如 "]('/api/...") → 浏览器解析失败,
+ *   vite dev 回退 index.html (text/html) → 裂图。
+ *   合法图片地址 (http(s):// 或 /api/files/...) 均不以 "]" 开头, 剥除安全。
+ */
+export function cleanImageSrc(src: string): string {
+  return stripZeroWidth(src).replace(/^\]\(*/, "");
+}
+
 export function normalizeUrl(rawUrl: string): string {
   const s = String(rawUrl || '').trim();
   if (!s) return '';
@@ -134,26 +146,31 @@ export function normalizeMarkdownDestinations(text: string): string {
     out += s.slice(last, destStart);
 
     const rest = s.slice(destStart);
+    // BUG-007: LLM 偶发输出 ![说明](](url) —— 目标前多一个 "](" 伪影。
+    // 扫描前先剥掉前导 "]" (及紧跟的 "("), 否则 url 以 "]" 开头、浏览器解析失败。
+    // 合法 URL 不可能以 "]" 开头, 剥除无副作用。
+    const leadArtifact = rest.match(/^\]\(*/)?.[0] ?? "";
+    const head = rest.slice(leadArtifact.length);
     let url = "";
-    let consumed = 0;
+    let consumed = leadArtifact.length;
     let complete = false;
 
-    if (rest.startsWith("<")) {
+    if (head.startsWith("<")) {
       // 尖括号形式 <url>: 括号/空格可在内部出现, 取到闭合的 ">"
-      const close = rest.indexOf(">");
+      const close = head.indexOf(">");
       if (close !== -1) {
-        url = rest.slice(1, close);
-        consumed = close + 1;
+        url = head.slice(1, close);
+        consumed += close + 1;
         complete = true;
       }
     }
 
-    if (consumed === 0) {
+    if (!complete) {
       // 普通形式: 括号配平扫描, 直到配平的 ")"
       let depth = 0;
       let i = 0;
-      for (; i < rest.length; i++) {
-        const c = rest[i];
+      for (; i < head.length; i++) {
+        const c = head[i];
         if (c === "(") {
           depth++;
         } else if (c === ")") {
@@ -164,8 +181,8 @@ export function normalizeMarkdownDestinations(text: string): string {
           depth--;
         }
       }
-      url = rest.slice(0, i).trim();
-      consumed = i;
+      url = head.slice(0, i).trim();
+      consumed += i;
     }
 
     if (complete) {
