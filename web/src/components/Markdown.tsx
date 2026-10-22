@@ -7,6 +7,7 @@ import { useImageUrl } from "@/lib/imageCache";
 import {
   findPendingImage,
   normalizeMarkdownDestinations,
+  stripZeroWidth,
 } from "@/lib/chatUtils";
 
 interface MarkdownContentProps {
@@ -156,12 +157,15 @@ export const MarkdownContent = memo(function MarkdownContent({
       <a {...rest} target="_blank" rel="noopener noreferrer" />
     ),
     img: ({ node: _node, src, alt, ...rest }) => {
-      const imgEl = <CachedImg src={src} alt={alt} {...rest} />;
+      // 剥离零宽字符 (BUG-005): LLM 输出常在图链目标夹带 U+200B 等不可见字符,
+      // 直接渲染会 404; 此处作为 Markdown/HTML 两条路径的统一收口
+      const cleanSrc = typeof src === "string" ? stripZeroWidth(src) : src;
+      const imgEl = <CachedImg src={cleanSrc} alt={alt} {...rest} />;
       // 图片可点击: 新标签页打开原图
-      if (typeof src !== "string" || src.length === 0) return imgEl;
+      if (typeof cleanSrc !== "string" || cleanSrc.length === 0) return imgEl;
       return (
         <a
-          href={src}
+          href={cleanSrc}
           target="_blank"
           rel="noopener noreferrer"
           className="markdown-img-link"

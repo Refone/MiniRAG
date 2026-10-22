@@ -20,11 +20,21 @@ export function isImageUrl(url: string): boolean {
   }
 }
 
+/**
+ * 剥离零宽字符 (U+200B 零宽空格 / U+200C-U+200D / U+2060 / U+FEFF)。
+ * LLM 输出常在图链目标前后夹带这些不可见字符 (BUG-005):
+ * `![图](​/api/files/...)` → 浏览器请求 `%E2%80%8B/api/files/...` → 404 无法渲染。
+ * JS 的 \s 与 trim 都不覆盖它们, 必须显式清除。
+ */
+export function stripZeroWidth(s: string): string {
+  return String(s ?? "").replace(/[\u200B-\u200D\u2060\uFEFF]/g, "");
+}
+
 export function normalizeUrl(rawUrl: string): string {
   const s = String(rawUrl || '').trim();
   if (!s) return '';
-  // 尽量保留原始 URL，但把空格编码，避免 img src 失败
-  return s.replace(/\s/g, '%20');
+  // 尽量保留原始 URL，但把空格编码，避免 img src 失败；先剥离零宽字符
+  return stripZeroWidth(s).replace(/\s/g, '%20');
 }
 
 export function dedupeKeepOrder(arr: unknown[]): string[] {
@@ -114,7 +124,7 @@ export function normalizeMarkdownDestinations(text: string): string {
   let m: RegExpExecArray | null;
 
   const escapeUrl = (url: string): string =>
-    String(url || "")
+    stripZeroWidth(String(url || ""))
       .replace(/\s/g, "%20")
       .replace(/\(/g, "%28")
       .replace(/\)/g, "%29");
