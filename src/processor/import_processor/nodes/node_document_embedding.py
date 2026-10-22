@@ -4,6 +4,7 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any
 
+from common.config.app_config import APP_CONFIG
 from common.prompt.prompt_doc_keywords_abstract import (
     PromptDocKeywordsAbstract,
     DocKeywordsAbstractPydantic,
@@ -212,13 +213,13 @@ def _vectorize_chunks(chunks_list: list[Chunk]) -> list[dict[str, Any]]:
         logger.warning("切片列表为空")
         return []
 
-    batch_size = ENV_CONFIG.embedding.batch_size
+    batch_size = ENV_CONFIG.dashscope.embedding_batch_size
     batches: list[list[str]] = [
         [_format_chunk_content(chunk) for chunk in chunks_list[i : i + batch_size]]
         for i in range(0, len(chunks_list), batch_size)
     ]
 
-    with ThreadPoolExecutor(max_workers=ENV_CONFIG.embedding.concurrency) as pool:
+    with ThreadPoolExecutor(max_workers=APP_CONFIG.max_concurrency) as pool:
         vecs_list = list(pool.map(EMBEDDING.embed_document_hybrid, batches))
 
     embedded: list[dict[str, Any]] = []

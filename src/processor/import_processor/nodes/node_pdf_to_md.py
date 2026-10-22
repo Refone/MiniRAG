@@ -4,6 +4,7 @@ from pathlib import Path
 
 import requests
 
+from common.config.app_config import APP_CONFIG
 from common.config.env_config import ENV_CONFIG
 from processor.import_processor.state import ImportGraphState
 from utils.logging_utils import logger
@@ -114,11 +115,11 @@ def step_2_upload_and_poll(pdf_path: Path, page_cnt: int) -> str:
     logger.debug(f"上传文件成功, 轮询 url: {poll_url}")
 
     # 预计等待时间
-    est_time = ENV_CONFIG.mineru.est_per_page * page_cnt
+    est_time = APP_CONFIG.per_page_est_wait_time * page_cnt
     # 轮询间隔时间
-    interval_time = ENV_CONFIG.mineru.poll_interval
+    interval_time = APP_CONFIG.poll_interval
     # 最大等待时间
-    max_wait_time = ENV_CONFIG.mineru.timeout_per_page * page_cnt + 30
+    max_wait_time = APP_CONFIG.per_page_max_wait_time * page_cnt + 30
 
     start = time.time()
     logger.debug(
@@ -171,7 +172,7 @@ def step_3_download_and_unzip(zip_url: str, file_title: str) -> Path:
 
     # 在函数内解析目录而非模块级常量: 既让 from_project_root 可被测试 mock,
     # 也避免 import 时机过早固定路径。
-    md_dir = Path(ENV_CONFIG.mineru.unzip_dir)
+    md_dir = Path(ENV_CONFIG.output_dir.import_tmp_dir)
     md_dir.mkdir(parents=True, exist_ok=True)
 
     download_response = requests.get(zip_url)

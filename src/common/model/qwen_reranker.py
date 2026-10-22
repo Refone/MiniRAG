@@ -23,10 +23,9 @@ class QwenReranker:
     """
 
     def __init__(self):
-        self._model = ENV_CONFIG.rerank.model
-        self._base_url = ENV_CONFIG.rerank.base_url
-        self._api_key = ENV_CONFIG.qwen.api_key
-        self._limiter = SlidingWindowRateLimiter(ENV_CONFIG.rerank.rpm)
+        self._model = ENV_CONFIG.dashscope.rerank_model
+        self._api_key = ENV_CONFIG.dashscope.api_key
+        self._limiter = SlidingWindowRateLimiter(ENV_CONFIG.dashscope.rerank_rpm)
 
     def rerank(
         self,
@@ -57,7 +56,6 @@ class QwenReranker:
             top_n=top_n,
             return_documents=return_documents,
             api_key=self._api_key,
-            base_address=self._base_url,
         )
 
         if resp.status_code != 200:

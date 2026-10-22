@@ -1,7 +1,8 @@
 from langchain_deepseek import ChatDeepSeek
 
-from common.model.rate_limiter import SlidingWindowRateLimiter
+from common.config.app_config import APP_CONFIG
 from common.config.env_config import ENV_CONFIG
+from common.model.rate_limiter import SlidingWindowRateLimiter
 
 
 class DeepSeekFlash(ChatDeepSeek):
@@ -13,17 +14,23 @@ class DeepSeekFlash(ChatDeepSeek):
 
     def __init__(
         self,
-        model: str = ENV_CONFIG.llm.model_name,
-        api_key: str = ENV_CONFIG.llm.api_key,
-        base_url: str = ENV_CONFIG.llm.base_url,
+        model: str = ENV_CONFIG.dashscope.llm_model,
+        api_key: str = ENV_CONFIG.dashscope.api_key,
+        base_url: str = ENV_CONFIG.dashscope.base_url,
         **kwargs,
     ):
-        kwargs.setdefault("rate_limiter", SlidingWindowRateLimiter(ENV_CONFIG.llm.rpm))
-        kwargs.setdefault("extra_body", {"thinking": {"type": "disabled"}})
-        # 防 API 挂起: 连接超时 10s + 读超时 LLM_TIMEOUT, 失败最多重试 LLM_MAX_RETRIES 次。
-        # 不配置时 openai SDK 默认 600s/次 × 3 次, 一个卡死的请求会拖约 30 分钟。
-        kwargs.setdefault("request_timeout", (10.0, ENV_CONFIG.llm.timeout))
-        kwargs.setdefault("max_retries", ENV_CONFIG.llm.max_retries)
+        kwargs.setdefault(
+            "rate_limiter", SlidingWindowRateLimiter(ENV_CONFIG.dashscope.llm_rpm)
+        )
+        kwargs.setdefault(
+            "request_timeout",
+            (APP_CONFIG.tcp_reachability_timeout, APP_CONFIG.llm_request_timeout),
+        )
+        kwargs.setdefault("max_retries", APP_CONFIG.llm_request_retry_attempts)
+
+        # 关闭思考模式
+        kwargs.setdefault("extra_body", {})
+        kwargs["extra_body"]["enable_thinking"] = False
 
         return super().__init__(
             model=model,
@@ -40,6 +47,6 @@ if __name__ == "__main__":
     async def test_ainvoke():
         # 示例调用
         response = await DeepSeekFlash().ainvoke("你好")
-        rprint(response.content)
+        rprint(response)
 
     asyncio.run(test_ainvoke())

@@ -63,7 +63,7 @@ def step_2_unzip_md_zip(zip_file: Path, file_title: str) -> Path:
     同名文件夹已存在时先清空 (重复导入覆盖原则), 并清理 macOS 打包垃圾。
     返回解压根目录。
     """
-    md_dir = Path(ENV_CONFIG.mineru.unzip_dir) / file_title
+    md_dir = Path(ENV_CONFIG.output_dir.import_tmp_dir) / file_title
     if md_dir.exists():
         shutil.rmtree(md_dir)
     md_dir.mkdir(parents=True, exist_ok=True)
@@ -101,9 +101,7 @@ def _check_no_path_escape(zip_file: Path, md_dir: Path) -> None:
             # 兼容 Windows 打包时的反斜杠路径写法
             target = (md_dir / member.filename.replace("\\", "/")).resolve()
             if not target.is_relative_to(root):
-                raise RuntimeError(
-                    f"压缩包含越界路径, 已拒绝处理: {member.filename}"
-                )
+                raise RuntimeError(f"压缩包含越界路径, 已拒绝处理: {member.filename}")
 
     for path in md_dir.rglob("*"):
         if not path.resolve().is_relative_to(root):
@@ -296,7 +294,9 @@ def _remove_redundant_files(md_dir: Path, md_paths: list[Path]) -> None:
             continue
         if path in md_path_set:
             continue
-        if any(path.resolve().is_relative_to(dir_path) for dir_path in keep_images_dirs):
+        if any(
+            path.resolve().is_relative_to(dir_path) for dir_path in keep_images_dirs
+        ):
             continue
         path.unlink(missing_ok=True)
         logger.debug(f"删除冗余文件: {path}")

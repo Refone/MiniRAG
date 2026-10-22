@@ -43,11 +43,11 @@ def check_mongodb() -> None:
 
 
 def runtime_dirs() -> list[Path]:
-    """API 运行所需的目录: 上传目录 / MinerU 解压目录 / 日志目录。"""
+    """API 运行所需的目录: 上传目录 / 导入阶段临时目录 / 日志目录。"""
     return [
-        APP_CONFIG.upload_dir,
-        Path(ENV_CONFIG.mineru.unzip_dir),
-        Path(ENV_CONFIG.log.file_dir),
+        Path(ENV_CONFIG.output_dir.upload_tmp_dir),
+        Path(ENV_CONFIG.output_dir.import_tmp_dir),
+        Path(ENV_CONFIG.output_dir.log_dir),
     ]
 
 
@@ -68,10 +68,7 @@ def ensure_runtime_dirs() -> None:
 # (环境变量名, 当前值, 对应功能), 值在 import 时读取, 与各 model 单例的初始化时机一致
 _API_KEY_CHECKS: list[tuple[str, str, str]] = [
     ("MINERU_API_KEY", ENV_CONFIG.mineru.api_key, "PDF 解析 (MinerU)"),
-    ("VLM_API_KEY", ENV_CONFIG.vlm.api_key, "图片内容识别 (VLM)"),
-    ("QWEN_API_KEY", ENV_CONFIG.qwen.api_key, "向量化与重排序 (Embedding / Rerank)"),
-    ("LLM_API_KEY", ENV_CONFIG.llm.api_key, "问答生成 (LLM)"),
-    ("DASHSCOPE_API_KEY", ENV_CONFIG.dashscope.api_key, "联网搜索 (Web Search MCP)"),
+    ("DASHSCOPE_API_KEY", ENV_CONFIG.dashscope.api_key, "阿里云百炼"),
 ]
 
 
@@ -79,7 +76,9 @@ def warn_missing_api_keys() -> None:
     """软检查: 未配置的 API 密钥只告警, 不阻止启动。"""
     for env_name, value, feature in _API_KEY_CHECKS:
         if not value:
-            logger.warning(f"未配置 {env_name}, 功能「{feature}」将不可用, 请在 .env 中补充")
+            logger.warning(
+                f"未配置 {env_name}, 功能「{feature}」将不可用, 请在 .env 中补充"
+            )
 
 
 # (检查名, 检查函数, 失败时的排查提示)

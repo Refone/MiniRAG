@@ -8,8 +8,6 @@ from utils.path_utils import PROJECT_ROOT
 
 @dataclass(frozen=True)
 class _AppConfig:
-    upload_dir: Path = PROJECT_ROOT / "output/uploads"
-
     # 支持的图片格式
     support_image_format: tuple[str, ...] = (
         "jpg",
@@ -23,17 +21,28 @@ class _AppConfig:
     # 解释 Markdown 中图片时, 最大探测前后的字符数
     md_image_surrounding_context_max_chars: int = 500
 
-    # VLM 请求超时时间 (秒)
+    # MinerU 请求等待参数
+    per_page_est_wait_time: float = 0.5
+    per_page_max_wait_time: float = 10.0
+    poll_interval: float = 5.0
+
+    # TCP 可达等待时长
+    tcp_reachability_timeout: int = 10
+
+    # VLM 请求超时与重试
     vlm_request_timeout: int = 60
-    # VLM 请求重试次数
     vlm_request_retry_attempts: int = 3
+
+    # LLM 请求超时与重试
+    llm_request_timeout: int = 90
+    llm_request_retry_attempts: int = 1
 
     # 切分 Markdown 内容时的配置（软限制）
     max_chunk_size: int = 1000
     min_chunk_size: int = 200
     overlap_size: int = 100
 
-    max_concurrent_requests: int = os.cpu_count() - 1
+    max_concurrency: int = 8
 
     # 聊天记录回溯限制，综合分析过去多少条消息(user assistant 成对)。
     # 仅用于意图识别/查询改写等查询分析场景的上下文窗口；

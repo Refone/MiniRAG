@@ -24,10 +24,10 @@ class QwenEmbedding:
     """
 
     def __init__(self):
-        self._model = ENV_CONFIG.embedding.model
-        self._dense_dimension = ENV_CONFIG.embedding.dense_dimension
-        self._api_key = ENV_CONFIG.qwen.api_key
-        self._limiter = SlidingWindowRateLimiter(ENV_CONFIG.embedding.rpm)
+        self._model = ENV_CONFIG.dashscope.embedding_model
+        self._dense_dimension = ENV_CONFIG.dashscope.embedding_dense_dimension
+        self._api_key = ENV_CONFIG.dashscope.api_key
+        self._limiter = SlidingWindowRateLimiter(ENV_CONFIG.dashscope.embedding_rpm)
 
     def embed_document_hybrid(self, texts: list[str]) -> list[HybridVector]:
         """嵌入文本混合向量

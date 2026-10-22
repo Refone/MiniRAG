@@ -569,7 +569,7 @@ class MiniRagMilvusClient(MilvusClient):
         ).add_field(
             field_name=MilvusDocsField.ABSTRACT_DENSE_VECTOR,
             datatype=DataType.FLOAT_VECTOR,
-            dim=ENV_CONFIG.embedding.dense_dimension,
+            dim=ENV_CONFIG.dashscope.embedding_dense_dimension,
         ).add_field(
             field_name=MilvusDocsField.KEYWORDS_SPARSE_VECTOR,
             datatype=DataType.SPARSE_FLOAT_VECTOR,
@@ -641,7 +641,7 @@ class MiniRagMilvusClient(MilvusClient):
         ).add_field(
             field_name=MilvusChunksField.CONTENT_DENSE_VECTOR,
             datatype=DataType.FLOAT_VECTOR,
-            dim=ENV_CONFIG.embedding.dense_dimension,
+            dim=ENV_CONFIG.dashscope.embedding_dense_dimension,
         ).add_field(
             field_name=MilvusChunksField.CONTENT_SPARSE_VECTOR,
             datatype=DataType.SPARSE_FLOAT_VECTOR,

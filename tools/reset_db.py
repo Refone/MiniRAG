@@ -31,14 +31,14 @@ def rebuild_db():
 
 
 def clean_output_dir():
-    output_dir = ENV_CONFIG.mineru.unzip_dir
+    output_dir = ENV_CONFIG.output_dir.import_tmp_dir
     if os.path.exists(output_dir):
         print(f"删除输出目录 {output_dir}")
         shutil.rmtree(output_dir)
 
 
 def clean_upload_dir():
-    upload_dir = APP_CONFIG.upload_dir
+    upload_dir = ENV_CONFIG.output_dir.upload_tmp_dir
     if os.path.exists(upload_dir):
         print(f"删除上传目录 {upload_dir}")
         shutil.rmtree(upload_dir)

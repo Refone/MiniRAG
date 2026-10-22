@@ -13,7 +13,7 @@ LOG_FORMAT = (
     "<cyan>{file}</cyan>:<cyan>{line}</cyan> <cyan>{function}</cyan> | "
     "<level>{message}</level>"
 )
-LOG_DIR = Path(ENV_CONFIG.log.file_dir)
+LOG_DIR = Path(ENV_CONFIG.output_dir.log_dir)
 LOG_FILE_NAME = "app_{time:YYYYMMDD}.log"
 LOG_FILE_PATH = LOG_DIR / LOG_FILE_NAME
 

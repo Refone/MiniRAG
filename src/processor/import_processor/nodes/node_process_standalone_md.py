@@ -47,7 +47,7 @@ def step_2_build_md_dir(origin_md: Path, file_title: str) -> Path:
     # output/import/<file_title>/
     # ├── images/
     # └── <file_title>.md
-    md_dir = Path(ENV_CONFIG.mineru.unzip_dir) / file_title
+    md_dir = Path(ENV_CONFIG.output_dir.import_tmp_dir) / file_title
     md_dir.mkdir(parents=True, exist_ok=True)
     images_dir = md_dir / "images"
     images_dir.mkdir(parents=True, exist_ok=True)

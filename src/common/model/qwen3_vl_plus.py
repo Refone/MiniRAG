@@ -10,8 +10,8 @@ from common.config.app_config import APP_CONFIG
 from common.model.rate_limiter import SlidingWindowRateLimiter
 
 
-class Qwen_VL_32B(ChatOpenAI):
-    """Qwen3-VL-32B 视觉语言模型封装：原生限速 + 原生重试。
+class Qwen3_VL_Plus(ChatOpenAI):
+    """Qwen3-VL-Plus 视觉语言模型封装：原生限速 + 原生重试。
 
     继承自 ChatOpenAI（即 BaseChatModel），限速由 LangChain 在每条调用路径上
     自动执行；重试使用 OpenAI SDK 原生 max_retries（指数退避）。
@@ -19,12 +19,14 @@ class Qwen_VL_32B(ChatOpenAI):
 
     def __init__(
         self,
-        model: str = ENV_CONFIG.vlm.model_name,
-        base_url: str = ENV_CONFIG.vlm.base_url,
-        api_key: str = ENV_CONFIG.vlm.api_key,
+        model: str = ENV_CONFIG.dashscope.vlm_model,
+        base_url: str = ENV_CONFIG.dashscope.base_url,
+        api_key: str = ENV_CONFIG.dashscope.api_key,
         **kwargs,
     ):
-        kwargs.setdefault("rate_limiter", SlidingWindowRateLimiter(ENV_CONFIG.vlm.rpm))
+        kwargs.setdefault(
+            "rate_limiter", SlidingWindowRateLimiter(ENV_CONFIG.dashscope.vlm_rpm)
+        )
         kwargs.setdefault("max_retries", APP_CONFIG.vlm_request_retry_attempts)
         kwargs.setdefault("timeout", APP_CONFIG.vlm_request_timeout)
         super().__init__(
@@ -52,7 +54,7 @@ if __name__ == "__main__":
     remote_image_url = "https://pics3.baidu.com/feed/f31fbe096b63f624208f2298bc4e78e91b4ca372.jpeg@f_auto?token=4e343c1319d17140423146fb4bb60b6b"
 
     response = asyncio.run(
-        Qwen_VL_32B().ainvoke(
+        Qwen3_VL_Plus().ainvoke(
             [
                 HumanMessage(
                     content=[
@@ -98,7 +100,7 @@ if __name__ == "__main__":
     """
 
     response = asyncio.run(
-        Qwen_VL_32B().ainvoke(
+        Qwen3_VL_Plus().ainvoke(
             [
                 HumanMessage(
                     content=[

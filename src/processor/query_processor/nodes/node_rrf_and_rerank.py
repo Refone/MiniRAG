@@ -91,7 +91,9 @@ def step_2_rrf_fusion(
 def _ensure_answer_token_limit(question: str, answer: str) -> str:
     result = answer
     # 这里有些不严谨，近似计算
-    answer_token_limit = ENV_CONFIG.rerank.max_length - compute_token(question)
+    answer_token_limit = ENV_CONFIG.dashscope.rerank_max_text_length - compute_token(
+        question
+    )
     if compute_token(answer) > answer_token_limit:
         # 截断文本以确保不超过 token 限制
         # 这里简单地按字符数截断，实际可根据具体 tokenizer 实现更精确的截断

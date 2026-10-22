@@ -23,7 +23,6 @@ from api.schemas import (
 import uuid
 from pathlib import Path
 from common.client import MINIO_CLIENT
-from common.config.app_config import APP_CONFIG
 from common.config.env_config import ENV_CONFIG
 from service import docs_service
 from service.import_service import arun_import
@@ -84,7 +83,7 @@ async def import_document(
         raise HTTPException(status_code=400, detail="缺少文件名")
 
     task_id = uuid.uuid4().hex
-    upload_dir = APP_CONFIG.upload_dir
+    upload_dir = Path(ENV_CONFIG.output_dir.upload_tmp_dir)
     upload_dir.mkdir(parents=True, exist_ok=True)
     dest = upload_dir / f"{Path(file.filename).name}"
     dest.unlink(missing_ok=True)

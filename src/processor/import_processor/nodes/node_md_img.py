@@ -10,7 +10,7 @@ from common.client import MINIO_CLIENT
 from common.config.app_config import APP_CONFIG
 from common.config.env_config import ENV_CONFIG
 from common.model import VLM
-from common.model.qwen_vl_32b import encode_image
+from common.model.qwen3_vl_plus import encode_image
 from common.prompt.prompt_image_summary import PromptImageSummary
 from processor.import_processor.state import ImportGraphState
 from utils.markdown_utils import extract_surrounding_context, find_image_position
@@ -194,7 +194,7 @@ def step_3_image_summary(
         logger.debug(f"{image_path} 图片摘要: {description}")
         return image_info["name"], description
 
-    workers = min(ENV_CONFIG.vlm.concurrency, len(image_info_list))
+    workers = min(APP_CONFIG.max_concurrency, len(image_info_list))
     with ThreadPoolExecutor(max_workers=workers) as pool:
         results = pool.map(process_image, image_info_list)
         return dict(results)

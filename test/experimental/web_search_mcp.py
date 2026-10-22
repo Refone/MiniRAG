@@ -14,7 +14,7 @@ from common.config.env_config import ENV_CONFIG
 
 async def main():
     # 优先读取 DASHSCOPE_API_KEY，其次回退到 .env 中的 QWEN_API_KEY
-    api_key = os.getenv("DASHSCOPE_API_KEY") or ENV_CONFIG.qwen.api_key
+    api_key = os.getenv("DASHSCOPE_API_KEY") or ENV_CONFIG.dashscope.api_key
     if not api_key:
         print("错误：请设置环境变量 DASHSCOPE_API_KEY")
         return
