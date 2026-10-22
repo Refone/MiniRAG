@@ -65,6 +65,23 @@ function parseEventData<T>(data: string): T | null {
   }
 }
 
+/**
+ * 剥离行内 Markdown 语法，只保留纯文本。
+ * 历史数据里 title_stack 直接存了标题原文（含 **加粗**、`代码` 等标记），
+ * 切块卡片头按纯文本渲染时会把这些符号原样显示出来，展示前先清洗一遍。
+ */
+function stripInlineMarkdown(s: string): string {
+  return s
+    .replace(/!\[([^\]]*)\]\([^)]*\)/g, "$1")
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
+    .replace(/`+([^`]*)`+/g, "$1")
+    .replace(/(?<![A-Za-z0-9])(\*\*|__)(?=\S)(.+?)(?<=\S)\1(?![A-Za-z0-9])/g, "$2")
+    .replace(/(?<![A-Za-z0-9])(\*|_)(?=\S)(.+?)(?<=\S)\1(?![A-Za-z0-9])/g, "$2")
+    .replace(/~~(?=\S)(.+?)(?<=\S)~~/g, "$1")
+    .replace(/<[^>]+>/g, "")
+    .trim();
+}
+
 type PreviewMode = "markdown" | "chunks" | "features";
 
 const MODE_ORDER: Record<PreviewMode, number> = {
@@ -765,6 +782,7 @@ export function ImportPage() {
                 {detail.chunks.map((chunk, idx) => {
                   const title = (chunk.title_stack || [])
                     .filter(Boolean)
+                    .map((t) => stripInlineMarkdown(String(t)))
                     .join(" › ");
                   const level = Number.isFinite(chunk.level) ? chunk.level : 0;
                   return (

@@ -14,6 +14,36 @@ class Chunk(TypedDict):
 _TITLE_RE = re.compile(r"^(#{1,6})\s+(.*)$")
 _CODE_RE = re.compile(r'^[ \t]{0,3}(`{3,}|~{3,})')
 
+# 行内 Markdown 语法（标题会同时进入 title_stack / 前端卡片头 / 向量化文本，
+# 原始语法标记会让 UI 直接显示 **、` 等符号，需在此剥掉）
+_INLINE_IMG_RE = re.compile(r"!\[([^\]]*)\]\([^)]*\)")  # 图片 -> 保留 alt 文本
+_INLINE_LINK_RE = re.compile(r"\[([^\]]+)\]\([^)]*\)")  # 链接 -> 保留文字
+_INLINE_CODE_RE = re.compile(r"`+([^`]*)`+")  # 行内代码 -> 保留内容
+_INLINE_STRONG_RE = re.compile(
+    r"(?<![A-Za-z0-9])(\*\*|__)(?=\S)(.+?)(?<=\S)\1(?![A-Za-z0-9])"
+)  # **加粗** / __加粗__（CJK 紧邻时仍生效，不误伤 snake_case 标识符）
+_INLINE_EM_RE = re.compile(
+    r"(?<![A-Za-z0-9])(\*|_)(?=\S)(.+?)(?<=\S)\1(?![A-Za-z0-9])"
+)  # *斜体* / _斜体_
+_INLINE_DEL_RE = re.compile(r"~~(?=\S)(.+?)(?<=\S)~~")  # ~~删除线~~
+_INLINE_HTML_RE = re.compile(r"<[^>]+>")  # 行内 HTML 标签
+
+
+def strip_inline_markdown(text: str) -> str:
+    """去掉标题文本中的行内 Markdown 语法，只保留纯文本。
+
+    例如 ``**省略指向 `END` 的边**`` -> ``省略指向 END 的边``。
+    只影响 title_stack 的展示与向量化，不改动原文 content。
+    """
+    text = _INLINE_IMG_RE.sub(r"\1", text)
+    text = _INLINE_LINK_RE.sub(r"\1", text)
+    text = _INLINE_CODE_RE.sub(r"\1", text)
+    text = _INLINE_STRONG_RE.sub(r"\2", text)
+    text = _INLINE_EM_RE.sub(r"\2", text)
+    text = _INLINE_DEL_RE.sub(r"\1", text)
+    text = _INLINE_HTML_RE.sub("", text)
+    return text.strip()
+
 def markdown_split_by_title(
     md_content:str,
     ) -> list[Chunk]:
@@ -62,7 +92,7 @@ def markdown_split_by_title(
             current_level = len(title_match.group(1))
             current_content_lines.clear()
             # current_content_lines.append(line)  # 把标题本身也加入到当前内容中
-            heading_text = title_match.group(2)
+            heading_text = strip_inline_markdown(title_match.group(2))
             # title_stack 按下标对齐标题层级: 下标 i 对应第 i+1 级标题。
             # 缺失的层级用 None 占位，同级标题替换而不是追加，深于当前层级的旧标题要裁掉。
             while len(current_title) < current_level:
