@@ -260,12 +260,17 @@ export function ImportPage() {
     top: number;
   } | null>(null);
 
-  /* ---- 滚动守卫 (测试反馈 #4): 三个独立列表各自保存/恢复 ---- */
+  /* ---- 滚动守卫 (测试反馈 #4): 三个独立列表各自保存/恢复 ----
+     预览区以"文档:模式"为内容身份键:
+     - 切 Tab (Activity 隐藏/恢复) 键不变 → 恢复原偏移;
+     - 切换文档 / 切换模式键变化 → 偏移归 0, 旧偏移作废, 不随内容漂移。 */
   const docListRef = useRef<HTMLDivElement>(null);
   const importBodyRef = useRef<HTMLDivElement>(null);
   useScrollRestore(docListRef);
   useScrollRestore(importBodyRef);
-  useScrollRestore(previewScrollRef);
+  useScrollRestore(previewScrollRef, {
+    resetKey: `${selectedId ?? ""}:${previewMode}`,
+  });
 
   // Activity 切回后重算 ChunkRail 高亮 (滚动位置恢复后保持一致)
   useLayoutEffect(() => {
