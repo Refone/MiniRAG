@@ -1033,6 +1033,9 @@ details.progress summary {
 .docs-page {
   flex: 1 1 auto;
   min-height: 0;
+  /* 关键：允许在窄视口下收缩到内容最小宽度以下，
+     否则右侧预览面板/ChunkRail 会被推出屏幕 */
+  min-width: 0;
   display: flex;
   gap: 16px;
   padding: 16px;
@@ -1453,6 +1456,8 @@ details.progress summary {
 .preview-body {
   flex: 1 1 auto;
   min-height: 0;
+  /* 同上：preview-scroll 需能收缩，把固定宽度的 ChunkRail 留在视口内 */
+  min-width: 0;
   display: flex;
 }
 
@@ -1662,9 +1667,14 @@ details.progress summary {
 }
 
 /* ---- ChunkRail（最右侧长度分布条，仿 splitter，方向镜像） ---- */
+/* 宽度约束：基础 132px；空间充裕时可向左延展，但左边界不得超过
+   preview-header 中 segmented 控件的左边界（segmented 宽 172px +
+   header 右侧 padding 20px = 192px），超出该上限的 bar 一律截断。 */
 .chunk-rail {
-  flex: 0 0 132px;
+  flex: 1 1 auto;
   width: 132px;
+  min-width: 132px;
+  max-width: 192px;
   min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
@@ -1704,6 +1714,8 @@ details.progress summary {
   display: block;
   height: 9px;
   min-width: 4px;
+  /* bar 宽度是 rail 内容区的百分比，最大 100%，超长部分天然截断 */
+  max-width: 100%;
   padding: 0;
   border: none;
   border-radius: 3px;
