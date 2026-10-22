@@ -141,6 +141,10 @@ def step_2_scan_images(
                 post_text=post_text,
             )
         )
+
+    # 按图片在 Markdown 中的出现顺序排序 (rglob 是文件系统顺序, 不是出现顺序)
+    # 该顺序决定 step_4 上传时的重命名序号 (1.<后缀>, 2.<后缀> ...)
+    image_info_list.sort(key=lambda info: info["start"])
     return image_info_list
 
 
@@ -204,11 +208,15 @@ def step_4_upload_images_get_url(
     """
     上传图片至 Minio
 
+    图片在 MinIO 上按文档内出现顺序重命名为 1.<后缀>, 2.<后缀> ...
+    (image_info_list 已按出现顺序排序): 短文件名更利于 LLM 抄写 URL。
+    返回字典的 key 仍为原始图片名, 供 step_5 在 Markdown 中定位替换。
+
     Args:
         file_title: 文件标题
-        image_info_list: list[ImageInfo] 图片信息列表
+        image_info_list: list[ImageInfo] 图片信息列表 (按出现顺序排序)
     returns:
-        dict[str, str]: (<图片名> : url)
+        dict[str, str]: (<原始图片名> : url)
     """
 
     image_url_dict = {}
@@ -221,16 +229,17 @@ def step_4_upload_images_get_url(
     if del_cnt > 0:
         logger.info(f"{prefix} 覆盖删除 {del_cnt} 张图片")
 
-    # 依次上传图片
-    for image in image_info_list:
+    # 依次上传图片, 云端文件名为出现顺序序号 + 原始后缀: 1.jpg, 2.png ...
+    for seq, image in enumerate(image_info_list, start=1):
+        seq_name = f"{seq}{image['path'].suffix}"
         try:
             url = MINIO_CLIENT.upload_file(
-                prefix=prefix, as_name=image["name"], file_path=image["path"]
+                prefix=prefix, as_name=seq_name, file_path=image["path"]
             )
             image_url_dict[image["name"]] = url
-            logger.debug(f"{image['name']} 上传成功: {url}")
+            logger.debug(f"{image['name']} -> {seq_name} 上传成功: {url}")
         except Exception as e:
-            logger.warning(f"{image['name']} 上传失败, 跳过. error: {e}")
+            logger.warning(f"{image['name']} -> {seq_name} 上传失败, 跳过. error: {e}")
 
     return image_url_dict
 
@@ -321,8 +330,8 @@ def node_md_img(state: ImportGraphState) -> ImportGraphState:
     # {"<图片名>" : "<摘要>"}
     summary_dict = step_3_image_summary(file_title, image_info_list)
 
-    # 4. 上传图片至 MinIO 并获取 URL
-    # {"<图片名>" : "<URL>"}
+    # 4. 上传图片至 MinIO 并获取 URL (云端按出现顺序重命名为 1.<后缀>, 2.<后缀> ...)
+    # {"<原始图片名>" : "<URL>"}
     url_dict = step_4_upload_images_get_url(file_title, image_info_list)
 
     # 5. 替换 Markdown 中的图片标记
