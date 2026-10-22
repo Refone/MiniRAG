@@ -1,4 +1,4 @@
-import { memo, useMemo, type ImgHTMLAttributes } from "react";
+import { memo, useMemo } from "react";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
@@ -106,14 +106,16 @@ function ImagePlaceholder() {
 }
 
 /**
- * 站内图片经 imageCache 的 Blob 缓存渲染 (Session-MVVM V0, 设计文档 §5.3):
- * 首次 fetch→blob→objectURL 入缓存, 组件重挂/切 Tab 后直接复用解码结果;
- * 外部 http(s) 图片原样渲染 (多数无 CORS, 交给浏览器 HTTP 缓存)。
+ * 图片渲染 (模块级组件, 类型稳定 —— 关键):
+ * 若 components 在渲染内联创建, 每次 markdown 重解析 (流式 delta) 都会把 img
+ * 当作新组件类型卸载重挂, 引起 src 在 blob 与原 URL 间来回跳的剧烈闪烁。
+ * 稳定类型 + useImageUrl 无状态同步读缓存 → 重渲染/重挂载均不闪。
  */
-function CachedImg(props: ImgHTMLAttributes<HTMLImageElement>) {
-  const { src, alt, ...rest } = props;
-  const resolved = useImageUrl(typeof src === "string" ? src : undefined);
-  return (
+const MarkdownImg: Components["img"] = ({ node: _node, src, alt, ...rest }) => {
+  // 剥离零宽字符 (BUG-005): LLM 输出常在图链目标夹带 U+200B 等不可见字符
+  const cleanSrc = typeof src === "string" ? stripZeroWidth(src) : src;
+  const resolved = useImageUrl(cleanSrc);
+  const imgEl = (
     <img
       src={resolved}
       alt={alt}
@@ -123,7 +125,30 @@ function CachedImg(props: ImgHTMLAttributes<HTMLImageElement>) {
       className="markdown-img"
     />
   );
-}
+  // 图片可点击: 新标签页打开原图
+  if (typeof cleanSrc !== "string" || cleanSrc.length === 0) return imgEl;
+  return (
+    <a
+      href={cleanSrc}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="markdown-img-link"
+    >
+      {imgEl}
+    </a>
+  );
+};
+
+/** 链接统一新窗口打开 (模块级, 同上理由) */
+const MarkdownAnchor: Components["a"] = ({ node: _node, ...rest }) => (
+  <a {...rest} target="_blank" rel="noopener noreferrer" />
+);
+
+/** 模块级 components: 保证跨渲染类型稳定, 避免 react-markdown 重挂载子树 */
+const markdownComponents: Components = {
+  a: MarkdownAnchor,
+  img: MarkdownImg,
+};
 
 /**
  * AI 回复的 Markdown 渲染：
@@ -152,30 +177,6 @@ export const MarkdownContent = memo(function MarkdownContent({
 
   const renderText = pending ? pending.before : normalized;
 
-  const components: Components = {
-    a: ({ node: _node, ...rest }) => (
-      <a {...rest} target="_blank" rel="noopener noreferrer" />
-    ),
-    img: ({ node: _node, src, alt, ...rest }) => {
-      // 剥离零宽字符 (BUG-005): LLM 输出常在图链目标夹带 U+200B 等不可见字符,
-      // 直接渲染会 404; 此处作为 Markdown/HTML 两条路径的统一收口
-      const cleanSrc = typeof src === "string" ? stripZeroWidth(src) : src;
-      const imgEl = <CachedImg src={cleanSrc} alt={alt} {...rest} />;
-      // 图片可点击: 新标签页打开原图
-      if (typeof cleanSrc !== "string" || cleanSrc.length === 0) return imgEl;
-      return (
-        <a
-          href={cleanSrc}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="markdown-img-link"
-        >
-          {imgEl}
-        </a>
-      );
-    },
-  };
-
   return (
     <div className="markdown">
       <ReactMarkdown
@@ -186,7 +187,7 @@ export const MarkdownContent = memo(function MarkdownContent({
               [rehypeRaw, rehypeGroupImageParagraphs]
             : [rehypeGroupImageParagraphs]
         }
-        components={components}
+        components={markdownComponents}
       >
         {renderText}
       </ReactMarkdown>

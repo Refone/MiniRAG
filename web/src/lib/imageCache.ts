@@ -10,10 +10,15 @@
  *   引用计数在隐藏时被误降为 0, 触发淘汰并 revoke 仍在 DOM 中的 <img> 所指向
  *   的 blob URL —— 切回时图片断裂、回退原 URL 重新请求并闪烁。
  * - 现改为: 已缓存条目【绝不淘汰】(会话内存, 条目数/字节数封顶, 满后不再缓存
- *   新图, 新图直接走原 URL); 未命中时保留同一 URL 上一次的 objectURL,
- *   避免切回/重挂瞬间闪回原 URL。
+ *   新图, 新图直接走原 URL)。
+ *
+ * 流式闪烁修正 (用户反馈):
+ * - useImageUrl 不持有组件内状态: 渲染时同步读缓存 (getImageUrl), 新条目就绪
+ *   时通过 useSyncExternalStore 订阅版本号触发重渲染。组件即使因 markdown
+ *   重解析被卸载重挂, 首帧也能直接拿到已缓存的 blob URL —— src 不会在
+ *   blob 与原 URL 之间来回跳, 消除流式输出时的剧烈闪烁。
  */
-import { useEffect, useState } from "react";
+import { useEffect, useSyncExternalStore } from "react";
 import { API_BASE } from "@/lib/api";
 
 interface ImageEntry {
@@ -27,6 +32,15 @@ const MAX_BYTES = 300 * 1024 * 1024;
 const imageMap = new Map<string, ImageEntry>();
 const inflight = new Map<string, Promise<ImageEntry | null>>();
 let totalBytes = 0;
+
+/** 缓存版本号 + 订阅者: 新条目就绪时通知所有 useImageUrl 组件重渲染 */
+let version = 0;
+const listeners = new Set<() => void>();
+
+function bump(): void {
+  version += 1;
+  listeners.forEach((l) => l());
+}
 
 function isInternalUrl(url: string): boolean {
   return (
@@ -59,6 +73,7 @@ function fetchAndCache(url: string): Promise<ImageEntry | null> {
       const entry: ImageEntry = { objectUrl, bytes: blob.size };
       imageMap.set(url, entry);
       totalBytes += blob.size;
+      bump();
       return entry;
     })
     .finally(() => {
@@ -76,48 +91,26 @@ export function getImageUrl(url: string): string {
 }
 
 /**
- * 组件内使用: 命中立即返回 objectURL; 未命中先返回原 URL 渲染,
- * 异步 fetch→blob→缓存, 就绪后切换到 objectURL (并发去重, 失败静默回退原 URL)。
- * 同一 URL 的重复 effect (Activity 切回/组件重挂) 保留既有 objectURL, 防止闪回。
+ * 组件内使用 (无组件内状态, 重挂载安全):
+ * - 渲染时同步读缓存: 已缓存立即返回 objectURL, 未缓存返回原 URL;
+ * - 订阅缓存版本号: fetch 就绪 → bump → 重渲染 → 切到 objectURL;
+ * - effect 仅负责在未命中时发起 fetch (并发去重, 失败静默回退原 URL)。
  */
 export function useImageUrl(url: string | undefined): string | undefined {
-  const [resolved, setResolved] = useState<{
-    url: string;
-    objectUrl: string | null;
-  } | null>(null);
+  useSyncExternalStore(
+    (listener) => {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
+    () => version,
+  );
 
   useEffect(() => {
-    if (!url || !isInternalUrl(url)) {
-      setResolved(null);
-      return;
+    if (!url || !isInternalUrl(url)) return;
+    if (!imageMap.has(url) && !inflight.has(url)) {
+      void fetchAndCache(url);
     }
-
-    const hit = imageMap.get(url);
-    if (hit) {
-      setResolved({ url, objectUrl: hit.objectUrl });
-      return;
-    }
-
-    // 同一 URL 未命中重跑 (切回/重挂): 保留既有 objectURL, 避免闪回原 URL
-    setResolved((prev) =>
-      prev && prev.url === url ? prev : { url, objectUrl: null },
-    );
-
-    let cancelled = false;
-    fetchAndCache(url)
-      .then((entry) => {
-        if (!cancelled && entry) {
-          setResolved({ url, objectUrl: entry.objectUrl });
-        }
-      })
-      .catch(() => {
-        /* 失败静默回退原 URL */
-      });
-
-    return () => {
-      cancelled = true;
-    };
   }, [url]);
 
-  return resolved && resolved.url === url ? resolved.objectUrl ?? url : url;
+  return url ? getImageUrl(url) : url;
 }
