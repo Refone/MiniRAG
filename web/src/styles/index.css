@@ -1,0 +1,7 @@
+/* 全局样式入口：@import 顺序必须保持原单文件 section 先后（保证层叠一致性） */
+@import "./tokens.css";
+@import "./base.css";
+@import "./layout.css";
+@import "./ui.css";
+@import "./chat.css";
+@import "./docs.css";

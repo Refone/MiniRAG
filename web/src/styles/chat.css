@@ -1,0 +1,611 @@
+/* ============ 对话页（DeepSeek 风格：消息铺在背景板上，只有输入框是圆角卡片并悬浮在顶层） ============ */
+.chat-page {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* 背景板：无边框、无卡片，纯滚动区域。
+   滚动容器全宽 → 滚动条贴在页面最右侧；内容由 .chat-inner 居中限宽 */
+.chat {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  width: 100%;
+  /* 底部留白：给悬浮输入卡片腾出空间 */
+  padding: 0 0 190px;
+}
+
+.chat-inner {
+  width: 100%;
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 26px 20px 0;
+  box-sizing: border-box;
+}
+
+.dayline {
+  text-align: center;
+  color: var(--muted);
+  font-size: 12px;
+  margin: 4px 0 18px;
+}
+
+.msg {
+  display: flex;
+  margin: 16px 0;
+}
+
+.msg.user {
+  justify-content: flex-end;
+}
+
+.user-row {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  max-width: 78%;
+}
+
+/* 用户消息：右侧灰底圆角胶囊，无边框，像印在背景板上 */
+.msg.user .bubble {
+  background: var(--user-pill);
+  color: var(--text);
+  border: none;
+  border-radius: 12px;
+  padding: 10px 14px;
+  font-size: 15px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+}
+
+/* 机器人消息：无气泡框，文字直接铺在背景上，左侧一个小 logo */
+.msg.bot {
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  background: var(--avatar-bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  color: var(--avatar-text);
+  flex: 0 0 auto;
+}
+
+.avatar.bot {
+  background: linear-gradient(
+    135deg,
+    rgba(26, 167, 255, 0.18),
+    rgba(91, 124, 250, 0.18)
+  );
+  color: var(--text);
+}
+
+.bot-body {
+  flex: 1;
+  min-width: 0;
+  font-size: 15px;
+  line-height: 1.7;
+  color: var(--text);
+}
+
+.bot-body .answer {
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+}
+
+.meta {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 6px;
+}
+
+/* ---- AI 回复的 Markdown 渲染 ---- */
+.markdown {
+  font-size: 15px;
+  line-height: 1.7;
+  overflow-wrap: break-word;
+}
+
+.markdown > :first-child {
+  margin-top: 0;
+}
+
+.markdown > :last-child {
+  margin-bottom: 0;
+}
+
+.markdown p {
+  margin: 0.5em 0;
+}
+
+.markdown h1,
+.markdown h2,
+.markdown h3,
+.markdown h4,
+.markdown h5,
+.markdown h6 {
+  margin: 1em 0 0.5em;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.markdown h1 {
+  font-size: 1.4em;
+}
+
+.markdown h2 {
+  font-size: 1.25em;
+}
+
+.markdown h3 {
+  font-size: 1.1em;
+}
+
+.markdown h4,
+.markdown h5,
+.markdown h6 {
+  font-size: 1em;
+}
+
+.markdown ul,
+.markdown ol {
+  margin: 0.5em 0;
+  padding-left: 1.5em;
+}
+
+.markdown li {
+  margin: 0.25em 0;
+}
+
+.markdown li > ul,
+.markdown li > ol {
+  margin: 0.2em 0;
+}
+
+.markdown blockquote {
+  margin: 0.6em 0;
+  padding: 2px 12px;
+  border-left: 3px solid rgba(26, 167, 255, 0.5);
+  background: var(--panel-2);
+  border-radius: 0 8px 8px 0;
+  color: var(--muted);
+}
+
+.markdown code {
+  font-family:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+    monospace;
+  font-size: 0.85em;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 0.1em 0.35em;
+  color: var(--text);
+}
+
+.markdown pre {
+  margin: 0.6em 0;
+  padding: 12px 14px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow-x: auto;
+}
+
+.markdown pre code {
+  background: none;
+  border: none;
+  padding: 0;
+  white-space: pre;
+}
+
+.markdown a {
+  color: var(--brand);
+  text-decoration: none;
+}
+
+.markdown a:hover {
+  text-decoration: underline;
+}
+
+.markdown hr {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 1em 0;
+}
+
+.markdown table {
+  border-collapse: collapse;
+  margin: 0.6em 0;
+  max-width: 100%;
+  display: block;
+  overflow-x: auto;
+}
+
+.markdown th,
+.markdown td {
+  border: 1px solid var(--border);
+  padding: 6px 10px;
+  font-size: 0.92em;
+}
+
+.markdown th {
+  background: var(--panel-2);
+  font-weight: 600;
+}
+
+details.progress {
+  margin-top: 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 8px 12px;
+  background: var(--panel-2);
+}
+
+details.progress summary {
+  cursor: pointer;
+  user-select: none;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.progress ul {
+  margin: 8px 0 0 18px;
+  padding: 0;
+}
+
+.progress li {
+  margin: 4px 0;
+  font-size: 12px;
+  color: var(--log-line);
+}
+
+/* ---- AI 回复正文中的内嵌图片（LLM 以 Markdown 语法输出）---- */
+.markdown .markdown-img {
+  display: block;
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  margin: 0;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--panel-2);
+  box-shadow: 0 6px 16px rgba(31, 45, 61, 0.08);
+}
+
+/* 图片可点击: 新标签页打开原图。
+   链接盒收缩到图片宽度 (fit-content) 并用 auto 水平边距居中，
+   在任何段落中都生效：单图段落、图文混排段落、列表项内。 */
+.markdown .markdown-img-link {
+  display: block;
+  width: fit-content;
+  max-width: min(100%, 520px);
+  margin: 10px auto;
+  text-decoration: none;
+  /* 消除内联图片下方的基线空隙 */
+  font-size: 0;
+  line-height: 0;
+  border-radius: 10px;
+}
+
+.markdown .markdown-img-link:hover {
+  text-decoration: none;
+}
+
+.markdown .markdown-img-link:hover .markdown-img {
+  filter: brightness(1.05);
+}
+
+/* 纯图片段落: 多图同行并列（小图自然一行，放不下自动换行） */
+.markdown p.img-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin: 10px 0;
+}
+
+.markdown p.img-row .markdown-img-link {
+  margin: 0;
+  max-width: 100%;
+}
+
+.markdown p.img-row .markdown-img {
+  /* 行内高度上限：大图与整行宽度不匹配时按此高度等比缩到可并排的尺寸 */
+  max-height: 200px;
+  max-width: 100%;
+  min-width: 0;
+  object-fit: contain;
+}
+
+/* ---- 流式输出中图片语法未闭合时的 shimmer 文字占位 ---- */
+.markdown .img-placeholder {
+  display: inline-block;
+  margin: 6px 0;
+  font-size: 12px;
+  line-height: 1.6;
+  color: transparent;
+  background-image: linear-gradient(
+    100deg,
+    #9aa6b2 30%,
+    #e8ecf1 50%,
+    #9aa6b2 70%
+  );
+  background-size: 200% 100%;
+  background-clip: text;
+  -webkit-background-clip: text;
+  animation: img-placeholder-shimmer 1.2s ease-in-out infinite;
+}
+
+@keyframes img-placeholder-shimmer {
+  0% {
+    background-position: 120% 0;
+  }
+  100% {
+    background-position: -80% 0;
+  }
+}
+
+.typing {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #9aa6b2;
+  animation: bounce 1.2s infinite ease-in-out;
+}
+
+.dot:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.dot:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+@keyframes bounce {
+  0%,
+  80%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.6;
+  }
+  40% {
+    transform: translateY(-5px);
+    opacity: 1;
+  }
+}
+
+/* ---- 悬浮输入区：全页唯一的圆角卡片，浮在消息流之上 ---- */
+.composer-wrap {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0 16px 12px;
+  pointer-events: none;
+}
+
+/* 消息滚动到输入框后面时自然淡出 */
+.composer-wrap::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 170px;
+  background: linear-gradient(to top, var(--bg) 20%, rgba(0, 0, 0, 0) 100%);
+  pointer-events: none;
+}
+
+.composer {
+  position: relative;
+  pointer-events: auto;
+  width: 100%;
+  max-width: 768px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  box-shadow: var(--shadow);
+  padding: 8px 10px 10px;
+}
+
+/* 底部工具栏：左下网络搜索；右侧依次为服务状态、清空历史会话、发送 */
+.composer-footer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tool-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--border);
+  background: var(--panel-2);
+  color: var(--muted);
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 12px;
+  cursor: pointer;
+  transition:
+    color 0.15s,
+    border-color 0.15s,
+    background 0.15s;
+}
+
+.tool-pill:hover {
+  color: var(--text);
+  border-color: rgba(26, 167, 255, 0.45);
+}
+
+.tool-pill.active {
+  color: var(--brand);
+  border-color: rgba(26, 167, 255, 0.5);
+  background: rgba(26, 167, 255, 0.08);
+}
+
+.api-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.api-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--muted);
+}
+
+.api-dot.ok {
+  background: var(--success);
+}
+
+.api-dot.bad {
+  background: var(--danger);
+}
+
+.composer-clear {
+  border: none;
+  background: none;
+  padding: 4px 6px;
+  font-size: 12px;
+  color: var(--muted);
+  cursor: pointer;
+  border-radius: 6px;
+}
+
+.composer-clear:hover {
+  color: var(--danger);
+  background: rgba(231, 76, 60, 0.08);
+}
+
+/* 输入框本体无内框：卡片本身就是唯一的圆角矩形框。
+   高度由 JS 随内容动态伸缩（composer 总高上限为页面 50%），
+   达到上限后内部滚动，滚动条可见（细样式） */
+.composer textarea {
+  flex: none;
+  width: 100%;
+  resize: none;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: var(--text);
+  font-size: 15px;
+  line-height: 1.6;
+  font-family: inherit;
+  min-height: 40px;
+  padding: 4px 8px;
+  overflow-y: auto;
+  scrollbar-width: thin; /* Firefox */
+  scrollbar-color: var(--border) transparent;
+}
+
+.composer textarea::-webkit-scrollbar {
+  width: 8px;
+}
+
+.composer textarea::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 4px;
+}
+
+.composer textarea::-webkit-scrollbar-thumb:hover {
+  background: var(--muted);
+}
+
+.composer textarea::placeholder {
+  color: var(--muted);
+}
+
+/* 发送按钮：footer 右侧圆形按钮 */
+.send {
+  flex: 0 0 auto;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  background: linear-gradient(135deg, var(--brand), var(--brand2));
+  box-shadow: 0 4px 12px rgba(26, 167, 255, 0.35);
+  transition:
+    transform 0.15s,
+    opacity 0.15s;
+}
+
+.send:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.send:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.hint {
+  pointer-events: auto;
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--muted);
+  text-align: center;
+}
+
+
+/* ---- 响应式（chat） ---- */
+@media (max-width: 720px) {
+  .chat {
+    padding: 0 0 180px;
+  }
+
+  .chat-inner {
+    padding: 20px 14px 0;
+  }
+
+  .user-row {
+    max-width: 88%;
+  }
+
+  .composer-wrap {
+    padding: 0 10px 10px;
+  }
+
+  .composer {
+    border-radius: 16px;
+  }
+}
