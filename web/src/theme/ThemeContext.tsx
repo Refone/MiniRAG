@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
+import { THEME_STORAGE_KEY } from '@/lib/constants';
 
 type Theme = 'light' | 'dark';
 
@@ -11,8 +12,6 @@ const ThemeContext = createContext<ThemeContextValue>({
   theme: 'light',
   toggleTheme: () => {},
 });
-
-const THEME_STORAGE_KEY = 'kb_theme';
 
 function getInitialTheme(): Theme {
   const stored = localStorage.getItem(THEME_STORAGE_KEY);

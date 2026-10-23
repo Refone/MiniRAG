@@ -1,80 +1,6 @@
-/** 对话页相关纯函数（从 chat.html 移植）。 */
+/** Markdown 文本处理纯函数 */
 
-export function nowTime(): string {
-  return new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
-}
-
-export function formatTime(ts: number | null | undefined): string {
-  if (!ts) return nowTime();
-  const d = new Date(Number(ts) * 1000);
-  if (Number.isNaN(d.getTime())) return nowTime();
-  return d.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
-}
-
-export function isImageUrl(url: string): boolean {
-  try {
-    const u = new URL(url);
-    return /\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(u.pathname);
-  } catch {
-    return /\.(png|jpe?g|gif|webp|bmp|svg)(\?|#|$)/i.test(url || '');
-  }
-}
-
-/**
- * 剥离零宽字符 (U+200B 零宽空格 / U+200C-U+200D / U+2060 / U+FEFF)。
- * LLM 输出常在图链目标前后夹带这些不可见字符 (BUG-005):
- * `![图](​/api/files/...)` → 浏览器请求 `%E2%80%8B/api/files/...` → 404 无法渲染。
- * JS 的 \s 与 trim 都不覆盖它们, 必须显式清除。
- */
-export function stripZeroWidth(s: string): string {
-  return String(s ?? "").replace(/[\u200B-\u200D\u2060\uFEFF]/g, "");
-}
-
-/**
- * 图片 src 统一清洗 (BUG-005 + BUG-007):
- * - 剥离零宽字符 (U+200B 等): 否则浏览器请求 %E2%80%8B/api/files/... → 404;
- * - 剥离 LLM 伪影前导 "](" (BUG-007): 模型偶发输出 ![说明](](url), CommonMark
- *   会把 src 解析成以 "]" 开头的相对路径 (如 "]('/api/...") → 浏览器解析失败,
- *   vite dev 回退 index.html (text/html) → 裂图。
- *   合法图片地址 (http(s):// 或 /api/files/...) 均不以 "]" 开头, 剥除安全。
- */
-export function cleanImageSrc(src: string): string {
-  return stripZeroWidth(src).replace(/^\]\(*/, "");
-}
-
-export function normalizeUrl(rawUrl: string): string {
-  const s = String(rawUrl || '').trim();
-  if (!s) return '';
-  // 尽量保留原始 URL，但把空格编码，避免 img src 失败；先剥离零宽字符
-  return stripZeroWidth(s).replace(/\s/g, '%20');
-}
-
-export function dedupeKeepOrder(arr: unknown[]): string[] {
-  const seen = new Set<string>();
-  const out: string[] = [];
-  for (const x of Array.isArray(arr) ? arr : []) {
-    const v = String(x ?? '');
-    if (!v || seen.has(v)) continue;
-    seen.add(v);
-    out.push(v);
-  }
-  return out;
-}
-
-export function extractUrlsLoose(text: string): string[] {
-  const s = String(text || '');
-  const regex = /(https?:\/\/[^\s]+)/g;
-  const matches = s.match(regex) || [];
-  const trimTailPunct = (u: string) => String(u || '').replace(/[)\]}'">，。,;；\]】）＞]+$/g, '');
-  const trimHeadPunct = (u: string) => String(u || '').replace(/^[<([{'"]+|^[＜（【\[]+/g, '');
-
-  const urls: string[] = [];
-  for (const m of matches) {
-    const u = trimHeadPunct(trimTailPunct(m));
-    if (u) urls.push(u);
-  }
-  return dedupeKeepOrder(urls);
-}
+import { extractUrlsLoose, isImageUrl, normalizeUrl, stripZeroWidth } from "./text";
 
 export function findLastImageMarkerIndex(raw: string): { idx: number; len: number } {
   const s = String(raw || '');
@@ -99,7 +25,7 @@ export function parseAnswerAndImages(text: string): { text: string; images: stri
   const after = raw.slice(idx + len).trim();
   const urls: string[] = [];
 
-  // 优先按“每行一个 URL”的方式解析，允许 URL 中包含空格
+  // 优先按"每行一个 URL"的方式解析，允许 URL 中包含空格
   const lines = after.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
   for (const line of lines) {
     if (line.startsWith('http://') || line.startsWith('https://')) {
@@ -233,4 +159,21 @@ export function findPendingImage(
     }
   }
   return { before: s.slice(0, idx), pending: tail };
+}
+
+/**
+ * 剥离行内 Markdown 语法，只保留纯文本。
+ * 历史数据里 title_stack 直接存了标题原文（含 **加粗**、`代码` 等标记），
+ * 切块卡片头按纯文本渲染时会把这些符号原样显示出来，展示前先清洗一遍。
+ */
+export function stripInlineMarkdown(s: string): string {
+  return s
+    .replace(/!\[([^\]]*)\]\([^)]*\)/g, "$1")
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
+    .replace(/`+([^`]*)`+/g, "$1")
+    .replace(/(?<![A-Za-z0-9])(\*\*|__)(?=\S)(.+?)(?<=\S)\1(?![A-Za-z0-9])/g, "$2")
+    .replace(/(?<![A-Za-z0-9])(\*|_)(?=\S)(.+?)(?<=\S)\1(?![A-Za-z0-9])/g, "$2")
+    .replace(/~~(?=\S)(.+?)(?<=\S)~~/g, "$1")
+    .replace(/<[^>]+>/g, "")
+    .trim();
 }

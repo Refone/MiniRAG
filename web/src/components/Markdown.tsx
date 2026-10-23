@@ -3,12 +3,12 @@ import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
 import type { Element, Root } from "hast";
-import { useImageUrl } from "@/lib/imageCache";
+import { useImageUrl } from "@/hooks/useImageUrl";
+import { cleanImageSrc } from "@/utils/text";
 import {
-  cleanImageSrc,
   findPendingImage,
   normalizeMarkdownDestinations,
-} from "@/lib/chatUtils";
+} from "@/utils/markdown";
 
 interface MarkdownContentProps {
   text: string;

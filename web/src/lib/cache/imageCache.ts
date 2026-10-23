@@ -1,5 +1,5 @@
 /**
- * session-global 图片 Blob 缓存 (Session-MVVM V0, 设计 §5.3 + 测试反馈 #2 修正)
+ * session-global 图片 Blob 缓存核心 (Session-MVVM V0, 设计 §5.3 + 测试反馈 #2 修正)
  *
  * 站内图片 (/api/files/**, 含 API_BASE 绝对形态): fetch → blob →
  * URL.createObjectURL 入缓存, 组件重挂/切 Tab 后直接复用解码结果;
@@ -12,14 +12,9 @@
  * - 现改为: 已缓存条目【绝不淘汰】(会话内存, 条目数/字节数封顶, 满后不再缓存
  *   新图, 新图直接走原 URL)。
  *
- * 流式闪烁修正 (用户反馈):
- * - useImageUrl 不持有组件内状态: 渲染时同步读缓存 (getImageUrl), 新条目就绪
- *   时通过 useSyncExternalStore 订阅版本号触发重渲染。组件即使因 markdown
- *   重解析被卸载重挂, 首帧也能直接拿到已缓存的 blob URL —— src 不会在
- *   blob 与原 URL 之间来回跳, 消除流式输出时的剧烈闪烁。
+ * Hook 部分已拆出至 hooks/useImageUrl.ts；本模块只保留缓存核心与订阅机制。
  */
-import { useEffect, useSyncExternalStore } from "react";
-import { API_BASE } from "@/lib/api";
+import { API_BASE } from "@/lib/api/client";
 
 interface ImageEntry {
   objectUrl: string;
@@ -42,7 +37,7 @@ function bump(): void {
   listeners.forEach((l) => l());
 }
 
-function isInternalUrl(url: string): boolean {
+export function isInternalImageUrl(url: string): boolean {
   return (
     url.startsWith("/api/files/") || url.startsWith(`${API_BASE}/api/files/`)
   );
@@ -90,27 +85,25 @@ export function getImageUrl(url: string): string {
   return url;
 }
 
-/**
- * 组件内使用 (无组件内状态, 重挂载安全):
- * - 渲染时同步读缓存: 已缓存立即返回 objectURL, 未缓存返回原 URL;
- * - 订阅缓存版本号: fetch 就绪 → bump → 重渲染 → 切到 objectURL;
- * - effect 仅负责在未命中时发起 fetch (并发去重, 失败静默回退原 URL)。
- */
-export function useImageUrl(url: string | undefined): string | undefined {
-  useSyncExternalStore(
-    (listener) => {
-      listeners.add(listener);
-      return () => listeners.delete(listener);
-    },
-    () => version,
-  );
-
-  useEffect(() => {
-    if (!url || !isInternalUrl(url)) return;
-    if (!imageMap.has(url) && !inflight.has(url)) {
-      void fetchAndCache(url);
-    }
-  }, [url]);
-
-  return url ? getImageUrl(url) : url;
+/** 未命中时发起后台填充 (并发去重, 失败静默回退原 URL) */
+export function ensureImageCached(url: string): void {
+  if (!imageMap.has(url) && !inflight.has(url)) {
+    void fetchAndCache(url);
+  }
 }
+
+/**
+ * 供 useImageUrl 使用的订阅接口 (useSyncExternalStore 形态):
+ * 渲染时同步读 getImageUrl; 订阅版本号, 新条目就绪 → bump → 重渲染 → 切到 objectURL。
+ */
+export const imageCacheStore = {
+  subscribe(listener: () => void): () => void {
+    listeners.add(listener);
+    return () => {
+      listeners.delete(listener);
+    };
+  },
+  getVersion(): number {
+    return version;
+  },
+};

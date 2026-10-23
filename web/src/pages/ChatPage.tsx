@@ -10,10 +10,12 @@ import {
 import { CompleteIcon } from "@/components/CompleteIcon";
 import { LoadingIcon } from "@/components/LoadingIcon";
 import { MarkdownContent } from "@/components/Markdown";
-import { API_BASE } from "@/lib/api";
-import { useScrollRestore } from "@/lib/scrollRestore";
+import { API_BASE } from "@/lib/api/client";
+import { HEALTH_INTERVAL, PROGRESS_STATUS_LABELS } from "@/lib/constants";
+import { useScrollRestore } from "@/hooks/useScrollRestore";
 import { useChatStore } from "@/stores/chatStore";
-import type { ChatMessage, ProgressView } from "@/lib/types";
+import type { ChatMessage } from "@/types/chat";
+import type { ProgressView } from "@/types/app";
 
 interface AnswerContentProps {
   text: string;
@@ -38,15 +40,9 @@ function AnswerContent({
   );
 }
 
-const STATUS_LABELS: Record<string, string> = {
-  processing: "处理中",
-  completed: "已完成",
-  failed: "失败",
-  pending: "等待中",
-};
-
 function ProgressDetails({ progress }: { progress: ProgressView }) {
-  const status = STATUS_LABELS[progress.status] || progress.status || "unknown";
+  const status =
+    PROGRESS_STATUS_LABELS[progress.status] || progress.status || "unknown";
   const items = [
     ...progress.done.map((text) => ({ kind: "done" as const, text })),
     ...progress.running.map((text) => ({ kind: "running" as const, text })),
@@ -204,7 +200,7 @@ export function ChatPage() {
 
   useEffect(() => {
     checkHealth();
-    const timer = setInterval(checkHealth, 60000);
+    const timer = setInterval(checkHealth, HEALTH_INTERVAL);
     return () => clearInterval(timer);
   }, [checkHealth]);
 

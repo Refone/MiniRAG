@@ -4,7 +4,7 @@ import { ChatPage } from "@/pages/ChatPage";
 import { ImportPage } from "@/pages/ImportPage";
 import { useChatStore } from "@/stores/chatStore";
 import { useDocsStore } from "@/stores/docsStore";
-import type { PageKey } from "@/lib/types";
+import type { PageKey } from "@/types/app";
 
 export default function App() {
   const [page, setPage] = useState<PageKey>("chat");

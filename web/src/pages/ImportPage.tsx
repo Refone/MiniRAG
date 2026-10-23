@@ -25,61 +25,16 @@ import {
   type ChangeEvent,
   type DragEvent,
 } from "react";
-import type { DocsListItem } from "@/lib/api";
-import type { ImportFile, PreviewMode } from "@/lib/types";
-import { useScrollRestore } from "@/lib/scrollRestore";
-import { useDocsStore, type ToastItem } from "@/stores/docsStore";
+import { IMPORT_STATUS, PREVIEW_MODES, UPLOAD_ACCEPT } from "@/lib/constants";
+import { stripInlineMarkdown } from "@/utils/markdown";
+import { useScrollRestore } from "@/hooks/useScrollRestore";
+import { useDocsStore } from "@/stores/docsStore";
 import { MarkdownContent } from "@/components/Markdown";
+import type { ToastItem } from "@/types/app";
+import type { DocsListItem, ImportFile } from "@/types/docs";
 import { CompleteIcon } from "@/components/CompleteIcon";
 import { FailedIcon } from "@/components/FailedIcon";
 import { LoadingIcon } from "@/components/LoadingIcon";
-
-/* ------------------------------------------------------------------ */
-/* 常量 & 小工具                                                        */
-/* ------------------------------------------------------------------ */
-
-const STATUS_LABELS: Record<ImportFile["status"], string> = {
-  uploading: "上传中...",
-  processing: "处理中...",
-  completed: "已完成",
-  error: "失败",
-};
-
-const STATUS_CLASSES: Record<ImportFile["status"], string> = {
-  uploading: "status-uploading",
-  processing: "status-processing",
-  completed: "status-completed",
-  error: "status-error",
-};
-
-/**
- * 剥离行内 Markdown 语法，只保留纯文本。
- * 历史数据里 title_stack 直接存了标题原文（含 **加粗**、`代码` 等标记），
- * 切块卡片头按纯文本渲染时会把这些符号原样显示出来，展示前先清洗一遍。
- */
-function stripInlineMarkdown(s: string): string {
-  return s
-    .replace(/!\[([^\]]*)\]\([^)]*\)/g, "$1")
-    .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
-    .replace(/`+([^`]*)`+/g, "$1")
-    .replace(/(?<![A-Za-z0-9])(\*\*|__)(?=\S)(.+?)(?<=\S)\1(?![A-Za-z0-9])/g, "$2")
-    .replace(/(?<![A-Za-z0-9])(\*|_)(?=\S)(.+?)(?<=\S)\1(?![A-Za-z0-9])/g, "$2")
-    .replace(/~~(?=\S)(.+?)(?<=\S)~~/g, "$1")
-    .replace(/<[^>]+>/g, "")
-    .trim();
-}
-
-const MODE_ORDER: Record<PreviewMode, number> = {
-  markdown: 0,
-  chunks: 1,
-  features: 2,
-};
-
-const MODE_LABELS: Record<PreviewMode, string> = {
-  markdown: "原文",
-  chunks: "切块",
-  features: "特征",
-};
 
 /* ------------------------------------------------------------------ */
 /* 导入任务条目（沿用原 ImportPage 的两步式异步展示）                    */
@@ -89,6 +44,9 @@ type LogLine = { kind: "done" | "running" | "failed"; text: string };
 
 /** 导入任务条目。memo 剪枝: 父级进度更新时仅重渲染受影响的条目 (测试反馈 #3) */
 const ImportTaskItem = memo(function ImportTaskItem({ file }: { file: ImportFile }) {
+  const statusMeta =
+    IMPORT_STATUS.find((s) => s.value === file.status) ??
+    IMPORT_STATUS[IMPORT_STATUS.length - 1];
   const failed = file.status === "error";
   const failedNode =
     failed && file.done.length > 0 ? file.done[file.done.length - 1] : null;
@@ -141,8 +99,8 @@ const ImportTaskItem = memo(function ImportTaskItem({ file }: { file: ImportFile
           </ul>
         </details>
       </div>
-      <div className={`status-badge ${STATUS_CLASSES[file.status]}`}>
-        {STATUS_LABELS[file.status]}
+      <div className={`status-badge ${statusMeta.className}`}>
+        {statusMeta.label}
       </div>
     </div>
   );
@@ -412,7 +370,9 @@ export function ImportPage() {
   /* 渲染                                                                 */
   /* ================================================================== */
 
-  const segIndex = selectedId ? MODE_ORDER[previewMode] : 0;
+  const segIndex = selectedId
+    ? PREVIEW_MODES.findIndex((m) => m.value === previewMode)
+    : 0;
 
   return (
     <div className="docs-page">
@@ -460,7 +420,7 @@ export function ImportPage() {
                     type="file"
                     className="file-input"
                     multiple
-                    accept=".pdf,.md,.markdown,.zip"
+                    accept={UPLOAD_ACCEPT}
                     onChange={onInputChange}
                   />
                 </div>
@@ -542,15 +502,15 @@ export function ImportPage() {
               className="seg-thumb"
               style={{ transform: `translateX(${segIndex * 100}%)` }}
             />
-            {(Object.keys(MODE_ORDER) as PreviewMode[]).map((mode) => (
+            {PREVIEW_MODES.map(({ value, label }) => (
               <button
-                key={mode}
-                className={`seg-btn${previewMode === mode ? " active" : ""}`}
+                key={value}
+                className={`seg-btn${previewMode === value ? " active" : ""}`}
                 type="button"
                 disabled={!selectedId}
-                onClick={() => switchMode(mode)}
+                onClick={() => switchMode(value)}
               >
-                {MODE_LABELS[mode]}
+                {label}
               </button>
             ))}
           </div>

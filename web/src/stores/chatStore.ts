@@ -8,19 +8,21 @@
  */
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import { API_BASE, deleteHistory, getHistory, postQuery } from "@/lib/api";
-import { cachedGet, invalidateCache } from "@/lib/requestCache";
-import { formatTime, nowTime, parseAnswerAndImages } from "@/lib/chatUtils";
-import type { ChatMessage, HistoryItem, StatusResponse } from "@/lib/types";
-
-const WELCOME_TEXT =
-  "你好，我是智能知识库小助手。你可以直接提问，我会在“阶段进度”里展示处理过程。";
-const WELCOME_HINT = "提示：可以问“如何使用万用表测量电压？”";
-const SESSION_KEY = "kb_session_id";
-
-function makeId(prefix: string): string {
-  return `${prefix}-${Math.random().toString(36).slice(2)}${Date.now().toString(36)}`;
-}
+import { API_BASE } from "@/lib/api/client";
+import { deleteHistory, getHistory, postQuery } from "@/lib/api/chat";
+import { cachedGet, invalidateCache } from "@/lib/cache/requestCache";
+import {
+  CACHE_KEY,
+  SESSION_KEY,
+  TTL,
+  WELCOME_HINT,
+  WELCOME_TEXT,
+} from "@/lib/constants";
+import { formatTime, nowTime } from "@/utils/time";
+import { parseAnswerAndImages } from "@/utils/markdown";
+import { makeId } from "@/utils/id";
+import type { ChatMessage, HistoryItem } from "@/types/chat";
+import type { StatusResponse } from "@/types/app";
 
 function getSessionId(): string {
   let id = localStorage.getItem(SESSION_KEY);
@@ -124,9 +126,13 @@ export const useChatStore = create<ChatStoreState>()(
         set({ historyLoaded: true });
         const { sessionId } = get();
         try {
-          const items = await cachedGet(`history:${sessionId}`, () => getHistory(sessionId), {
-            ttlMs: 30_000,
-          });
+          const items = await cachedGet(
+            CACHE_KEY.history(sessionId),
+            () => getHistory(sessionId),
+            {
+              ttlMs: TTL.history,
+            },
+          );
           if (items.length === 0) return;
           console.log(`[chat] 已加载历史记录 ${items.length} 条`);
           const historyMessages = historyToMessages(items);
@@ -276,7 +282,7 @@ export const useChatStore = create<ChatStoreState>()(
           console.error("[chat] 服务端清空失败", e);
           window.alert("服务端清空失败，仅清空本地显示");
         }
-        invalidateCache(`history:${sessionId}`);
+        invalidateCache(CACHE_KEY.history(sessionId));
         set((s) => ({ messages: [s.messages[0]] }));
       },
     }),

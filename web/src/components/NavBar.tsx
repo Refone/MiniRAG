@@ -1,15 +1,11 @@
 import { useTheme } from "@/theme/ThemeContext";
-import type { PageKey } from "@/lib/types";
+import { PAGE_TABS } from "@/lib/constants";
+import type { PageKey } from "@/types/app";
 
 interface NavBarProps {
   page: PageKey;
   onPageChange: (page: PageKey) => void;
 }
-
-const TABS: { key: PageKey; label: string; icon: string }[] = [
-  { key: "chat", label: "对话", icon: "💬" },
-  { key: "import", label: "文档管理", icon: "📚" },
-];
 
 export function NavBar({ page, onPageChange }: NavBarProps) {
   const { theme, toggleTheme } = useTheme();
@@ -25,7 +21,7 @@ export function NavBar({ page, onPageChange }: NavBarProps) {
       </div>
 
       <nav className="tabs" aria-label="页面切换">
-        {TABS.map((t) => (
+        {PAGE_TABS.map((t) => (
           <button
             key={t.key}
             type="button"

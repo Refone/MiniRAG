@@ -9,28 +9,19 @@
  */
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import {
-  API_BASE,
-  deleteDoc,
-  getDocsDetail,
-  getDocsList,
-  postUpload,
-} from "@/lib/api";
-import { cachedGet, invalidateCache } from "@/lib/requestCache";
-import type { DocsDetailResponse, DocsListItem } from "@/lib/api";
-import type { ImportFile, PreviewMode, StatusResponse } from "@/lib/types";
-
-export type ToastKind = "info" | "success" | "error";
-
-export interface ToastItem {
-  id: number;
-  kind: ToastKind;
-  text: string;
-}
-
-function makeId(): string {
-  return "file-" + Math.random().toString(36).slice(2, 11);
-}
+import { API_BASE } from "@/lib/api/client";
+import { deleteDoc, getDocsDetail, getDocsList } from "@/lib/api/docs";
+import { postUpload } from "@/lib/api/upload";
+import { cachedGet, invalidateCache } from "@/lib/cache/requestCache";
+import { CACHE_KEY, TOAST_DURATION, TTL } from "@/lib/constants";
+import { makeId } from "@/utils/id";
+import type { ToastItem, ToastKind, StatusResponse } from "@/types/app";
+import type {
+  DocsDetailResponse,
+  DocsListItem,
+  ImportFile,
+  PreviewMode,
+} from "@/types/docs";
 
 function parseEventData<T>(data: string): T | null {
   try {
@@ -99,15 +90,15 @@ export const useDocsStore = create<DocsStoreState>()(
         toastIdSeq += 1;
         const id = toastIdSeq;
         set((s) => ({ toasts: [...s.toasts, { id, kind, text }] }));
-        window.setTimeout(() => get().dismissToast(id), 3200);
+        window.setTimeout(() => get().dismissToast(id), TOAST_DURATION);
       },
 
       loadDocs: async (opts) => {
         const force = opts?.force ?? false;
         set({ refreshing: true });
         try {
-          const data = await cachedGet("docs:list", () => getDocsList(0, 100), {
-            ttlMs: 30_000,
+          const data = await cachedGet(CACHE_KEY.docsList, () => getDocsList(0, 100), {
+            ttlMs: TTL.docsList,
             force,
           });
           set({ docs: data.list, total: data.total, docsLoaded: true });
@@ -132,9 +123,9 @@ export const useDocsStore = create<DocsStoreState>()(
         });
         try {
           const data = await cachedGet(
-            `docs:detail:${docId}`,
+            CACHE_KEY.docsDetail(docId),
             () => getDocsDetail(docId),
-            { ttlMs: 300_000 },
+            { ttlMs: TTL.docsDetail },
           );
           // 竞态保护: 快速连续切换文档时, 旧请求结果不得覆盖新选择
           if (get().selectedId === docId) set({ detail: data });
@@ -160,8 +151,8 @@ export const useDocsStore = create<DocsStoreState>()(
       removeDoc: async (docId, title) => {
         try {
           await deleteDoc(docId);
-          invalidateCache("docs:list");
-          invalidateCache(`docs:detail:${docId}`);
+          invalidateCache(CACHE_KEY.docsList);
+          invalidateCache(CACHE_KEY.docsDetail(docId));
           set((s) => ({
             docs: s.docs.filter((d) => d.doc_id !== docId),
             total: Math.max(0, s.total - 1),
@@ -214,7 +205,7 @@ export const useDocsStore = create<DocsStoreState>()(
               console.log(`[import] 任务 ${taskId} 处理完成`);
               terminal = true;
               updateFile(fileId, { status: "completed" });
-              invalidateCache("docs:list");
+              invalidateCache(CACHE_KEY.docsList);
               // 导入完成 → 列表自动刷新（同一任务只触发一次）
               if (!refreshedTasks.has(taskId)) {
                 refreshedTasks.add(taskId);
@@ -252,7 +243,7 @@ export const useDocsStore = create<DocsStoreState>()(
         };
 
         list.forEach(async (file) => {
-          const id = makeId();
+          const id = makeId("file");
           const newFile: ImportFile = {
             id,
             name: file.name,
