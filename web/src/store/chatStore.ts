@@ -11,6 +11,7 @@ import { API_BASE } from "@/lib/api/client";
 import { deleteHistory, getHistory, postQuery } from "@/lib/api/chat";
 import { usePreferenceStore } from "@/store/preferenceStore";
 import { cachedGet, invalidateCache } from "@/lib/cache/requestCache";
+import { openStatusSse } from "@/lib/sse";
 import {
   CACHE_KEY,
   SESSION_KEY,
@@ -22,7 +23,6 @@ import { formatTime, nowTime } from "@/utils/time";
 import { parseAnswerAndImages } from "@/utils/markdown";
 import { makeId } from "@/utils/id";
 import type { ChatMessage, HistoryItem } from "@/types/chat";
-import type { StatusResponse } from "@/types/app";
 
 function getSessionId(): string {
   let id = localStorage.getItem(SESSION_KEY);
@@ -32,14 +32,6 @@ function getSessionId(): string {
     localStorage.setItem(SESSION_KEY, id);
   }
   return id;
-}
-
-function parseEventData<T>(data: string): T | null {
-  try {
-    return JSON.parse(data || "{}") as T;
-  } catch {
-    return null;
-  }
 }
 
 function welcomeMessage(): ChatMessage {
@@ -176,80 +168,59 @@ export const useChatStore = create<ChatStoreState>()((set, get) => ({
           });
           patchBot({ progress: { done: [], running: [], status: "pending" } });
 
-          const es = new EventSource(
-            `${API_BASE}/api/query/sse/${data.session_id}`,
-          );
-          esRef = es;
           let rawAnswerText = "";
-          let closed = false;
+          const handle = openStatusSse(
+            `${API_BASE}/api/query/sse/${data.session_id}`,
+            {
+              onOpen: () =>
+                console.log(`[chat] SSE 已连接（/query/sse/${data.session_id}）`),
 
-          const close = () => {
-            if (closed) return;
-            closed = true;
-            es.close();
-            if (esRef === es) esRef = null;
-          };
-
-          es.addEventListener("open", () =>
-            console.log(`[chat] SSE 已连接（/query/sse/${data.session_id}）`),
-          );
-
-          es.addEventListener("progress", (e) => {
-            const d = parseEventData<StatusResponse>((e as MessageEvent).data);
-            patchBot({
-              progress: {
-                done: d?.done_list || [],
-                running: d?.running_list || [],
-                status: d?.status || "processing",
+              onProgress: (d) => {
+                patchBot({
+                  progress: {
+                    done: d?.done_list || [],
+                    running: d?.running_list || [],
+                    status: d?.status || "processing",
+                  },
+                });
+                if (d?.status === "completed") {
+                  patchBot({ typing: false });
+                  set({ sending: false });
+                }
               },
-            });
-            if (d?.status === "completed") {
-              patchBot({ typing: false });
-              set({ sending: false });
-            }
-          });
 
-          es.addEventListener("delta", (e) => {
-            const d = parseEventData<{ delta?: string }>((e as MessageEvent).data);
-            const delta = d?.delta || "";
-            if (delta) {
-              rawAnswerText += delta;
-              patchBot({ text: rawAnswerText, typing: false });
-            }
-          });
+              onDelta: (delta) => {
+                rawAnswerText += delta;
+                patchBot({ text: rawAnswerText, typing: false });
+              },
 
-          es.addEventListener("final", (e) => {
-            const d = parseEventData<StatusResponse>((e as MessageEvent).data);
-            const finalText =
-              d && typeof d.answer === "string" && d.answer.trim().length > 0
-                ? d.answer
-                : rawAnswerText || "";
-            console.log(`[chat] 回答完成（${finalText.length} 字）`);
-            patchBot({ typing: false, streaming: false, text: finalText });
-            set({ sending: false });
-          });
+              onFinal: (d) => {
+                const finalText =
+                  d && typeof d.answer === "string" && d.answer.trim().length > 0
+                    ? d.answer
+                    : rawAnswerText || "";
+                console.log(`[chat] 回答完成（${finalText.length} 字）`);
+                patchBot({ typing: false, streaming: false, text: finalText });
+                set({ sending: false });
+              },
 
-          // 不在 final 时关流, 等收到服务端 __close__ 信号再关闭连接
-          es.addEventListener("__close__", () => {
-            console.log(`[chat] SSE 收到 __close__，关闭连接`);
-            patchBot({ streaming: false });
-            close();
-          });
+              // 不在 final 时关流, 等收到服务端 __close__ 信号再关闭连接
+              onServerClose: () => {
+                console.log(`[chat] SSE 收到 __close__，关闭连接`);
+                patchBot({ streaming: false });
+                if (esRef === handle.es) esRef = null;
+              },
 
-          es.addEventListener("error", (e) => {
-            let msg = "SSE 连接中断/失败";
-            try {
-              const raw = (e as MessageEvent).data;
-              if (raw) msg = JSON.parse(raw).error || msg;
-            } catch {
-              /* ignore */
-            }
-            console.warn(`[chat] SSE 中断：${msg}`);
-            rawAnswerText += `\n\n（错误：${msg}）`;
-            patchBot({ typing: false, streaming: false, text: rawAnswerText });
-            set({ sending: false });
-            close();
-          });
+              onError: (msg) => {
+                console.warn(`[chat] SSE 中断：${msg}`);
+                rawAnswerText += `\n\n（错误：${msg}）`;
+                patchBot({ typing: false, streaming: false, text: rawAnswerText });
+                set({ sending: false });
+                if (esRef === handle.es) esRef = null;
+              },
+            },
+          );
+          esRef = handle.es;
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);
           console.error("[chat] 发送问题失败", msg);

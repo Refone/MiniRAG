@@ -13,22 +13,15 @@ import { deleteDoc, getDocsDetail, getDocsList } from "@/lib/api/docs";
 import { postUpload } from "@/lib/api/upload";
 import { usePreferenceStore } from "@/store/preferenceStore";
 import { cachedGet, invalidateCache } from "@/lib/cache/requestCache";
+import { openStatusSse } from "@/lib/sse";
 import { CACHE_KEY, TOAST_DURATION, TTL } from "@/lib/constants";
 import { makeId } from "@/utils/id";
-import type { ToastItem, ToastKind, StatusResponse } from "@/types/app";
+import type { ToastItem, ToastKind } from "@/types/app";
 import type {
   DocsDetailResponse,
   DocsListItem,
   ImportFile,
 } from "@/types/docs";
-
-function parseEventData<T>(data: string): T | null {
-  try {
-    return JSON.parse(data || "{}") as T;
-  } catch {
-    return null;
-  }
-}
 
 interface DocsStoreState {
   /* ---- 文档列表 ---- */
@@ -171,68 +164,55 @@ export const useDocsStore = create<DocsStoreState>()((set, get) => ({
 
         /** 上传受理成功后建立 SSE 连接, 实时接收任务进度 (对齐 chatStore 的推流机制) */
         const startSse = (taskId: string, fileId: string) => {
-          const es = new EventSource(`${API_BASE}/api/upload/sse/${taskId}`);
-          esMap[fileId] = es;
-          let closed = false;
           let terminal = false;
 
-          const close = () => {
-            if (closed) return;
-            closed = true;
-            es.close();
-            delete esMap[fileId];
-          };
+          const handle = openStatusSse(
+            `${API_BASE}/api/upload/sse/${taskId}`,
+            {
+              onOpen: () =>
+                console.log(`[import] SSE 已连接（/upload/sse/${taskId}）`),
 
-          es.addEventListener("open", () =>
-            console.log(`[import] SSE 已连接（/upload/sse/${taskId}）`),
+              onProgress: (d) => {
+                if (!d) return;
+                updateFile(fileId, {
+                  done: d.done_list || [],
+                  running: d.running_list || [],
+                });
+                if (d.status === "complete") {
+                  console.log(`[import] 任务 ${taskId} 处理完成`);
+                  terminal = true;
+                  updateFile(fileId, { status: "completed" });
+                  invalidateCache(CACHE_KEY.docsList);
+                  // 导入完成 → 列表自动刷新（同一任务只触发一次）
+                  if (!refreshedTasks.has(taskId)) {
+                    refreshedTasks.add(taskId);
+                    get().pushToast("info", "文档列表已自动刷新（导入完成 → 后台刷新）");
+                    void get().loadDocs();
+                  }
+                } else if (d.status === "failed") {
+                  console.error(`[import] 任务 ${taskId} 处理失败`);
+                  terminal = true;
+                  updateFile(fileId, { status: "error" });
+                } else if (d.status === "processing" || d.status === "pending") {
+                  updateFile(fileId, { status: "processing" });
+                }
+              },
+
+              // 不在终态事件时关流, 等收到服务端 __close__ 信号再关闭连接
+              onServerClose: () => {
+                console.log(`[import] SSE 收到 __close__，关闭连接（task ${taskId}）`);
+                delete esMap[fileId];
+              },
+
+              onError: (msg) => {
+                // 原生连接错误与服务端 event: error 共用此回调 (后者是带 data 的 MessageEvent)
+                console.warn(`[import] SSE 中断：${msg}`);
+                if (!terminal) updateFile(fileId, { status: "error" });
+                delete esMap[fileId];
+              },
+            },
           );
-
-          es.addEventListener("progress", (e) => {
-            const d = parseEventData<StatusResponse>((e as MessageEvent).data);
-            if (!d) return;
-            updateFile(fileId, {
-              done: d.done_list || [],
-              running: d.running_list || [],
-            });
-            if (d.status === "complete") {
-              console.log(`[import] 任务 ${taskId} 处理完成`);
-              terminal = true;
-              updateFile(fileId, { status: "completed" });
-              invalidateCache(CACHE_KEY.docsList);
-              // 导入完成 → 列表自动刷新（同一任务只触发一次）
-              if (!refreshedTasks.has(taskId)) {
-                refreshedTasks.add(taskId);
-                get().pushToast("info", "文档列表已自动刷新（导入完成 → 后台刷新）");
-                void get().loadDocs();
-              }
-            } else if (d.status === "failed") {
-              console.error(`[import] 任务 ${taskId} 处理失败`);
-              terminal = true;
-              updateFile(fileId, { status: "error" });
-            } else if (d.status === "processing" || d.status === "pending") {
-              updateFile(fileId, { status: "processing" });
-            }
-          });
-
-          // 不在终态事件时关流, 等收到服务端 __close__ 信号再关闭连接
-          es.addEventListener("__close__", () => {
-            console.log(`[import] SSE 收到 __close__，关闭连接（task ${taskId}）`);
-            close();
-          });
-
-          es.addEventListener("error", (e) => {
-            // 原生连接错误与服务端 event: error 共用此回调 (后者是带 data 的 MessageEvent)
-            let msg = "SSE 连接中断/失败";
-            try {
-              const raw = (e as MessageEvent).data;
-              if (raw) msg = JSON.parse(raw).error || msg;
-            } catch {
-              /* ignore */
-            }
-            console.warn(`[import] SSE 中断：${msg}`);
-            if (!terminal) updateFile(fileId, { status: "error" });
-            close();
-          });
+          esMap[fileId] = handle.es;
         };
 
         list.forEach(async (file) => {

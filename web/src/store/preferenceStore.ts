@@ -12,6 +12,16 @@ import type { PreviewMode } from "@/types/docs";
 
 export type Theme = "light" | "dark";
 
+/**
+ * 首次无存储时的初始主题：跟随系统偏好（原 ThemeContext 语义）。
+ * persist 同步水合会覆盖初始值，因此仅"从未存储过"时生效。
+ */
+function getInitialTheme(): Theme {
+  return window.matchMedia?.("(prefers-color-scheme: dark)").matches
+    ? "dark"
+    : "light";
+}
+
 interface PreferenceState {
   theme: Theme;
   enableWebSearch: boolean;
@@ -27,7 +37,7 @@ interface PreferenceState {
 export const usePreferenceStore = create<PreferenceState>()(
   persist(
     (set) => ({
-      theme: "light",
+      theme: getInitialTheme(),
       enableWebSearch: true,
       enableHyde: true,
       previewMode: "markdown",

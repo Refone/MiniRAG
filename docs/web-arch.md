@@ -145,3 +145,28 @@ CMD ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000"]
 ---
 
 要不要我接着把骨架真正搭起来？可以按这个顺序：① 在 `web/` 生成 Vite 脚手架 + proxy 配置 → ② 在 `src/api/` 写 `main.py` + 一个最小 `chat` 路由 → ③ 建 `src/service/` 并接上 `import_processor` 图 → ④ 写两个 Dockerfile + 两个应用 yaml。你确认下「API 逻辑」是否就是我理解的 service 编排层，我就开工。
+
+---
+
+## 前端源码结构（2026-10 重构后）
+
+> 重构详情与决策见 `docs/feat/前端重构/`：PRD.md → 重构方案.md → 重构方案-反馈.md → 重构总结.md。
+
+```shell
+web/src/
+├── components/   # UI 组件（props 化、零 store 依赖；icons/markdown/layout/chat/docs/ui）
+├── pages/        # 页面组合层（ChatPage / ImportPage，接线 + 页面私有视觉状态）
+├── store/        # 按存储方式分层：preferenceStore（localStorage persist）+ chat/docs/session（会话内存）
+├── lib/          # 基础设施：constants.ts / api(client+chat+docs+upload) / cache(request+image) / sse.ts
+├── hooks/        # 共享 Hook：useScrollRestore / useImageUrl / useApiHealth
+├── types/        # 全局类型契约：app / chat / docs
+├── utils/        # 纯函数：text / markdown / time / id
+└── styles/       # 全局样式入口：index.css @import tokens→base→layout→ui→chat→docs（顺序即层叠）
+web/dev/          # 开发工具（与业务代码隔离）：clean_cache.py（旧缓存清理）
+```
+
+要点：
+
+- 无 react-router：`App.tsx` 内 `PageKey` 状态切换 + `<Activity>` 双保活（Session-MVVM 核心机制）。
+- 偏好持久化统一走 `preferenceStore`（`kb-preferences`，同步水合首帧无闪烁）；旧 key 不迁移，用 `web/dev/clean_cache.py` 清理。
+- 组件展示与调试将由 Storybook 承接（后续引入）。

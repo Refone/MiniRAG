@@ -1,5 +1,5 @@
 import { Activity, useEffect, useState } from "react";
-import { NavBar } from "@/components/NavBar";
+import { NavBar } from "@/components/layout/NavBar";
 import { ChatPage } from "@/pages/ChatPage";
 import { ImportPage } from "@/pages/ImportPage";
 import { useChatStore } from "@/store/chatStore";
