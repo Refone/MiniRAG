@@ -13,7 +13,8 @@ import { MarkdownContent } from "@/components/Markdown";
 import { API_BASE } from "@/lib/api/client";
 import { HEALTH_INTERVAL, PROGRESS_STATUS_LABELS } from "@/lib/constants";
 import { useScrollRestore } from "@/hooks/useScrollRestore";
-import { useChatStore } from "@/stores/chatStore";
+import { useChatStore } from "@/store/chatStore";
+import { usePreferenceStore } from "@/store/preferenceStore";
 import type { ChatMessage } from "@/types/chat";
 import type { ProgressView } from "@/types/app";
 
@@ -143,12 +144,12 @@ const MessageBubble = memo(function MessageBubble({
 export function ChatPage() {
   const messages = useChatStore((s) => s.messages);
   const sending = useChatStore((s) => s.sending);
-  const enableWebSearch = useChatStore((s) => s.enableWebSearch);
-  const enableHyde = useChatStore((s) => s.enableHyde);
-  const setEnableWebSearch = useChatStore((s) => s.setEnableWebSearch);
-  const setEnableHyde = useChatStore((s) => s.setEnableHyde);
   const send = useChatStore((s) => s.send);
   const clearHistory = useChatStore((s) => s.clearHistory);
+  const enableWebSearch = usePreferenceStore((s) => s.enableWebSearch);
+  const enableHyde = usePreferenceStore((s) => s.enableHyde);
+  const setEnableWebSearch = usePreferenceStore((s) => s.setEnableWebSearch);
+  const setEnableHyde = usePreferenceStore((s) => s.setEnableHyde);
 
   /* ---- 页面私有状态 (Activity 保活保留) ---- */
   const [input, setInput] = useState("");

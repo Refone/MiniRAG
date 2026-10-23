@@ -7,8 +7,8 @@ import type { ImportStatus, PreviewMode } from "@/types/docs";
 
 /** 会话身份（后端会话绑定，沿用现状 localStorage 机制） */
 export const SESSION_KEY = "kb_session_id";
-/** 主题 localStorage key（现状 ThemeContext 使用；Phase 2 迁入 preferenceStore 后废弃） */
-export const THEME_STORAGE_KEY = "kb_theme";
+/** 偏好持久层 persist 名（全新 key 起步，不迁移；旧 key 由 dev/clean_cache.py 清理） */
+export const PREFERENCE_STORE_NAME = "kb-preferences";
 
 /* ==================== 页面配置 ==================== */
 

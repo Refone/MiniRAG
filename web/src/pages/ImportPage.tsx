@@ -28,7 +28,8 @@ import {
 import { IMPORT_STATUS, PREVIEW_MODES, UPLOAD_ACCEPT } from "@/lib/constants";
 import { stripInlineMarkdown } from "@/utils/markdown";
 import { useScrollRestore } from "@/hooks/useScrollRestore";
-import { useDocsStore } from "@/stores/docsStore";
+import { useDocsStore } from "@/store/docsStore";
+import { usePreferenceStore } from "@/store/preferenceStore";
 import { MarkdownContent } from "@/components/Markdown";
 import type { ToastItem } from "@/types/app";
 import type { DocsListItem, ImportFile } from "@/types/docs";
@@ -191,15 +192,15 @@ export function ImportPage() {
   const selectedId = useDocsStore((s) => s.selectedId);
   const detail = useDocsStore((s) => s.detail);
   const detailLoading = useDocsStore((s) => s.detailLoading);
-  const previewMode = useDocsStore((s) => s.previewMode);
   const files = useDocsStore((s) => s.files);
   const toasts = useDocsStore((s) => s.toasts);
   const loadDocs = useDocsStore((s) => s.loadDocs);
   const ensureDocsLoaded = useDocsStore((s) => s.ensureDocsLoaded);
   const selectDoc = useDocsStore((s) => s.selectDoc);
-  const switchMode = useDocsStore((s) => s.switchMode);
   const uploadFiles = useDocsStore((s) => s.uploadFiles);
   const removeDoc = useDocsStore((s) => s.removeDoc);
+  const previewMode = usePreferenceStore((s) => s.previewMode);
+  const setPreviewMode = usePreferenceStore((s) => s.setPreviewMode);
 
   /* ---- 页面私有状态（Activity 保活保留） ---- */
   const [view, setView] = useState<"list" | "import">("list");
@@ -508,7 +509,7 @@ export function ImportPage() {
                 className={`seg-btn${previewMode === value ? " active" : ""}`}
                 type="button"
                 disabled={!selectedId}
-                onClick={() => switchMode(value)}
+                onClick={() => setPreviewMode(value)}
               >
                 {label}
               </button>

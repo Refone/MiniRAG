@@ -1,15 +1,15 @@
 /**
  * 对话会话 Store (Session-MVVM V0, 设计文档 §4.1)
  *
- * - 消息流 / 发送 / 开关为会话级状态, 不随 ChatPage 隐藏/卸载销毁;
+ * - 消息流 / 发送为会话级状态, 不随 ChatPage 隐藏/卸载销毁;
  * - 查询 SSE (esRef) 生命周期=会话: 切 Tab 不再断流 (PRD 最痛点);
- * - persist 仅白名单两个开关 (设计 §4.4); sessionId 沿用 localStorage
- *   kb_session_id (现状机制)。
+ * - 开关等偏好已迁至 preferenceStore (Phase 2), 本 store 不再持久化;
+ *   sessionId 沿用 localStorage kb_session_id (现状机制)。
  */
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
 import { API_BASE } from "@/lib/api/client";
 import { deleteHistory, getHistory, postQuery } from "@/lib/api/chat";
+import { usePreferenceStore } from "@/store/preferenceStore";
 import { cachedGet, invalidateCache } from "@/lib/cache/requestCache";
 import {
   CACHE_KEY,
@@ -93,35 +93,24 @@ interface ChatStoreState {
   sessionId: string;
   messages: ChatMessage[];
   sending: boolean;
-  enableWebSearch: boolean;
-  enableHyde: boolean;
   /** 历史加载幂等标记 (不持久化) */
   historyLoaded: boolean;
 
   send: (text: string) => Promise<void>;
   clearHistory: () => Promise<void>;
   ensureHistoryLoaded: () => Promise<void>;
-  setEnableWebSearch: (v: boolean) => void;
-  setEnableHyde: (v: boolean) => void;
 }
 
 /** 查询流 SSE 连接 (唯一持有者; 生命周期=会话, 不随页面隐藏/卸载关闭) */
 let esRef: EventSource | null = null;
 
-export const useChatStore = create<ChatStoreState>()(
-  persist(
-    (set, get) => ({
-      sessionId: getSessionId(),
-      messages: [welcomeMessage()],
-      sending: false,
-      enableWebSearch: true,
-      enableHyde: true,
-      historyLoaded: false,
+export const useChatStore = create<ChatStoreState>()((set, get) => ({
+  sessionId: getSessionId(),
+  messages: [welcomeMessage()],
+  sending: false,
+  historyLoaded: false,
 
-      setEnableWebSearch: (v) => set({ enableWebSearch: v }),
-      setEnableHyde: (v) => set({ enableHyde: v }),
-
-      ensureHistoryLoaded: async () => {
+  ensureHistoryLoaded: async () => {
         if (get().historyLoaded) return;
         set({ historyLoaded: true });
         const { sessionId } = get();
@@ -144,7 +133,8 @@ export const useChatStore = create<ChatStoreState>()(
 
       send: async (text) => {
         if (get().sending) return;
-        const { sessionId, enableWebSearch, enableHyde } = get();
+        const { sessionId } = get();
+        const { enableWebSearch, enableHyde } = usePreferenceStore.getState();
         set({ sending: true });
 
         const userMsg: ChatMessage = {
@@ -286,13 +276,4 @@ export const useChatStore = create<ChatStoreState>()(
         set((s) => ({ messages: [s.messages[0]] }));
       },
     }),
-    {
-      name: "kb-chat-store",
-      version: 1,
-      partialize: (s) => ({
-        enableWebSearch: s.enableWebSearch,
-        enableHyde: s.enableHyde,
-      }),
-    },
-  ),
 );

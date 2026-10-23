@@ -1,15 +1,15 @@
-import { useTheme } from "@/theme/ThemeContext";
 import { PAGE_TABS } from "@/lib/constants";
 import type { PageKey } from "@/types/app";
+import type { Theme } from "@/store/preferenceStore";
 
 interface NavBarProps {
   page: PageKey;
   onPageChange: (page: PageKey) => void;
+  theme: Theme;
+  onToggleTheme: () => void;
 }
 
-export function NavBar({ page, onPageChange }: NavBarProps) {
-  const { theme, toggleTheme } = useTheme();
-
+export function NavBar({ page, onPageChange, theme, onToggleTheme }: NavBarProps) {
   return (
     <header className="navbar">
       <div className="brand">
@@ -38,7 +38,7 @@ export function NavBar({ page, onPageChange }: NavBarProps) {
       <button
         type="button"
         className="theme-toggle"
-        onClick={toggleTheme}
+        onClick={onToggleTheme}
         title={theme === "light" ? "切换到深色模式" : "切换到浅色模式"}
         aria-label={theme === "light" ? "切换到深色模式" : "切换到浅色模式"}
       >

@@ -5,13 +5,13 @@
  * - 上传 SSE (esMap) 生命周期=会话: 切 Tab 不再断流 (PRD 最痛点);
  * - 读接口走 requestCache; 失效点收敛在本 store 动作内 (设计 §5.2):
  *   上传完成 → invalidate("docs:list"); 删除 → invalidate("docs:list")+detail;
- * - persist 仅白名单 previewMode (设计 §4.4)。
+ * - previewMode 已迁至 preferenceStore (Phase 2), 本 store 不再持久化。
  */
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
 import { API_BASE } from "@/lib/api/client";
 import { deleteDoc, getDocsDetail, getDocsList } from "@/lib/api/docs";
 import { postUpload } from "@/lib/api/upload";
+import { usePreferenceStore } from "@/store/preferenceStore";
 import { cachedGet, invalidateCache } from "@/lib/cache/requestCache";
 import { CACHE_KEY, TOAST_DURATION, TTL } from "@/lib/constants";
 import { makeId } from "@/utils/id";
@@ -20,7 +20,6 @@ import type {
   DocsDetailResponse,
   DocsListItem,
   ImportFile,
-  PreviewMode,
 } from "@/types/docs";
 
 function parseEventData<T>(data: string): T | null {
@@ -43,7 +42,6 @@ interface DocsStoreState {
   selectedId: string | null;
   detail: DocsDetailResponse | null;
   detailLoading: boolean;
-  previewMode: PreviewMode;
 
   /* ---- 导入任务 ---- */
   files: ImportFile[];
@@ -55,7 +53,6 @@ interface DocsStoreState {
   loadDocs: (opts?: { force?: boolean }) => Promise<void>;
   ensureDocsLoaded: () => void;
   selectDoc: (docId: string) => Promise<void>;
-  switchMode: (mode: PreviewMode) => void;
   resetPreview: () => void;
   uploadFiles: (fileList: FileList | File[]) => void;
   removeDoc: (docId: string, title: string) => Promise<boolean>;
@@ -69,19 +66,16 @@ const esMap: Record<string, EventSource> = {};
 const refreshedTasks = new Set<string>();
 let toastIdSeq = 0;
 
-export const useDocsStore = create<DocsStoreState>()(
-  persist(
-    (set, get) => ({
-      docs: [],
-      total: 0,
-      refreshing: false,
-      docsLoaded: false,
-      selectedId: null,
-      detail: null,
-      detailLoading: false,
-      previewMode: "markdown",
-      files: [],
-      toasts: [],
+export const useDocsStore = create<DocsStoreState>()((set, get) => ({
+  docs: [],
+  total: 0,
+  refreshing: false,
+  docsLoaded: false,
+  selectedId: null,
+  detail: null,
+  detailLoading: false,
+  files: [],
+  toasts: [],
 
       dismissToast: (id) =>
         set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })),
@@ -115,10 +109,10 @@ export const useDocsStore = create<DocsStoreState>()(
       },
 
       selectDoc: async (docId) => {
+        usePreferenceStore.getState().setPreviewMode("markdown");
         set({
           selectedId: docId,
           detail: null,
-          previewMode: "markdown",
           detailLoading: true,
         });
         try {
@@ -138,15 +132,14 @@ export const useDocsStore = create<DocsStoreState>()(
         }
       },
 
-      switchMode: (mode) => set({ previewMode: mode }),
-
-      resetPreview: () =>
+      resetPreview: () => {
+        usePreferenceStore.getState().setPreviewMode("markdown");
         set({
           selectedId: null,
           detail: null,
           detailLoading: false,
-          previewMode: "markdown",
-        }),
+        });
+      },
 
       removeDoc: async (docId, title) => {
         try {
@@ -271,10 +264,4 @@ export const useDocsStore = create<DocsStoreState>()(
         });
       },
     }),
-    {
-      name: "kb-docs-store",
-      version: 1,
-      partialize: (s) => ({ previewMode: s.previewMode }),
-    },
-  ),
 );
