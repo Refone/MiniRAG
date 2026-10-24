@@ -97,6 +97,14 @@ export function UploadIcon({ className }: IconProps) {
   );
 }
 
+export function ArrowDownIcon({ className }: IconProps) {
+  return (
+    <IconBase className={className}>
+      <path d="M12 5v14M5 12l7 7 7-7" />
+    </IconBase>
+  );
+}
+
 export function ScissorsIcon({ className }: IconProps) {
   return (
     <IconBase className={className}>

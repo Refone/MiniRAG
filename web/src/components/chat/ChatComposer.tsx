@@ -5,6 +5,7 @@ import {
   type KeyboardEvent,
   type RefObject,
 } from "react";
+import { ArrowDownIcon } from "@/components/icons/AppIcons";
 
 interface ChatComposerProps {
   value: string;
@@ -17,6 +18,9 @@ interface ChatComposerProps {
   onToggleHyde: () => void;
   apiConnected: boolean;
   onClearHistory: () => void;
+  /** 是否显示「回到底部」按钮（消息列表未贴底时） */
+  showScrollToBottom: boolean;
+  onScrollToBottom: () => void;
   /** 页面容器：用于计算 textarea 动态高度上限（页面高度 50%） */
   containerRef: RefObject<HTMLDivElement | null>;
   /** 卡片实际高度变化回调（页面据此设置会话区 paddingBottom） */
@@ -40,6 +44,8 @@ export function ChatComposer({
   onToggleHyde,
   apiConnected,
   onClearHistory,
+  showScrollToBottom,
+  onScrollToBottom,
   containerRef,
   onHeightChange,
 }: ChatComposerProps) {
@@ -97,78 +103,92 @@ export function ChatComposer({
 
   return (
     <div className="composer-wrap">
-      <div className="composer" ref={composerRef}>
-        <textarea
-          ref={inputRef}
-          value={value}
-          onChange={(e) => {
-            onChange(e.target.value);
-            // 同步重算，避免出现一帧滚动条闪烁
-            autoResize();
-          }}
-          onKeyDown={onKeyDown}
-          placeholder="给智能知识库小助手发送消息"
-        />
+      <div className="composer-anchor">
+        <button
+          type="button"
+          className={`scroll-to-bottom${showScrollToBottom ? " visible" : ""}`}
+          onClick={onScrollToBottom}
+          aria-label="回到底部"
+          title="回到底部"
+          aria-hidden={!showScrollToBottom}
+          tabIndex={showScrollToBottom ? 0 : -1}
+        >
+          <ArrowDownIcon />
+        </button>
 
-        <div className="composer-footer">
-          <button
-            type="button"
-            className={`tool-pill${enableWebSearch ? " active" : ""}`}
-            onClick={onToggleWebSearch}
-            aria-pressed={enableWebSearch}
-            title="开启后回答会结合网络搜索结果"
-          >
-            网络搜索
-          </button>
+        <div className="composer" ref={composerRef}>
+          <textarea
+            ref={inputRef}
+            value={value}
+            onChange={(e) => {
+              onChange(e.target.value);
+              // 同步重算，避免出现一帧滚动条闪烁
+              autoResize();
+            }}
+            onKeyDown={onKeyDown}
+            placeholder="给智能知识库小助手发送消息"
+          />
 
-          <button
-            type="button"
-            className={`tool-pill${enableHyde ? " active" : ""}`}
-            onClick={onToggleHyde}
-            aria-pressed={enableHyde}
-            title="开启后先由模型生成假设性回答，再据此在知识库中检索"
-          >
-            HyDE 搜索
-          </button>
-
-          <div className="composer-actions">
-            <span className="api-status" title="查询服务连接状态">
-              <span className={`api-dot${apiConnected ? " ok" : " bad"}`} />
-              {apiConnected ? "服务已连接" : "服务未连接"}
-            </span>
-
+          <div className="composer-footer">
             <button
               type="button"
-              className="composer-clear"
-              onClick={onClearHistory}
+              className={`tool-pill${enableWebSearch ? " active" : ""}`}
+              onClick={onToggleWebSearch}
+              aria-pressed={enableWebSearch}
+              title="开启后回答会结合网络搜索结果"
             >
-              清空历史会话
+              网络搜索
             </button>
 
             <button
               type="button"
-              className="send"
-              onClick={onSend}
-              disabled={sending}
-              aria-label="发送"
-              title="发送（Enter）"
+              className={`tool-pill${enableHyde ? " active" : ""}`}
+              onClick={onToggleHyde}
+              aria-pressed={enableHyde}
+              title="开启后先由模型生成假设性回答，再据此在知识库中检索"
             >
-              <svg
-                width="18"
-                height="18"
-                viewBox="0 0 24 24"
-                fill="none"
-                aria-hidden="true"
+              HyDE 搜索
+            </button>
+
+            <div className="composer-actions">
+              <span className="api-status" title="查询服务连接状态">
+                <span className={`api-dot${apiConnected ? " ok" : " bad"}`} />
+                {apiConnected ? "服务已连接" : "服务未连接"}
+              </span>
+
+              <button
+                type="button"
+                className="composer-clear"
+                onClick={onClearHistory}
               >
-                <path
-                  d="M12 19V5M5 12l7-7 7 7"
-                  stroke="currentColor"
-                  strokeWidth="2.2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            </button>
+                清空历史会话
+              </button>
+
+              <button
+                type="button"
+                className="send"
+                onClick={onSend}
+                disabled={sending}
+                aria-label="发送"
+                title="发送（Enter）"
+              >
+                <svg
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  aria-hidden="true"
+                >
+                  <path
+                    d="M12 19V5M5 12l7-7 7 7"
+                    stroke="currentColor"
+                    strokeWidth="2.2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </button>
+            </div>
           </div>
         </div>
       </div>
