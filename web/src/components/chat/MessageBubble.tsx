@@ -2,6 +2,7 @@ import { memo } from "react";
 import type { ReactNode } from "react";
 import { MarkdownContent } from "@/components/markdown/Markdown";
 import { StatusLog, type StatusLogLine } from "@/components/ui/StatusLog";
+import { SparkIcon } from "@/components/icons/AppIcons";
 import { PROGRESS_STATUS_LABELS } from "@/lib/constants";
 import type { ProgressView } from "@/types/app";
 import type { ChatMessage } from "@/types/chat";
@@ -102,7 +103,7 @@ export const MessageBubble = memo(function MessageBubble({
   return (
     <div className="msg bot">
       <div className="avatar bot" aria-hidden="true">
-        🧠
+        <SparkIcon />
       </div>
       <div className="bot-body">
         {content}

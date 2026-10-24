@@ -4,6 +4,7 @@ import { ChunkCard } from "@/components/docs/ChunkCard";
 import { ChunkRail } from "@/components/docs/ChunkRail";
 import { FeaturePanel } from "@/components/docs/FeaturePanel";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { FileIcon } from "@/components/icons/AppIcons";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { PREVIEW_MODES } from "@/lib/constants";
@@ -53,7 +54,7 @@ export function DocPreviewPanel({
           {!hasSelection ? (
             <EmptyState
               className="preview-empty"
-              icon="📄"
+              icon={<FileIcon />}
               title="在左侧选择一篇文档"
               subtitle="选中后此处将渲染文档内容，右上角开关切换视图"
             />

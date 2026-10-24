@@ -24,7 +24,7 @@ export function SegmentedControl<T extends string>({
     >
       <div
         className="seg-thumb"
-        style={{ transform: `translateX(${index * 100}%)` }}
+        style={{ transform: `translateX(calc(${index} * (100% + 2px)))` }}
       />
       {options.map((o) => (
         <button

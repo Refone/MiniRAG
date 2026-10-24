@@ -131,43 +131,45 @@ export function ChatComposer({
             HyDE 搜索
           </button>
 
-          <span className="api-status" title="查询服务连接状态">
-            <span className={`api-dot${apiConnected ? " ok" : " bad"}`} />
-            {apiConnected ? "服务已连接" : "服务未连接"}
-          </span>
+          <div className="composer-actions">
+            <span className="api-status" title="查询服务连接状态">
+              <span className={`api-dot${apiConnected ? " ok" : " bad"}`} />
+              {apiConnected ? "服务已连接" : "服务未连接"}
+            </span>
 
-          <button
-            type="button"
-            className="composer-clear"
-            onClick={onClearHistory}
-          >
-            清空历史会话
-          </button>
-
-          <button
-            type="button"
-            className="send"
-            onClick={onSend}
-            disabled={sending}
-            aria-label="发送"
-            title="发送（Enter）"
-          >
-            <svg
-              width="18"
-              height="18"
-              viewBox="0 0 24 24"
-              fill="none"
-              aria-hidden="true"
+            <button
+              type="button"
+              className="composer-clear"
+              onClick={onClearHistory}
             >
-              <path
-                d="M12 19V5M5 12l7-7 7 7"
-                stroke="currentColor"
-                strokeWidth="2.2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-          </button>
+              清空历史会话
+            </button>
+
+            <button
+              type="button"
+              className="send"
+              onClick={onSend}
+              disabled={sending}
+              aria-label="发送"
+              title="发送（Enter）"
+            >
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                aria-hidden="true"
+              >
+                <path
+                  d="M12 19V5M5 12l7-7 7 7"
+                  stroke="currentColor"
+                  strokeWidth="2.2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </button>
+          </div>
         </div>
       </div>
 

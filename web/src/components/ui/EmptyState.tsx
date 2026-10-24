@@ -1,6 +1,8 @@
+import type { ReactNode } from "react";
+
 interface EmptyStateProps {
-  /** emoji 图标（可空） */
-  icon?: string;
+  /** 单色图标节点（可空） */
+  icon?: ReactNode;
   title: string;
   subtitle?: string;
   className?: string;
@@ -13,7 +15,11 @@ interface EmptyStateProps {
 export function EmptyState({ icon, title, subtitle, className }: EmptyStateProps) {
   return (
     <div className={className}>
-      {icon && <div className="preview-empty-icon">{icon}</div>}
+      {icon && (
+        <div className="preview-empty-icon" aria-hidden="true">
+          {icon}
+        </div>
+      )}
       <p className="preview-empty-title">{title}</p>
       {subtitle && <p className="preview-empty-sub">{subtitle}</p>}
     </div>

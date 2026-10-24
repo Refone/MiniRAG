@@ -1,4 +1,5 @@
 import { MarkdownContent } from "@/components/markdown/Markdown";
+import { ScissorsIcon } from "@/components/icons/AppIcons";
 import { stripInlineMarkdown } from "@/utils/markdown";
 import type { DocsChunkItem } from "@/types/docs";
 
@@ -38,7 +39,7 @@ export function ChunkCard({ index, chunk, showSplit }: ChunkCardProps) {
       </div>
       {showSplit && (
         <div className="split-marker">
-          <span className="scissors">✂</span> split {index + 1} → {index + 2}
+          <ScissorsIcon /> split {index + 1} → {index + 2}
         </div>
       )}
     </div>

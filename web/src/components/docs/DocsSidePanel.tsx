@@ -3,6 +3,7 @@ import { DocListItem } from "@/components/docs/DocListItem";
 import { ImportTaskItem } from "@/components/docs/ImportTaskItem";
 import { UploadDropzone } from "@/components/docs/UploadDropzone";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { InboxIcon } from "@/components/icons/AppIcons";
 import { useScrollRestore } from "@/hooks/useScrollRestore";
 import type { DocsListItem, ImportFile } from "@/types/docs";
 
@@ -102,7 +103,7 @@ export function DocsSidePanel({
               {docs.length === 0 ? (
                 <EmptyState
                   className="doc-list-empty"
-                  icon="📭"
+                  icon={<InboxIcon />}
                   title="文库为空"
                   subtitle="点击左上角「添加文档」导入第一篇文档"
                 />

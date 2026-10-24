@@ -12,9 +12,9 @@ export const PREFERENCE_STORE_NAME = "kb-preferences";
 
 /* ==================== 页面配置 ==================== */
 
-export const PAGE_TABS: { key: PageKey; label: string; icon: string }[] = [
-  { key: "chat", label: "对话", icon: "💬" },
-  { key: "import", label: "文档管理", icon: "📚" },
+export const PAGE_TABS: { key: PageKey; label: string }[] = [
+  { key: "chat", label: "对话" },
+  { key: "import", label: "文档管理" },
 ];
 
 /* ==================== 对话域 ==================== */

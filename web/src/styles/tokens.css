@@ -2,74 +2,121 @@
 :root {
   color-scheme: light;
 
-  --bg: #f3f5f7;
-  --bg-grad-1: rgba(26, 167, 255, 0.18);
-  --bg-grad-2: rgba(91, 124, 250, 0.18);
-  --panel: #ffffff;
-  --panel-2: #f7f9fc;
-  --text: #1f2d3d;
-  --muted: #7a869a;
-  --brand: #1aa7ff;
-  --brand2: #5b7cfa;
-  --user-pill: #e8ebef;
-  --border: #e6e9ef;
-  --shadow: 0 10px 30px rgba(31, 45, 61, 0.12);
-  --kbd-bg: #f7f9fc;
-  --kbd-text: #3b4a5a;
-  --avatar-bg: #e9eef7;
-  --avatar-text: #3b4a5a;
-  --log-line: #56657a;
+  --font-sans:
+    system-ui, -apple-system, "Segoe UI", "PingFang SC", "Hiragino Sans GB",
+    "Microsoft YaHei", sans-serif;
+  --font-mono:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+    monospace;
 
-  --info: #3498db;
-  --warning: #f39c12;
-  --success: #2ecc71;
-  --danger: #e74c3c;
+  /* 表面 */
+  --bg: #f4f5f7;
+  --bg-nav: #ffffff;
+  --surface: #ffffff;
+  --surface-2: #fafbfc;
+  --surface-hover: #f1f2f5;
+  --surface-inset: #eceef1;
+  --seg-thumb: #ffffff;
 
-  /* 文档管理页 (demo-v4) 专属 */
-  --brand-press: #0e93e8;
-  --brand-tint: rgba(26, 167, 255, 0.1);
-  --danger-tint: rgba(231, 76, 60, 0.1);
-  --seg-bg: #e6eaf1;
-  --rail-bar: #c3cbd8;
-  --sh-1: 0 1px 2px rgba(31, 45, 61, 0.07), 0 1px 6px rgba(31, 45, 61, 0.05);
-  --sh-2: 0 2px 8px rgba(31, 45, 61, 0.08), 0 10px 28px rgba(31, 45, 61, 0.1);
-  --sh-3: 0 6px 16px rgba(31, 45, 61, 0.12), 0 18px 44px rgba(31, 45, 61, 0.14);
+  /* 边框与文字 */
+  --border: #e4e6eb;
+  --border-strong: #d3d7dd;
+  --text: #1f2328;
+  --text-2: #646c7b;
+  --text-3: #8b93a1;
+
+  /* 强调色 */
+  --accent: #4f46e5;
+  --accent-hover: #4338ca;
+  --accent-soft: #eef2ff;
+  --accent-border: #c7d2fe;
+  --accent-fill: #4f46e5;
+  --accent-fill-hover: #4338ca;
+  --on-accent: #ffffff;
+  --focus: #4f46e5;
+
+  /* 语义色 */
+  --success: #15803d;
+  --success-soft: #dcfce7;
+  --warning: #b45309;
+  --warning-soft: #fef3c7;
+  --danger: #b91c1c;
+  --danger-soft: #fee2e2;
+  --purple: #7c3aed;
+  --purple-soft: #f3e8ff;
+
+  /* 局部 */
+  --user-bubble: #e9ebef;
+  --rail: #d3d7dd;
+  --tooltip-bg: #1f2328;
+  --tooltip-text: #ffffff;
+  --mask: rgba(15, 23, 42, .40);
+
+  /* 阴影 */
+  --shadow-1: 0 1px 2px rgba(15, 23, 42, .06);
+  --shadow-2: 0 8px 24px rgba(15, 23, 42, .12), 0 2px 6px rgba(15, 23, 42, .06);
+  --shadow-seg: 0 1px 3px rgba(15, 23, 42, .16), 0 0 0 1px rgba(15, 23, 42, .04);
+  --shadow-card: 0 1px 2px rgba(15, 23, 42, .06);
+
+  /* 圆角 */
+  --r-xs: 4px;
+  --r-sm: 6px;
+  --r-md: 8px;
+  --r-lg: 10px;
+  --r-xl: 12px;
+  --r-2xl: 16px;
+  --r-pill: 999px;
 }
 
 [data-theme="dark"] {
   color-scheme: dark;
 
-  --bg: #0e1219;
-  --bg-grad-1: rgba(26, 167, 255, 0.12);
-  --bg-grad-2: rgba(91, 124, 250, 0.12);
-  --panel: #171c26;
-  --panel-2: #1d232e;
-  --text: #e7ecf5;
-  --muted: #8b96a8;
-  --brand: #2bb1ff;
-  --brand2: #7d94fb;
-  --user-pill: #2a3140;
-  --border: #2a3140;
-  --shadow: 0 12px 34px rgba(0, 0, 0, 0.5);
-  --kbd-bg: #232a37;
-  --kbd-text: #cdd6e4;
-  --avatar-bg: #232a37;
-  --avatar-text: #cdd6e4;
-  --log-line: #a9b4c5;
+  /* 表面 */
+  --bg: #1b1b1f;
+  --bg-nav: #161618;
+  --surface: #202127;
+  --surface-2: #26272e;
+  --surface-hover: #2a2b32;
+  --surface-inset: #161618;
+  --seg-thumb: #2d2e35;
 
-  --info: #3498db;
-  --warning: #f39c12;
-  --success: #2ecc71;
-  --danger: #e74c3c;
+  /* 边框与文字 */
+  --border: #2e2e32;
+  --border-strong: #3c3f44;
+  --text: #dfdfd6;
+  --text-2: #98989f;
+  --text-3: #6f7076;
 
-  /* 文档管理页 (demo-v4) 专属 */
-  --brand-press: #59c1ff;
-  --brand-tint: rgba(43, 177, 255, 0.14);
-  --danger-tint: rgba(231, 76, 60, 0.16);
-  --seg-bg: #222936;
-  --rail-bar: #47536b;
-  --sh-1: 0 1px 2px rgba(0, 0, 0, 0.45), 0 1px 6px rgba(0, 0, 0, 0.35);
-  --sh-2: 0 2px 8px rgba(0, 0, 0, 0.5), 0 12px 30px rgba(0, 0, 0, 0.5);
-  --sh-3: 0 8px 20px rgba(0, 0, 0, 0.6), 0 22px 52px rgba(0, 0, 0, 0.55);
+  /* 强调色 */
+  --accent: #a8b1ff;
+  --accent-hover: #c7ccff;
+  --accent-soft: rgba(100, 108, 255, .16);
+  --accent-border: rgba(168, 177, 255, .35);
+  --accent-fill: #5a68dd;
+  --accent-fill-hover: #4f5fe0;
+  --on-accent: #ffffff;
+  --focus: #a8b1ff;
+
+  /* 语义色 */
+  --success: #3dd68c;
+  --success-soft: rgba(16, 185, 129, .16);
+  --warning: #f9b44e;
+  --warning-soft: rgba(234, 179, 8, .14);
+  --danger: #f66f81;
+  --danger-soft: rgba(244, 63, 94, .16);
+  --purple: #c8abfa;
+  --purple-soft: rgba(159, 122, 234, .16);
+
+  /* 局部 */
+  --user-bubble: #2a2b32;
+  --rail: #3c3f44;
+  --tooltip-bg: #0f1013;
+  --tooltip-text: #dfdfd6;
+  --mask: rgba(0, 0, 0, .55);
+
+  /* 阴影 */
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, .35);
+  --shadow-2: 0 12px 32px rgba(0, 0, 0, .50);
+  --shadow-seg: 0 1px 2px rgba(0, 0, 0, .40), 0 0 0 1px rgba(255, 255, 255, .04);
+  --shadow-card: none;
 }
-

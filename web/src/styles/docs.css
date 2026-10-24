@@ -1,30 +1,50 @@
-/* ============ 文档管理页 (demo-v4 移植) ============ */
-/* ---- 上传任务与导入视图（自原「导入页」区块迁入） ---- */
+/* ============ 文档管理页 ============ */
+/* ---- 上传任务与导入视图 ---- */
 .upload-area {
-  border: 2px dashed var(--info);
-  border-radius: 8px;
-  padding: 40px;
+  border: 1.5px dashed var(--border-strong);
+  border-radius: var(--r-xl);
+  padding: 26px 18px;
   text-align: center;
   cursor: pointer;
-  transition: background-color 0.3s;
-  margin-bottom: 20px;
-  background: transparent;
+  background: var(--surface-2);
+  transition: border-color 0.15s, background-color 0.15s;
+  margin-bottom: 0;
 }
 
 .upload-area:hover,
 .upload-area.dragging {
-  background-color: rgba(52, 152, 219, 0.08);
+  border-color: var(--accent);
+  background-color: var(--accent-soft);
 }
 
 .upload-icon {
-  font-size: 48px;
-  color: var(--info);
-  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent);
+  margin-bottom: 6px;
+}
+
+.upload-icon .icon {
+  width: 28px;
+  height: 28px;
 }
 
 .upload-area p {
   color: var(--text);
   margin: 0;
+}
+
+.upload-area > p:first-of-type {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.upload-area > p.sub {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--text-2);
+  margin-top: 6px;
 }
 
 .file-input {
@@ -34,90 +54,119 @@
 .file-list {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
 }
 
 .file-item {
-  background: var(--panel-2);
+  background: var(--surface-2);
   border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 15px;
+  border-radius: var(--r-lg);
+  padding: 12px;
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
+  gap: 10px;
 }
 
 .file-info {
   display: flex;
   flex-direction: column;
   flex: 1;
-  margin-right: 20px;
   min-width: 0;
 }
 
 .file-name {
+  font-size: 13px;
   font-weight: 600;
   color: var(--text);
+  line-height: 1.4;
   word-break: break-all;
 }
 
 .file-size {
-  font-size: 12px;
-  color: var(--muted);
-  margin-top: 4px;
+  font-size: 11.5px;
+  color: var(--text-2);
+  margin-top: 2px;
 }
 
 .status-badge {
-  padding: 5px 10px;
-  border-radius: 15px;
-  font-size: 12px;
-  font-weight: bold;
-  color: white;
-  min-width: 80px;
-  text-align: center;
   flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  border-radius: var(--r-pill);
+  font-size: 11.5px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.badge-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
 }
 
 .status-uploading {
-  background-color: var(--warning);
+  background-color: var(--warning-soft);
+  color: var(--warning);
 }
 
 .status-processing {
-  background-color: var(--info);
+  background-color: var(--accent-soft);
+  color: var(--accent);
 }
 
 .status-completed {
-  background-color: var(--success);
+  background-color: var(--success-soft);
+  color: var(--success);
 }
 
 .status-error {
-  background-color: var(--danger);
+  background-color: var(--danger-soft);
+  color: var(--danger);
 }
 
 .log-details {
-  margin-top: 8px;
-  font-size: 12px;
-  color: var(--muted);
+  margin-top: 6px;
+  font-size: 11.5px;
+  color: var(--text-2);
 }
 
 .log-details summary {
   cursor: pointer;
   user-select: none;
-  color: var(--muted);
+  color: var(--text-2);
+  list-style: none;
+}
+
+.log-details summary::-webkit-details-marker {
+  display: none;
+}
+
+.log-details summary:hover {
+  color: var(--text);
 }
 
 .log-list {
-  margin: 6px 0 0 16px;
+  list-style: none;
+  margin: 6px 0 0;
   padding: 0;
+  display: grid;
+  gap: 4px;
 }
 
 .log-list li {
-  margin: 2px 0;
-  line-height: 1.4;
-  color: var(--log-line);
+  margin: 0;
+  line-height: 1.5;
+  color: var(--text-2);
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
 }
 
-/* ============ 文档管理页 (demo-v4 移植) ============ */
+/* ============ 文档管理页布局 ============ */
 .docs-page {
   flex: 1 1 auto;
   min-height: 0;
@@ -130,9 +179,10 @@
 }
 
 .elevated {
-  background: var(--panel);
-  border-radius: 16px;
-  box-shadow: var(--sh-2);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-xl);
+  box-shadow: var(--shadow-card);
 }
 
 /* ---- 左卡片 ---- */
@@ -182,6 +232,7 @@
   align-items: center;
   gap: 10px;
   padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
 }
 
 .head-title {
@@ -192,7 +243,8 @@
 .head-title h2 {
   margin: 0;
   font-size: 15px;
-  font-weight: 600;
+  font-weight: 650;
+  letter-spacing: -0.01em;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -202,7 +254,7 @@
   display: block;
   margin-top: 3px;
   font-size: 12px;
-  color: var(--muted);
+  color: var(--text-2);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -210,22 +262,30 @@
 
 .pill {
   flex: 0 0 auto;
-  border: none;
-  background: var(--panel-2);
-  color: var(--muted);
-  padding: 7px 14px;
-  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-2);
+  padding: 7px 12px;
+  border-radius: var(--r-md);
   font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
   cursor: pointer;
-  box-shadow: var(--sh-1);
   transition:
     color 0.15s,
-    background 0.15s,
+    border-color 0.15s,
+    background-color 0.15s,
     transform 0.05s;
 }
 
 .pill:hover:not(:disabled) {
   color: var(--text);
+  border-color: var(--border-strong);
+  background: var(--surface-hover);
 }
 
 .pill:active:not(:disabled) {
@@ -233,81 +293,94 @@
 }
 
 .pill.primary {
-  background: var(--brand);
-  color: #fff;
+  background: var(--accent-fill);
+  border-color: var(--accent-fill);
+  color: var(--on-accent);
+  font-weight: 600;
 }
 
 .pill.primary:hover:not(:disabled) {
-  background: var(--brand-press);
-  color: #fff;
+  background: var(--accent-fill-hover);
+  border-color: var(--accent-fill-hover);
+  color: var(--on-accent);
 }
 
 .pill:disabled {
-  opacity: 0.55;
+  opacity: 0.5;
   cursor: default;
 }
 
 .shimmer {
-  color: transparent;
-  background-image: linear-gradient(100deg, #9aa6b2 30%, #e8ecf1 50%, #9aa6b2 70%);
-  background-size: 200% 100%;
-  background-clip: text;
-  -webkit-background-clip: text;
-  animation: shimmer 1.1s ease-in-out infinite;
+  color: var(--text-2);
+  animation: text-pulse 1.4s ease-in-out infinite;
 }
 
-@keyframes shimmer {
-  0% {
-    background-position: 120% 0;
-  }
+@keyframes text-pulse {
+  0%,
   100% {
-    background-position: -80% 0;
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 1;
   }
 }
 
-/* ---- 文档列表（v2 item：标题 + 类型文字 + 三按钮） ---- */
+/* ---- 文档列表 ---- */
 .doc-list-scroll {
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
-  padding: 4px 12px 14px;
+  padding: 8px 10px 14px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 
 .doc-list-empty {
   margin: auto;
   text-align: center;
-  color: var(--muted);
+  color: var(--text-2);
   font-size: 13px;
   line-height: 1.8;
 }
 
 .doc-item {
+  position: relative;
   padding: 10px 12px;
-  border-radius: 12px;
-  background: var(--panel);
-  box-shadow: var(--sh-1);
+  border: 1px solid transparent;
+  border-radius: var(--r-lg);
+  background: transparent;
   cursor: pointer;
   transition:
-    box-shadow 0.15s,
-    background 0.15s;
+    background-color 0.15s,
+    border-color 0.15s;
 }
 
 .doc-item:hover {
-  box-shadow: var(--sh-2);
+  background: var(--surface-hover);
 }
 
 .doc-item.selected {
-  background: var(--brand-tint);
-  box-shadow: var(--sh-2);
+  background: var(--accent-soft);
+  border-color: var(--accent-border);
+}
+
+.doc-item.selected::before {
+  content: "";
+  position: absolute;
+  left: -1px;
+  top: 9px;
+  bottom: 9px;
+  width: 2px;
+  border-radius: 2px;
+  background: var(--accent);
 }
 
 .doc-title {
   font-weight: 600;
   font-size: 14px;
   line-height: 1.4;
+  color: var(--text);
   word-break: break-all;
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -324,44 +397,46 @@
 }
 
 .doc-type {
-  font-size: 12px;
-  color: var(--muted);
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11.5px;
+  color: var(--text-2);
+  font-family: var(--font-mono);
   white-space: nowrap;
 }
 
 .doc-actions {
   display: inline-flex;
-  gap: 6px;
+  align-items: center;
+  gap: 2px;
   flex: 0 0 auto;
 }
 
 .mini-btn {
   border: none;
-  background: var(--panel-2);
-  color: var(--muted);
-  padding: 3px 10px;
-  border-radius: 999px;
+  background: transparent;
+  color: var(--text-2);
+  padding: 4px 7px;
+  border-radius: var(--r-sm);
   font-size: 11.5px;
+  line-height: 1.4;
   cursor: pointer;
-  box-shadow: var(--sh-1);
   transition:
     color 0.15s,
-    background 0.15s;
+    background-color 0.15s;
   white-space: nowrap;
 }
 
 .mini-btn:hover {
   color: var(--text);
+  background: var(--surface-hover);
 }
 
 .mini-btn.pdf {
-  color: var(--brand);
+  color: var(--accent);
 }
 
 .mini-btn.pdf:hover {
-  background: var(--brand-tint);
-  color: var(--brand);
+  background: var(--accent-soft);
+  color: var(--accent);
 }
 
 .mini-btn.danger {
@@ -369,7 +444,7 @@
 }
 
 .mini-btn.danger:hover {
-  background: var(--danger-tint);
+  background: var(--danger-soft);
   color: var(--danger);
 }
 
@@ -378,82 +453,10 @@
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
-  padding: 4px 14px 16px;
+  padding: 12px 14px 16px;
   display: flex;
   flex-direction: column;
   gap: 12px;
-}
-
-.import-body .upload-area {
-  border: 2px dashed var(--info);
-  border-radius: 12px;
-  background: var(--panel);
-  padding: 26px 18px;
-  text-align: center;
-  cursor: pointer;
-  transition: background-color 0.2s;
-  margin-bottom: 0;
-}
-
-.import-body .upload-area:hover,
-.import-body .upload-area.dragging {
-  background-color: var(--brand-tint);
-}
-
-.import-body .upload-icon {
-  font-size: 36px;
-  color: var(--info);
-  margin-bottom: 8px;
-}
-
-.import-body .upload-area p {
-  margin: 0;
-}
-
-.import-body .upload-area .sub {
-  font-size: 12px;
-  color: var(--muted);
-  margin-top: 6px;
-}
-
-.import-body .file-item {
-  background: var(--panel-2);
-  border: none;
-  border-radius: 10px;
-  box-shadow: var(--sh-1);
-  padding: 12px;
-  gap: 10px;
-}
-
-.import-body .file-name {
-  font-size: 13px;
-}
-
-.import-body .file-size {
-  margin-top: 3px;
-}
-
-.import-body .status-badge {
-  padding: 4px 10px;
-  border-radius: 999px;
-  font-size: 12px;
-  font-weight: 700;
-  color: #fff;
-  white-space: nowrap;
-}
-
-.import-body .log-list {
-  list-style: none;
-  margin: 6px 0 0 4px;
-}
-
-.import-body .log-list li {
-  margin: 3px 0;
-  line-height: 1.5;
-  color: var(--log-line);
-  display: flex;
-  gap: 6px;
-  align-items: baseline;
 }
 
 /* ---- 右卡片：预览 ---- */
@@ -471,39 +474,42 @@
   align-items: center;
   gap: 16px;
   padding: 14px 20px;
+  border-bottom: 1px solid var(--border);
 }
 
 .ph-title {
   flex: 1 1 auto;
   min-width: 0;
+  color: var(--text);
   font-size: 16px;
-  font-weight: 600;
+  font-weight: 650;
+  letter-spacing: -0.01em;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .ph-title.empty {
-  color: var(--muted);
+  color: var(--text-2);
   font-weight: 400;
 }
 
 /* ---- 特征子页（关键词 + 摘要） ---- */
 .feature-card {
-  border-radius: 12px;
-  background: var(--panel);
-  box-shadow: var(--sh-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-xl);
+  background: var(--surface);
   padding: 14px 18px;
   margin-bottom: 12px;
 }
 
 .feature-title {
   margin: 0 0 10px;
-  font-size: 10px;
+  font-size: 10.5px;
   font-weight: 650;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--muted);
+  color: var(--text-2);
 }
 
 .feature-chips {
@@ -515,10 +521,9 @@
 .kw-chip {
   font-size: 13px;
   padding: 4px 12px;
-  border-radius: 999px;
-  background: var(--brand-tint);
-  color: var(--brand);
-  box-shadow: var(--sh-1);
+  border-radius: var(--r-pill);
+  background: var(--accent-soft);
+  color: var(--accent);
 }
 
 .feature-abstract {
@@ -530,11 +535,11 @@
   overflow-wrap: break-word;
 }
 
-/* ---- chunks 卡片（splitter split 风格 + Elevated Card 化） ---- */
+/* ---- chunks 卡片（splitter split 风格 + outlined card） ---- */
 .chunk-card {
-  border-radius: 12px;
-  background: var(--panel);
-  box-shadow: var(--sh-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-xl);
+  background: var(--surface);
   overflow: hidden;
 }
 
@@ -543,23 +548,24 @@
   align-items: center;
   gap: 10px;
   padding: 8px 14px;
-  background: var(--panel-2);
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--border);
   font-size: 12px;
-  color: var(--muted);
+  color: var(--text-2);
 }
 
 .chunk-badge {
-  background: var(--brand-tint);
-  color: var(--brand);
+  background: var(--accent-soft);
+  color: var(--accent);
   font-weight: 650;
   font-size: 11px;
   padding: 2px 9px;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   white-space: nowrap;
 }
 
 .chunk-title-stack {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-family: var(--font-mono);
   font-size: 11.5px;
   color: var(--text);
   font-weight: 550;
@@ -571,25 +577,20 @@
 
 .chunk-level {
   flex: 0 0 auto;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-family: var(--font-mono);
   font-size: 10.5px;
   font-weight: 650;
-  color: #7c3aed;
-  background: #f3e8ff;
+  color: var(--purple);
+  background: var(--purple-soft);
   padding: 2px 7px;
-  border-radius: 6px;
-}
-
-[data-theme="dark"] .chunk-level {
-  background: #2c2140;
-  color: #c4a6ff;
+  border-radius: var(--r-sm);
 }
 
 .chunk-size-note {
   margin-left: auto;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-family: var(--font-mono);
   font-size: 11px;
-  color: var(--muted);
+  color: var(--text-2);
   white-space: nowrap;
 }
 
@@ -606,7 +607,7 @@
   margin: 12px 4px;
   font-size: 11px;
   font-weight: 600;
-  color: var(--muted);
+  color: var(--text-2);
   letter-spacing: 0.02em;
 }
 
@@ -614,11 +615,13 @@
 .split-marker::after {
   content: "";
   flex: 1;
-  border-top: 1.5px dashed #b9c2d0;
+  border-top: 1.5px dashed var(--border-strong);
 }
 
-.split-marker .scissors {
-  color: var(--brand);
+.split-marker .icon {
+  width: 13px;
+  height: 13px;
+  color: var(--accent);
 }
 
 /* ---- ChunkRail（最右侧长度分布条，仿 splitter，方向镜像） ---- */
@@ -634,8 +637,8 @@
   overflow-y: auto;
   overflow-x: hidden;
   padding: 16px 12px 40px 8px;
-  background: var(--panel-2);
-  border-radius: 0 16px 16px 0;
+  background: var(--surface-2);
+  border-left: 1px solid var(--border);
   scrollbar-width: thin;
 }
 
@@ -653,8 +656,8 @@
   font-weight: 650;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--muted);
-  background: var(--panel-2);
+  color: var(--text-2);
+  background: var(--surface-2);
 }
 
 .rail-row {
@@ -674,45 +677,45 @@
   padding: 0;
   border: none;
   border-radius: 3px;
-  background: var(--rail-bar);
+  background: var(--rail);
   cursor: pointer;
-  transition: background 0.15s;
+  transition: background-color 0.15s;
 }
 
 .rail-bar:hover {
-  background: var(--muted);
+  background: var(--text-2);
 }
 
 .rail-bar.active {
-  background: var(--brand);
-  box-shadow: 0 0 0 2px var(--brand-tint);
+  background: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-soft);
 }
 
 .rail-num {
   flex: 0 0 22px;
   width: 22px;
   text-align: right;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-family: var(--font-mono);
   font-size: 10px;
-  color: var(--muted);
+  color: var(--text-2);
 }
 
 .rail-tip {
   position: fixed;
   z-index: 60;
   padding: 5px 9px;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-family: var(--font-mono);
   font-size: 11.5px;
   line-height: 1.3;
-  color: #fff;
-  background: rgba(31, 35, 40, 0.92);
+  color: var(--tooltip-text);
+  background: var(--tooltip-bg);
   border-radius: 7px;
   white-space: nowrap;
   pointer-events: none;
   transform: translate(calc(-100% - 10px), -50%);
 }
 
-/* ---- 响应式（demo 简化处理） ---- */
+/* ---- 响应式 ---- */
 @media (max-width: 940px) {
   .left-panel {
     flex-basis: 320px;
@@ -731,3 +734,8 @@
   }
 }
 
+@media (max-width: 720px) {
+  .chunk-rail {
+    display: none;
+  }
+}

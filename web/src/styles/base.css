@@ -11,21 +11,66 @@ body,
 
 body {
   margin: 0;
-  font-family:
-    "Segoe UI",
-    "Microsoft YaHei",
-    system-ui,
-    -apple-system,
-    Arial,
-    sans-serif;
-  background:
-    radial-gradient(1200px 600px at 20% 0%, var(--bg-grad-1), transparent 60%),
-    radial-gradient(1000px 500px at 90% 10%, var(--bg-grad-2), transparent 55%),
-    var(--bg);
+  font-family: var(--font-sans);
+  background: var(--bg);
   color: var(--text);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
 button {
   font-family: inherit;
 }
 
+/* 单色线性图标：颜色继承 currentColor */
+.icon {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+::selection {
+  background: var(--accent-soft);
+  color: var(--text);
+}
+
+/* 细滚动条：避免系统默认滚动条在深色下过亮 */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: var(--r-pill);
+}
+
+:where(a, button, textarea, input, [tabindex]):focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

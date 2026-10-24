@@ -1,4 +1,5 @@
 import { useRef, useState, type ChangeEvent, type DragEvent } from "react";
+import { UploadIcon } from "@/components/icons/AppIcons";
 import { UPLOAD_ACCEPT } from "@/lib/constants";
 
 interface UploadDropzoneProps {
@@ -32,7 +33,9 @@ export function UploadDropzone({ onFiles }: UploadDropzoneProps) {
       onDragLeave={() => setDragging(false)}
       onDrop={onDrop}
     >
-      <div className="upload-icon">☁️</div>
+      <div className="upload-icon">
+        <UploadIcon />
+      </div>
       <p>点击或拖拽文件到此处 (PDF / MD / ZIP)</p>
       <p className="sub">
         ZIP 为 markdown 合集，包内每个 md 将成为一篇独立文档

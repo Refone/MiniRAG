@@ -32,7 +32,7 @@
 
 .dayline {
   text-align: center;
-  color: var(--muted);
+  color: var(--text-2);
   font-size: 12px;
   margin: 4px 0 18px;
 }
@@ -55,10 +55,10 @@
 
 /* 用户消息：右侧灰底圆角胶囊，无边框，像印在背景板上 */
 .msg.user .bubble {
-  background: var(--user-pill);
+  background: var(--user-bubble);
   color: var(--text);
   border: none;
-  border-radius: 12px;
+  border-radius: var(--r-xl);
   padding: 10px 14px;
   font-size: 15px;
   line-height: 1.6;
@@ -76,22 +76,23 @@
   width: 30px;
   height: 30px;
   border-radius: 9px;
-  background: var(--avatar-bg);
+  background: var(--accent-soft);
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 15px;
-  color: var(--avatar-text);
+  color: var(--accent);
   flex: 0 0 auto;
 }
 
+.avatar .icon {
+  width: 16px;
+  height: 16px;
+}
+
 .avatar.bot {
-  background: linear-gradient(
-    135deg,
-    rgba(26, 167, 255, 0.18),
-    rgba(91, 124, 250, 0.18)
-  );
-  color: var(--text);
+  background: var(--accent-soft);
+  color: var(--accent);
 }
 
 .bot-body {
@@ -109,7 +110,7 @@
 
 .meta {
   font-size: 11px;
-  color: var(--muted);
+  color: var(--text-2);
   margin-top: 6px;
 }
 
@@ -139,8 +140,9 @@
 .markdown h5,
 .markdown h6 {
   margin: 1em 0 0.5em;
-  font-weight: 600;
+  font-weight: 650;
   line-height: 1.35;
+  letter-spacing: -0.01em;
 }
 
 .markdown h1 {
@@ -178,21 +180,19 @@
 
 .markdown blockquote {
   margin: 0.6em 0;
-  padding: 2px 12px;
-  border-left: 3px solid rgba(26, 167, 255, 0.5);
-  background: var(--panel-2);
-  border-radius: 0 8px 8px 0;
-  color: var(--muted);
+  padding: 4px 12px;
+  border-left: 3px solid var(--accent-border);
+  background: var(--surface-2);
+  border-radius: 0 var(--r-md) var(--r-md) 0;
+  color: var(--text-2);
 }
 
 .markdown code {
-  font-family:
-    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
-    monospace;
+  font-family: var(--font-mono);
   font-size: 0.85em;
-  background: var(--panel-2);
+  background: var(--surface-2);
   border: 1px solid var(--border);
-  border-radius: 5px;
+  border-radius: var(--r-xs);
   padding: 0.1em 0.35em;
   color: var(--text);
 }
@@ -200,9 +200,9 @@
 .markdown pre {
   margin: 0.6em 0;
   padding: 12px 14px;
-  background: var(--panel-2);
+  background: var(--surface-2);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--r-lg);
   overflow-x: auto;
 }
 
@@ -214,11 +214,12 @@
 }
 
 .markdown a {
-  color: var(--brand);
+  color: var(--accent);
   text-decoration: none;
 }
 
 .markdown a:hover {
+  color: var(--accent-hover);
   text-decoration: underline;
 }
 
@@ -244,23 +245,46 @@
 }
 
 .markdown th {
-  background: var(--panel-2);
+  background: var(--surface-2);
   font-weight: 600;
 }
 
 details.progress {
   margin-top: 10px;
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--r-lg);
   padding: 8px 12px;
-  background: var(--panel-2);
+  background: var(--surface-2);
 }
 
 details.progress summary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   cursor: pointer;
   user-select: none;
-  color: var(--muted);
+  color: var(--text-2);
   font-size: 12px;
+  list-style: none;
+}
+
+details.progress summary::-webkit-details-marker {
+  display: none;
+}
+
+details.progress summary::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(-45deg);
+  transition: transform 0.15s;
+  flex: 0 0 auto;
+}
+
+details.progress[open] summary::before {
+  transform: rotate(45deg);
 }
 
 .progress ul {
@@ -271,20 +295,21 @@ details.progress summary {
 .progress li {
   margin: 4px 0;
   font-size: 12px;
-  color: var(--log-line);
+  color: var(--text-2);
 }
 
-/* ---- AI 回复正文中的内嵌图片（LLM 以 Markdown 语法输出）---- */
+/* ---- AI 回复正文中的内嵌图片（LLM 以 Markdown 语法输出）----
+   图片只作为内容显示：无阴影、无边框、无圆角、无外框底色。 */
 .markdown .markdown-img {
   display: block;
   width: auto;
   height: auto;
   max-width: 100%;
   margin: 0;
-  border-radius: 10px;
-  border: 1px solid var(--border);
-  background: var(--panel-2);
-  box-shadow: 0 6px 16px rgba(31, 45, 61, 0.08);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
 /* 图片可点击: 新标签页打开原图。
@@ -299,7 +324,7 @@ details.progress summary {
   /* 消除内联图片下方的基线空隙 */
   font-size: 0;
   line-height: 0;
-  border-radius: 10px;
+  border-radius: 0;
 }
 
 .markdown .markdown-img-link:hover {
@@ -307,7 +332,7 @@ details.progress summary {
 }
 
 .markdown .markdown-img-link:hover .markdown-img {
-  filter: brightness(1.05);
+  opacity: 0.94;
 }
 
 /* 纯图片段落: 多图同行并列（小图自然一行，放不下自动换行） */
@@ -333,31 +358,23 @@ details.progress summary {
   object-fit: contain;
 }
 
-/* ---- 流式输出中图片语法未闭合时的 shimmer 文字占位 ---- */
+/* ---- 流式输出中图片语法未闭合时的文字占位 ---- */
 .markdown .img-placeholder {
   display: inline-block;
   margin: 6px 0;
   font-size: 12px;
   line-height: 1.6;
-  color: transparent;
-  background-image: linear-gradient(
-    100deg,
-    #9aa6b2 30%,
-    #e8ecf1 50%,
-    #9aa6b2 70%
-  );
-  background-size: 200% 100%;
-  background-clip: text;
-  -webkit-background-clip: text;
-  animation: img-placeholder-shimmer 1.2s ease-in-out infinite;
+  color: var(--text-2);
+  animation: img-placeholder-pulse 1.4s ease-in-out infinite;
 }
 
-@keyframes img-placeholder-shimmer {
-  0% {
-    background-position: 120% 0;
-  }
+@keyframes img-placeholder-pulse {
+  0%,
   100% {
-    background-position: -80% 0;
+    opacity: 0.45;
+  }
+  50% {
+    opacity: 0.9;
   }
 }
 
@@ -371,7 +388,7 @@ details.progress summary {
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: #9aa6b2;
+  background: var(--text-2);
   animation: bounce 1.2s infinite ease-in-out;
 }
 
@@ -410,15 +427,15 @@ details.progress summary {
   pointer-events: none;
 }
 
-/* 消息滚动到输入框后面时自然淡出 */
+/* 消息滚动到输入框后面时自然淡出（功能性遮罩，不是装饰渐变） */
 .composer-wrap::before {
   content: "";
   position: absolute;
   left: 0;
   right: 0;
   bottom: 0;
-  height: 170px;
-  background: linear-gradient(to top, var(--bg) 20%, rgba(0, 0, 0, 0) 100%);
+  height: 140px;
+  background: linear-gradient(to top, var(--bg) 30%, rgba(0, 0, 0, 0) 100%);
   pointer-events: none;
 }
 
@@ -430,18 +447,33 @@ details.progress summary {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 20px;
-  box-shadow: var(--shadow);
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-2xl);
+  box-shadow: var(--shadow-1);
   padding: 8px 10px 10px;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.composer:focus-within {
+  border-color: var(--accent-border);
+  box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
 /* 底部工具栏：左下网络搜索；右侧依次为服务状态、清空历史会话、发送 */
 .composer-footer {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
+}
+
+.composer-actions {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
 }
 
 .tool-pill {
@@ -449,43 +481,45 @@ details.progress summary {
   align-items: center;
   gap: 6px;
   border: 1px solid var(--border);
-  background: var(--panel-2);
-  color: var(--muted);
-  border-radius: 999px;
+  background: transparent;
+  color: var(--text-2);
+  border-radius: var(--r-md);
   padding: 4px 10px;
   font-size: 12px;
+  white-space: nowrap;
   cursor: pointer;
   transition:
     color 0.15s,
     border-color 0.15s,
-    background 0.15s;
+    background-color 0.15s;
 }
 
 .tool-pill:hover {
   color: var(--text);
-  border-color: rgba(26, 167, 255, 0.45);
+  border-color: var(--border-strong);
+  background: var(--surface-hover);
 }
 
 .tool-pill.active {
-  color: var(--brand);
-  border-color: rgba(26, 167, 255, 0.5);
-  background: rgba(26, 167, 255, 0.08);
+  color: var(--accent);
+  border-color: var(--accent-border);
+  background: var(--accent-soft);
 }
 
 .api-status {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  margin-left: auto;
   font-size: 12px;
-  color: var(--muted);
+  color: var(--text-2);
+  white-space: nowrap;
 }
 
 .api-dot {
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: var(--muted);
+  background: var(--text-2);
 }
 
 .api-dot.ok {
@@ -501,14 +535,16 @@ details.progress summary {
   background: none;
   padding: 4px 6px;
   font-size: 12px;
-  color: var(--muted);
+  color: var(--text-2);
+  white-space: nowrap;
   cursor: pointer;
-  border-radius: 6px;
+  border-radius: var(--r-sm);
+  transition: color 0.15s, background-color 0.15s;
 }
 
 .composer-clear:hover {
   color: var(--danger);
-  background: rgba(231, 76, 60, 0.08);
+  background: var(--danger-soft);
 }
 
 /* 输入框本体无内框：卡片本身就是唯一的圆角矩形框。
@@ -529,24 +565,11 @@ details.progress summary {
   padding: 4px 8px;
   overflow-y: auto;
   scrollbar-width: thin; /* Firefox */
-  scrollbar-color: var(--border) transparent;
-}
-
-.composer textarea::-webkit-scrollbar {
-  width: 8px;
-}
-
-.composer textarea::-webkit-scrollbar-thumb {
-  background: var(--border);
-  border-radius: 4px;
-}
-
-.composer textarea::-webkit-scrollbar-thumb:hover {
-  background: var(--muted);
+  scrollbar-color: var(--border-strong) transparent;
 }
 
 .composer textarea::placeholder {
-  color: var(--muted);
+  color: var(--text-2);
 }
 
 /* 发送按钮：footer 右侧圆形按钮 */
@@ -560,32 +583,42 @@ details.progress summary {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: #fff;
-  background: linear-gradient(135deg, var(--brand), var(--brand2));
-  box-shadow: 0 4px 12px rgba(26, 167, 255, 0.35);
+  color: var(--on-accent);
+  background: var(--accent-fill);
   transition:
-    transform 0.15s,
+    background-color 0.15s,
     opacity 0.15s;
 }
 
 .send:hover:not(:disabled) {
-  transform: translateY(-1px);
+  background: var(--accent-fill-hover);
 }
 
 .send:disabled {
-  opacity: 0.45;
+  opacity: 0.4;
   cursor: not-allowed;
-  box-shadow: none;
 }
 
 .hint {
+  position: relative;
+  z-index: 1;
   pointer-events: auto;
   margin-top: 8px;
-  font-size: 12px;
-  color: var(--muted);
+  font-size: 11.5px;
+  color: var(--text-2);
   text-align: center;
 }
 
+.kbd {
+  font-family: var(--font-mono);
+  border: 1px solid var(--border);
+  border-bottom-color: var(--border-strong);
+  padding: 1px 5px;
+  border-radius: var(--r-xs);
+  background: var(--surface-2);
+  color: var(--text-2);
+  font-size: 11px;
+}
 
 /* ---- 响应式（chat） ---- */
 @media (max-width: 720px) {
@@ -606,6 +639,6 @@ details.progress summary {
   }
 
   .composer {
-    border-radius: 16px;
+    border-radius: var(--r-2xl);
   }
 }
