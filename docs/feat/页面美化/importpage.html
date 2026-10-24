@@ -622,7 +622,7 @@
     .markdown th, .markdown td { padding: 6px 10px; border: 1px solid var(--border); font-size: .92em; text-align: left; }
     .markdown th { background: var(--surface-2); font-weight: 600; }
 
-    /* 配图：无阴影、无边框、无圆角、无外框底色 */
+    /* 配图：无阴影、无边框、无外框底色；保留轻圆角 */
     .markdown .figure {
       display: block;
       width: fit-content;
@@ -630,8 +630,9 @@
       margin: 14px auto;
       padding: 0;
       border: 0;
-      border-radius: 0;
+      border-radius: var(--r-sm);
       background: transparent;
+      overflow: hidden;
     }
     .markdown .figure svg { display: block; width: 420px; max-width: 100%; height: auto; }
     .markdown .figure.compact svg { width: 360px; }

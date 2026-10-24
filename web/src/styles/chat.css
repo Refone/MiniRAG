@@ -299,7 +299,7 @@ details.progress[open] summary::before {
 }
 
 /* ---- AI 回复正文中的内嵌图片（LLM 以 Markdown 语法输出）----
-   图片只作为内容显示：无阴影、无边框、无圆角、无外框底色。 */
+   图片只作为内容显示：无阴影、无边框、无外框底色；保留 6px 轻圆角。 */
 .markdown .markdown-img {
   display: block;
   width: auto;
@@ -307,7 +307,7 @@ details.progress[open] summary::before {
   max-width: 100%;
   margin: 0;
   border: 0;
-  border-radius: 0;
+  border-radius: var(--r-sm);
   background: transparent;
   box-shadow: none;
 }
@@ -324,7 +324,7 @@ details.progress[open] summary::before {
   /* 消除内联图片下方的基线空隙 */
   font-size: 0;
   line-height: 0;
-  border-radius: 0;
+  border-radius: var(--r-sm);
 }
 
 .markdown .markdown-img-link:hover {
