@@ -368,17 +368,16 @@
     .markdown th, .markdown td { padding: 6px 10px; border: 1px solid var(--border); font-size: .92em; }
     .markdown th { background: var(--surface-2); font-weight: 600; }
 
-    /* 配图：无阴影，细边框，可读于双主题 */
+    /* 配图：无阴影、无边框、无圆角、无外框底色 */
     .markdown .figure {
       display: block;
       width: fit-content;
       max-width: min(100%, 380px);
       margin: 14px auto;
       padding: 0;
-      border: 1px solid var(--border);
-      border-radius: var(--r-xl);
-      background: var(--surface-2);
-      overflow: hidden;
+      border: 0;
+      border-radius: 0;
+      background: transparent;
     }
     .markdown .figure svg { display: block; width: 340px; max-width: 100%; height: auto; }
     .figure .fig-device { fill: none; stroke: var(--text-2); stroke-width: 2; }
