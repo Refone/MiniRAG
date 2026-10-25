@@ -14,10 +14,15 @@ import { HEALTH_INTERVAL } from "@/lib/constants";
 import { useChatStore } from "@/store/chatStore";
 import { usePreferenceStore } from "@/store/preferenceStore";
 
+/** 自动跟随时，消息末尾与任务卡片顶部保留的自然间距（px） */
+const AUTO_FOLLOW_GAP = 8;
+
 /**
  * 对话页 (Session-MVVM V0 改造后):
  * - 消息流/发送/开关/SSE 全部在 store (切 Tab 不断流);
- * - 页面仅做组合接线 + 页面私有视觉状态: input 草稿、refs、贴底跟随。
+ * - 页面仅做组合接线 + 页面私有视觉状态: input 草稿、refs、贴底跟随;
+ * - P1 自动跟随：用户未滚动时，消息末尾始终贴在任务卡片顶部；
+ *   用户主动滚动后解除跟随，卡片高度 / 答案输出不再推动消息区。
  */
 export function ChatPage() {
   const messages = useChatStore((s) => s.messages);
@@ -43,8 +48,6 @@ export function ChatPage() {
   // 滚动守卫现状语义（BUG-003 无需看护，原样平移）：切 Tab 恢复偏移 + 贴底跟随
   const { pinnedRef } = useScrollRestore(chatRef, { followBottom: true });
 
-  /** 用户主动发送时强制贴底（即使此前上翻阅读） */
-  const forceBottomRef = useRef(false);
   const scrollRafRef = useRef(0);
 
   /**
@@ -56,7 +59,18 @@ export function ChatPage() {
   /** 上一次已处理的任务 id：Activity 切回会重跑 effect，只有真正变化才重置高水位 */
   const highWaterTaskIdRef = useRef<string | null | undefined>(undefined);
 
-  /** 仅在当前处于贴底状态时跟随（流式增量 / 图片加载 / 输入卡高度变化） */
+  /** 最新任务快照：供 observer / 滚动回调读取，不触发额外渲染 */
+  const queryTaskRef = useRef(queryTask);
+  queryTaskRef.current = queryTask;
+
+  /** 自动跟随开关：发送 / 点击回到底部时开启；用户主动滚动后关闭 */
+  const autoFollowRef = useRef(false);
+  /** 最近一次自动滚动的 scrollTop：用于区分自动滚动与用户滚动 */
+  const lastAutoScrollTopRef = useRef(0);
+  /** 卡片 / 输入区高度变化后的短暂窗口，避免布局钳制被误判为用户滚动 */
+  const suppressAutoDisableUntilRef = useRef(0);
+
+  /** 仅在当前处于贴底状态时跟随（历史加载 / 无任务时的输入卡高度变化） */
   const keepBottom = useCallback(() => {
     const el = chatRef.current;
     if (!el || !pinnedRef.current) return;
@@ -66,60 +80,146 @@ export function ChatPage() {
     });
   }, [pinnedRef]);
 
-  /** 发送时强制贴底：先置 pinned，后续增量与图片加载继续跟随 */
-  const scrollToBottom = useCallback(() => {
-    pinnedRef.current = true;
-    forceBottomRef.current = false;
-    keepBottom();
-  }, [keepBottom]);
+  /**
+   * 无交互自动跟随：把最后一条消息的底部对齐到任务卡片顶部
+   * （卡片关闭 / 不存在时对齐到输入卡上方）。只改 scrollTop，
+   * 留白仍用高水位，卡片变高变低不会顶动输入区或按钮。
+   */
+  const alignFollowNow = useCallback(() => {
+    const el = chatRef.current;
+    const page = pageRef.current;
+    if (!el || !page || !autoFollowRef.current) return;
 
-  // 消息变化：发送时强制贴底；其余情况仅在原本贴底时跟随流式增量
+    const msgNodes = el.querySelectorAll<HTMLElement>(".chat-inner .msg");
+    const lastMsg = msgNodes[msgNodes.length - 1];
+    if (!lastMsg) return;
+
+    const slot = page.querySelector<HTMLElement>(".task-slot");
+    const composer = page.querySelector<HTMLElement>(".composer");
+    const anchor = slot && slot.offsetHeight > 0 ? slot : composer;
+    if (!anchor) return;
+
+    const targetBottom = anchor.getBoundingClientRect().top - AUTO_FOLLOW_GAP;
+    const lastBottom = lastMsg.getBoundingClientRect().bottom;
+    const max = el.scrollHeight - el.clientHeight;
+    const next = Math.min(max, Math.max(0, el.scrollTop + lastBottom - targetBottom));
+    if (Math.abs(next - el.scrollTop) > 0.5) el.scrollTop = next;
+    lastAutoScrollTopRef.current = el.scrollTop;
+  }, []);
+
+  /** 关闭自动跟随 */
+  const disableAutoFollow = useCallback(() => {
+    autoFollowRef.current = false;
+    window.cancelAnimationFrame(scrollRafRef.current);
+  }, []);
+
+  /** 开启自动跟随：记录当前滚动位置作为自动滚动的起点 */
+  const enableAutoFollow = useCallback(() => {
+    autoFollowRef.current = true;
+    const el = chatRef.current;
+    if (el) lastAutoScrollTopRef.current = el.scrollTop;
+  }, []);
+
+  // 消息变化：自动跟随开启时由 layout effect 对齐卡片顶部；否则只在无任务时维持既有贴底行为
+  useLayoutEffect(() => {
+    if (autoFollowRef.current) alignFollowNow();
+  }, [messages, alignFollowNow]);
+
   useEffect(() => {
     const el = chatRef.current;
     if (!el) return;
-    if (forceBottomRef.current) {
-      scrollToBottom();
-      return;
-    }
+    if (autoFollowRef.current) return;
+    if (queryTaskRef.current) return;
     if (pinnedRef.current) el.scrollTop = el.scrollHeight;
-  }, [messages, pinnedRef, scrollToBottom]);
+  }, [messages, pinnedRef]);
 
-  // 图片懒加载等会改变消息区高度，贴底时持续跟随
+  // 图片懒加载等消息区高度变化：自动跟随对齐卡片；无任务时维持既有贴底
   useEffect(() => {
     const el = chatRef.current;
     const inner = el?.querySelector<HTMLElement>(".chat-inner");
     if (!el || !inner) return;
-    const observer = new ResizeObserver(() => keepBottom());
+    const observer = new ResizeObserver(() => {
+      if (autoFollowRef.current) alignFollowNow();
+      else if (!queryTaskRef.current) keepBottom();
+    });
     observer.observe(inner);
     return () => observer.disconnect();
-  }, [keepBottom]);
+  }, [alignFollowNow, keepBottom]);
+
+  // 用户主动滚动（滚轮 / 触摸）立即解除自动跟随；回到底部 / 新发送时重新开启
+  useEffect(() => {
+    const el = chatRef.current;
+    if (!el) return;
+    const onUserScroll = () => {
+      if (!autoFollowRef.current) return;
+      disableAutoFollow();
+      setShowScrollToBottom(true);
+    };
+    el.addEventListener("wheel", onUserScroll, { passive: true });
+    el.addEventListener("touchmove", onUserScroll, { passive: true });
+    return () => {
+      el.removeEventListener("wheel", onUserScroll);
+      el.removeEventListener("touchmove", onUserScroll);
+    };
+  }, [disableAutoFollow]);
+
+  // Activity 切回：自动跟随开启时重新对齐（滚动恢复在 useScrollRestore 中先执行）
+  useLayoutEffect(() => {
+    if (!autoFollowRef.current) return;
+    suppressAutoDisableUntilRef.current = performance.now() + 200;
+    alignFollowNow();
+  }, [alignFollowNow]);
 
   useEffect(
     () => () => window.cancelAnimationFrame(scrollRafRef.current),
     [],
   );
 
-  /** 消息区滚动：只要离底部超过 20px 就展示「回到底部」按钮 */
+  /**
+   * 消息区滚动：
+   * - 自动跟随中：位置与最近一次自动滚动不一致（用户拖动滚动条 / 键盘滚动）→ 解除跟随；
+   *   跟随期间隐藏「回到底部」；
+   * - 跟随解除后：按离滚动底部的距离展示「回到底部」。
+   */
   const handleChatScroll = useCallback(() => {
     const el = chatRef.current;
     if (!el) return;
+
+    if (autoFollowRef.current) {
+      const now = performance.now();
+      if (
+        now > suppressAutoDisableUntilRef.current &&
+        Math.abs(el.scrollTop - lastAutoScrollTopRef.current) > 2
+      ) {
+        disableAutoFollow();
+      }
+    }
+
+    if (autoFollowRef.current) {
+      setShowScrollToBottom(false);
+      return;
+    }
+
     const distance = el.scrollHeight - el.scrollTop - el.clientHeight;
     setShowScrollToBottom(distance > 20);
-  }, []);
+  }, [disableAutoFollow]);
 
   const handleScrollToBottom = useCallback(() => {
     setShowScrollToBottom(false);
-    scrollToBottom();
-  }, [scrollToBottom]);
+    enableAutoFollow();
+    suppressAutoDisableUntilRef.current = performance.now() + 200;
+    alignFollowNow();
+  }, [alignFollowNow, enableAutoFollow]);
 
   const onSend = useCallback(() => {
     const text = input.trim();
     if (!text || sending) return;
     setInput("");
-    forceBottomRef.current = true;
+    enableAutoFollow();
+    suppressAutoDisableUntilRef.current = performance.now() + 300;
     setShowScrollToBottom(false);
     void send(text);
-  }, [input, sending, send]);
+  }, [input, sending, send, enableAutoFollow]);
 
   const handleClearHistory = useCallback(() => {
     if (!window.confirm("确定要清空当前会话的历史记录吗？这将无法恢复。"))
@@ -129,9 +229,9 @@ export function ChatPage() {
 
   /**
    * 停靠区高度 → 会话底部留白。
-   * - 高水位只增不减：卡片手动展开/收起不改变 paddingBottom，scrollTop 保持不变；
-   * - 只有输入卡自身高度变化（follow=true）才继续贴底；
-   * - cardH 已含卡片与输入卡之间的 8px 间距。
+   * - 留白仍用高水位，避免手动收起时 scrollTop 被钳制；
+   * - 自动跟随开启时，卡片 / 输入卡高度变化后重新对齐最后一条消息与卡片顶部；
+   * - 跟随解除后：仅输入卡自身高度变化（follow=true）维持既有贴底。
    */
   const handleHeightChange = useCallback(
     (anchorH: number, cardH: number, follow: boolean) => {
@@ -140,9 +240,12 @@ export function ChatPage() {
       cardHighWaterRef.current = Math.max(cardHighWaterRef.current, cardH);
       const composerH = Math.max(0, anchorH - cardH);
       el.style.paddingBottom = `${composerH + 28 + cardHighWaterRef.current}px`;
-      if (follow) keepBottom();
+      suppressAutoDisableUntilRef.current = performance.now() + 200;
+
+      if (autoFollowRef.current) alignFollowNow();
+      else if (follow) keepBottom();
     },
-    [keepBottom],
+    [alignFollowNow, keepBottom],
   );
 
   // 新查询 / 清空卡片：高水位归零，由新卡片重新积累。
@@ -154,6 +257,7 @@ export function ChatPage() {
     if (highWaterTaskIdRef.current === taskId) return;
     highWaterTaskIdRef.current = taskId;
     cardHighWaterRef.current = 0;
+    suppressAutoDisableUntilRef.current = performance.now() + 200;
   }, [queryTask?.id]);
 
   return (
