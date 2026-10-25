@@ -912,6 +912,9 @@
       var taskBar = document.getElementById("taskBar");
       var taskList = document.getElementById("taskList");
       var taskCount = document.getElementById("taskCount");
+      var composerEl = document.querySelector(".composer");
+      /** 卡片高度高水位：手动收起不缩短留白，保证消息列表 scrollTop 不变 */
+      var cardHighWater = 0;
       var scrollBottom = document.getElementById("scrollBottom");
       var liveTyping = document.getElementById("liveTyping");
       var liveAnswer = document.getElementById("liveAnswer");
@@ -970,11 +973,16 @@
       }
 
       /* ---------- 停靠区高度 → 会话底部留白 ----------
-         高度变化总是更新留白；只有输入卡自身高度变化（follow=true）才继续贴底。
-         任务卡片手动展开/收起走 follow=false，消息列表保持原位。
-         对应真实实现里的 onHeightChange(height, follow)。 */
+         卡片高度用「高水位」：手动展开时留白增大，手动收起时不缩短，
+         因此展开/收起都不会改变消息列表的 scrollTop。
+         只有输入卡自身高度变化（follow=true）才继续贴底。
+         对应真实实现里的 onHeightChange(anchorHeight, cardHeight, follow)。 */
       function syncPadding(follow) {
-        chat.style.paddingBottom = (dock.offsetHeight + 28) + "px";
+        /* .task-bar 的 margin-bottom 为 8px，offsetHeight 不含外边距 */
+        var cardH = taskBar ? taskBar.offsetHeight + 8 : 0;
+        var composerH = composerEl ? composerEl.offsetHeight : 0;
+        if (cardH > cardHighWater) cardHighWater = cardH;
+        chat.style.paddingBottom = (composerH + 28 + cardHighWater) + "px";
         if (follow) followBottom();
       }
 
@@ -1045,6 +1053,8 @@
         doneCount = STEPS.length;
         renderTask();
         taskBar.querySelector("details").open = false;
+        /* 终态自动收起：重置高水位到收起后的卡片高度，再按贴底状态跟到答案 */
+        cardHighWater = taskBar.offsetHeight + 8;
         liveTyping.hidden = true;
         liveAnswer.hidden = false;
         liveMeta.textContent = "20:53";
@@ -1062,6 +1072,8 @@
 
         taskBar.hidden = false;
         taskBar.querySelector("details").open = true;
+        /* 新任务：高水位从 0 重新积累（卡片创建后的手动展开/收起才保持 offset） */
+        cardHighWater = 0;
         liveTyping.hidden = false;
         liveAnswer.hidden = true;
         liveMeta.textContent = "20:52";
