@@ -1,0 +1,1133 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>MiniRAG · 查询任务状态栏（P1 原型）</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%234f46e5'/%3E%3Ctext x='16' y='22' font-family='sans-serif' font-size='16' font-weight='700' fill='white' text-anchor='middle'%3EM%3C/text%3E%3C/svg%3E" />
+  <script>
+    /* 首帧前决定主题，避免闪白 */
+    (function () {
+      try {
+        var saved = localStorage.getItem("minicrag-preview-theme");
+        var theme = saved === "dark" || saved === "light"
+          ? saved
+          : (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+        document.documentElement.setAttribute("data-theme", theme);
+      } catch (e) { /* 隐私模式 */ }
+    })();
+  </script>
+  <style>
+    /* ============ 设计令牌 ============ */
+    :root {
+      color-scheme: light;
+      --font-sans: system-ui, -apple-system, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+      --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+      --bg: #f4f5f7;
+      --bg-nav: #ffffff;
+      --surface: #ffffff;
+      --surface-2: #fafbfc;
+      --surface-hover: #f1f2f5;
+      --surface-inset: #eceef1;
+
+      --border: #e4e6eb;
+      --border-strong: #d3d7dd;
+
+      --text: #1f2328;
+      --text-2: #646c7b;
+      --text-3: #8b93a1;
+
+      --accent: #4f46e5;
+      --accent-hover: #4338ca;
+      --accent-soft: #eef2ff;
+      --accent-border: #c7d2fe;
+      --accent-fill: #4f46e5;
+      --accent-fill-hover: #4338ca;
+      --on-accent: #ffffff;
+      --focus: #4f46e5;
+
+      --user-bubble: #e9ebef;
+
+      --success: #15803d;
+      --success-soft: #dcfce7;
+      --warning: #b45309;
+      --warning-soft: #fef3c7;
+      --danger: #b91c1c;
+      --danger-soft: #fee2e2;
+      --purple: #7c3aed;
+      --purple-soft: #f3e8ff;
+
+      --tooltip-bg: #1f2328;
+      --tooltip-text: #ffffff;
+
+      --shadow-1: 0 1px 2px rgba(15, 23, 42, .06);
+      --shadow-2: 0 8px 24px rgba(15, 23, 42, .12), 0 2px 6px rgba(15, 23, 42, .06);
+      --shadow-seg: 0 1px 3px rgba(15, 23, 42, .16), 0 0 0 1px rgba(15, 23, 42, .04);
+
+      --r-xs: 4px;
+      --r-sm: 6px;
+      --r-md: 8px;
+      --r-lg: 10px;
+      --r-xl: 12px;
+      --r-2xl: 16px;
+      --r-pill: 999px;
+
+      --mask: rgba(15, 23, 42, .40);
+    }
+
+    [data-theme="dark"] {
+      color-scheme: dark;
+
+      --bg: #1b1b1f;
+      --bg-nav: #161618;
+      --surface: #202127;
+      --surface-2: #26272e;
+      --surface-hover: #2a2b32;
+      --surface-inset: #161618;
+
+      --border: #2e2e32;
+      --border-strong: #3c3f44;
+
+      --text: #dfdfd6;
+      --text-2: #98989f;
+      --text-3: #6f7076;
+
+      --accent: #a8b1ff;
+      --accent-hover: #c7ccff;
+      --accent-soft: rgba(100, 108, 255, .16);
+      --accent-border: rgba(168, 177, 255, .35);
+      --accent-fill: #5a68dd;
+      --accent-fill-hover: #4f5fe0;
+      --on-accent: #ffffff;
+      --focus: #a8b1ff;
+
+      --user-bubble: #2a2b32;
+
+      --success: #3dd68c;
+      --success-soft: rgba(16, 185, 129, .16);
+      --warning: #f9b44e;
+      --warning-soft: rgba(234, 179, 8, .14);
+      --danger: #f66f81;
+      --danger-soft: rgba(244, 63, 94, .16);
+      --purple: #c8abfa;
+      --purple-soft: rgba(159, 122, 234, .16);
+
+      --tooltip-bg: #0f1013;
+      --tooltip-text: #dfdfd6;
+
+      --shadow-1: 0 1px 2px rgba(0, 0, 0, .35);
+      --shadow-2: 0 12px 32px rgba(0, 0, 0, .50);
+      --shadow-seg: 0 1px 2px rgba(0, 0, 0, .40), 0 0 0 1px rgba(255, 255, 255, .04);
+
+      --mask: rgba(0, 0, 0, .55);
+    }
+
+    /* ============ 基础 ============ */
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      font-family: var(--font-sans);
+      background: var(--bg);
+      color: var(--text);
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
+    }
+    button, textarea { font-family: inherit; }
+    a { color: var(--accent); }
+    ::selection { background: var(--accent-soft); color: var(--text); }
+
+    * { scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; }
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: var(--r-pill); }
+
+    :where(a, button, textarea, summary, [tabindex]):focus-visible {
+      outline: 2px solid var(--focus);
+      outline-offset: 2px;
+    }
+
+    .sprite { position: absolute; width: 0; height: 0; overflow: hidden; }
+    .icon {
+      width: 16px;
+      height: 16px;
+      flex: 0 0 auto;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 1.8;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    /* ============ 应用骨架 ============ */
+    .app-shell { height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+    .app-body { flex: 1 1 auto; min-height: 0; display: flex; overflow: hidden; }
+
+    /* ============ 导航栏 ============ */
+    .navbar {
+      flex: 0 0 auto;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 12px 20px;
+      background: var(--bg-nav);
+      border-bottom: 1px solid var(--border);
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+      color: inherit;
+      text-decoration: none;
+    }
+    .logo {
+      width: 36px;
+      height: 36px;
+      flex: 0 0 auto;
+      display: grid;
+      place-items: center;
+      border-radius: var(--r-lg);
+      background: var(--accent-fill);
+      color: var(--on-accent);
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: -.02em;
+    }
+    .title { display: flex; flex-direction: column; line-height: 1.1; min-width: 0; }
+    .title strong {
+      font-size: 14px;
+      font-weight: 650;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .title span {
+      margin-top: 3px;
+      font-size: 12px;
+      color: var(--text-2);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .tabs { display: flex; align-items: center; gap: 4px; margin-left: auto; }
+    .tab {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 7px 12px;
+      border: 1px solid transparent;
+      border-radius: var(--r-md);
+      color: var(--text-2);
+      font-size: 13px;
+      text-decoration: none;
+      transition: color .15s, background-color .15s, border-color .15s;
+    }
+    .tab:hover { background: var(--surface-hover); color: var(--text); }
+    .tab.active {
+      background: var(--accent-soft);
+      border-color: var(--accent-border);
+      color: var(--accent);
+      font-weight: 600;
+    }
+
+    .theme-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 7px 11px;
+      border: 1px solid var(--border);
+      border-radius: var(--r-md);
+      background: transparent;
+      color: var(--text-2);
+      font-size: 12.5px;
+      cursor: pointer;
+      transition: color .15s, border-color .15s, background-color .15s;
+    }
+    .theme-toggle:hover {
+      color: var(--text);
+      border-color: var(--border-strong);
+      background: var(--surface-hover);
+    }
+    .theme-toggle .icon { width: 15px; height: 15px; }
+
+    /* ============ 对话页 ============ */
+    .chat-page {
+      position: relative;
+      flex: 1 1 auto;
+      min-width: 0;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .chat {
+      flex: 1;
+      min-height: 0;
+      width: 100%;
+      overflow-y: auto;
+      overflow-x: hidden;
+      overscroll-behavior: contain;
+      padding: 0 0 190px;
+    }
+    .chat-inner {
+      width: 100%;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 26px 20px 0;
+    }
+    .dayline {
+      margin: 4px 0 18px;
+      color: var(--text-2);
+      font-size: 12px;
+      text-align: center;
+    }
+
+    .msg { display: flex; margin: 16px 0; }
+    .msg.user { justify-content: flex-end; }
+    .user-row { display: flex; flex-direction: column; align-items: flex-end; max-width: 78%; }
+    .msg.user .bubble {
+      padding: 10px 14px;
+      border-radius: var(--r-xl);
+      background: var(--user-bubble);
+      color: var(--text);
+      font-size: 15px;
+      line-height: 1.6;
+      white-space: pre-wrap;
+      overflow-wrap: break-word;
+    }
+
+    .msg.bot { gap: 12px; align-items: flex-start; }
+    .avatar {
+      width: 30px;
+      height: 30px;
+      flex: 0 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 9px;
+      background: var(--accent-soft);
+      color: var(--accent);
+    }
+    .avatar .icon { width: 16px; height: 16px; }
+    .bot-body { flex: 1; min-width: 0; font-size: 15px; line-height: 1.7; }
+
+    .meta { margin-top: 6px; color: var(--text-2); font-size: 11px; }
+
+    /* ---- Markdown（仅原型需要的子集） ---- */
+    .markdown { font-size: 15px; line-height: 1.7; overflow-wrap: break-word; }
+    .markdown > :first-child { margin-top: 0; }
+    .markdown > :last-child { margin-bottom: 0; }
+    .markdown p { margin: .5em 0; }
+    .markdown ul { margin: .5em 0; padding-left: 1.5em; }
+    .markdown li { margin: .25em 0; }
+    .markdown code {
+      padding: .1em .35em;
+      border: 1px solid var(--border);
+      border-radius: var(--r-xs);
+      background: var(--surface-2);
+      color: var(--text);
+      font-family: var(--font-mono);
+      font-size: .85em;
+    }
+
+    /* 配图：无阴影、无边框、无外框底色；保留轻圆角 */
+    .markdown .figure {
+      display: block;
+      width: fit-content;
+      max-width: min(100%, 380px);
+      margin: 14px auto;
+      padding: 0;
+      border: 0;
+      border-radius: var(--r-sm);
+      background: transparent;
+      overflow: hidden;
+    }
+    .markdown .figure svg { display: block; width: 340px; max-width: 100%; height: auto; }
+    .figure .fig-device { fill: none; stroke: var(--text-2); stroke-width: 2; }
+    .figure .fig-screen { fill: var(--surface); stroke: var(--border-strong); stroke-width: 1.5; }
+    .figure .fig-pad { fill: var(--surface); stroke: var(--border-strong); stroke-width: 1.5; }
+    .figure .fig-dot { fill: var(--accent); }
+    .figure .fig-label { fill: var(--text-2); font-size: 10.5px; font-family: var(--font-sans); }
+
+    /* ---- 阶段进度（消息内历史卡片 / 固定栏共用） ---- */
+    details.progress {
+      margin-top: 14px;
+      padding: 9px 12px;
+      border: 1px solid var(--border);
+      border-radius: var(--r-lg);
+      background: var(--surface-2);
+    }
+    details.progress summary {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+      user-select: none;
+      color: var(--text-2);
+      font-size: 12px;
+      list-style: none;
+    }
+    details.progress summary::-webkit-details-marker { display: none; }
+    .progress-count { color: var(--text-2); }
+    .progress-chev { color: var(--text-2); transition: transform .15s; }
+    .progress[open] .progress-chev { transform: rotate(180deg); }
+    .progress ul { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 7px; }
+    .progress li { display: flex; align-items: center; gap: 7px; color: var(--text-2); font-size: 12.5px; }
+    .progress li .icon { width: 14px; height: 14px; color: var(--success); }
+    .progress li .icon.spin { color: var(--warning); }
+    .spin-track { fill: none; stroke: currentColor; stroke-opacity: .25; stroke-width: 2; }
+    .spin-arc { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-dasharray: 28 100; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .icon.spin { animation: spin 1s linear infinite; transform-origin: 50% 50%; }
+
+    /* ============ 悬浮输入区 ============ */
+    .composer-wrap {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 10;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 0 16px 12px;
+      pointer-events: none;
+    }
+    /* 功能性遮罩：防止消息压住输入区；不是装饰渐变。
+       P1: 高度改为随停靠区增长，覆盖任务栏 + 输入卡 */
+    .composer-wrap::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      height: max(140px, 100%);
+      background: linear-gradient(to top, var(--bg) 30%, transparent 100%);
+      pointer-events: none;
+    }
+
+    /* 停靠区：任务栏 + 输入卡共用同一条垂直轴 */
+    .composer-anchor {
+      position: relative;
+      width: 100%;
+      max-width: 768px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* 消息未贴底时，在停靠区上方显示「回到底部」圆钮 */
+    .scroll-to-bottom {
+      position: absolute;
+      right: 11px;
+      bottom: calc(100% + 10px);
+      z-index: 2;
+      width: 32px;
+      height: 32px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+      border: 1px solid var(--border-strong);
+      border-radius: 50%;
+      background: var(--surface);
+      color: var(--text-2);
+      box-shadow: var(--shadow-1);
+      cursor: pointer;
+      opacity: 0;
+      visibility: hidden;
+      transform: translateY(4px);
+      pointer-events: none;
+      transition: opacity .15s, visibility .15s, transform .15s, color .15s, border-color .15s, background-color .15s;
+    }
+    .scroll-to-bottom.visible {
+      opacity: 1;
+      visibility: visible;
+      transform: none;
+      pointer-events: auto;
+    }
+    .scroll-to-bottom:hover {
+      color: var(--accent);
+      border-color: var(--accent-border);
+      background: var(--accent-soft);
+    }
+    .scroll-to-bottom .icon { width: 16px; height: 16px; }
+
+    /* ---- P1 新增：查询任务状态栏 ---- */
+    .task-bar {
+      position: relative;
+      width: 100%;
+      margin-bottom: 8px;
+      pointer-events: auto;
+      animation: task-bar-in .16s ease-out;
+    }
+    .task-bar[hidden] { display: none; }
+    /* 固定栏里复用同一张进度卡：去掉消息内的顶部外边距 */
+    .task-bar details.progress { margin: 0; }
+    /* 步骤多/窄屏时栏内滚动，避免停靠区无限增高 */
+    .task-bar details.progress ul {
+      max-height: min(200px, 30vh);
+      overflow-y: auto;
+      padding-right: 2px;
+    }
+    @keyframes task-bar-in {
+      from { opacity: 0; transform: translateY(4px); }
+      to { opacity: 1; transform: none; }
+    }
+
+    .composer {
+      position: relative;
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      padding: 10px 12px;
+      border: 1px solid var(--border-strong);
+      border-radius: var(--r-2xl);
+      background: var(--surface);
+      box-shadow: var(--shadow-1);
+      pointer-events: auto;
+      transition: border-color .15s, box-shadow .15s;
+    }
+    .composer:focus-within {
+      border-color: var(--accent-border);
+      box-shadow: 0 0 0 3px var(--accent-soft);
+    }
+    .composer textarea {
+      width: 100%;
+      min-height: 44px;
+      max-height: 160px;
+      padding: 4px 6px 6px;
+      border: 0;
+      outline: 0;
+      resize: none;
+      background: transparent;
+      color: var(--text);
+      font-size: 15px;
+      line-height: 1.6;
+      overflow-y: auto;
+    }
+    .composer textarea::placeholder { color: var(--text-2); }
+
+    .composer-footer { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+    .composer-actions {
+      display: flex;
+      flex-wrap: nowrap;
+      align-items: center;
+      gap: 8px;
+      margin-left: auto;
+    }
+    .tool-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border: 1px solid var(--border);
+      border-radius: var(--r-md);
+      background: transparent;
+      color: var(--text-2);
+      font-size: 12px;
+      white-space: nowrap;
+      cursor: pointer;
+      transition: color .15s, background-color .15s, border-color .15s;
+    }
+    .tool-pill:hover { color: var(--text); border-color: var(--border-strong); }
+    .tool-pill.active {
+      color: var(--accent);
+      border-color: var(--accent-border);
+      background: var(--accent-soft);
+    }
+
+    .api-status { display: inline-flex; align-items: center; gap: 6px; color: var(--text-2); font-size: 12px; white-space: nowrap; }
+    .api-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text-2); }
+    .api-dot.ok { background: var(--success); }
+    .composer-clear {
+      padding: 4px 6px;
+      border: 0;
+      border-radius: var(--r-sm);
+      background: transparent;
+      color: var(--text-2);
+      font-size: 12px;
+      white-space: nowrap;
+      cursor: pointer;
+      transition: color .15s, background-color .15s;
+    }
+    .composer-clear:hover { color: var(--danger); background: var(--danger-soft); }
+
+    .send {
+      width: 32px;
+      height: 32px;
+      flex: 0 0 auto;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border: 0;
+      border-radius: 50%;
+      background: var(--accent-fill);
+      color: var(--on-accent);
+      cursor: pointer;
+      transition: background-color .15s;
+    }
+    .send:hover { background: var(--accent-fill-hover); }
+    .send:disabled { opacity: .4; cursor: not-allowed; }
+    .send .icon { width: 18px; height: 18px; stroke-width: 2.2; }
+
+    .hint {
+      position: relative;
+      z-index: 1;
+      margin-top: 8px;
+      color: var(--text-2);
+      font-size: 11.5px;
+      text-align: center;
+      pointer-events: auto;
+    }
+    .kbd {
+      padding: 1px 5px;
+      border: 1px solid var(--border);
+      border-bottom-color: var(--border-strong);
+      border-radius: var(--r-xs);
+      background: var(--surface-2);
+      color: var(--text-2);
+      font-family: var(--font-mono);
+      font-size: 11px;
+    }
+
+    /* ---- 原型演示控件（不属于产品 UI） ---- */
+    .demo-controls {
+      position: fixed;
+      top: 72px;
+      right: 16px;
+      z-index: 30;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 6px 5px 9px;
+      border: 1px dashed var(--border-strong);
+      border-radius: var(--r-md);
+      background: var(--surface);
+      box-shadow: var(--shadow-1);
+      color: var(--text-2);
+      font-size: 11px;
+      opacity: .92;
+    }
+    .demo-tag { color: var(--accent); font-weight: 600; white-space: nowrap; }
+    .demo-btn {
+      padding: 3px 7px;
+      border: 1px solid var(--border);
+      border-radius: var(--r-xs);
+      background: transparent;
+      color: var(--text-2);
+      font-size: 11px;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .demo-btn:hover { color: var(--text); border-color: var(--border-strong); background: var(--surface-hover); }
+    .demo-close {
+      width: 18px;
+      height: 18px;
+      padding: 0;
+      border: 0;
+      border-radius: var(--r-xs);
+      background: transparent;
+      color: var(--text-3);
+      font-size: 13px;
+      line-height: 1;
+      cursor: pointer;
+    }
+    .demo-close:hover { color: var(--text); background: var(--surface-hover); }
+
+    /* 打字点 */
+    .typing { display: inline-flex; align-items: center; gap: 6px; }
+    .dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--text-2);
+      animation: bounce 1.2s infinite ease-in-out;
+    }
+    .dot:nth-child(2) { animation-delay: .15s; }
+    .dot:nth-child(3) { animation-delay: .3s; }
+    @keyframes bounce {
+      0%, 80%, 100% { transform: translateY(0); opacity: .6; }
+      40% { transform: translateY(-5px); opacity: 1; }
+    }
+
+    /* ============ 响应式 ============ */
+    @media (max-width: 720px) {
+      .navbar { flex-wrap: wrap; gap: 10px; padding: 10px 14px; }
+      .tabs { order: 3; width: 100%; margin-left: 0; }
+      .tab { flex: 1; justify-content: center; }
+      .theme-toggle { margin-left: auto; }
+      .theme-label { display: none; }
+      .title span { display: none; }
+      .chat-inner { padding: 20px 14px 0; }
+      .user-row { max-width: 88%; }
+      .composer-wrap { padding: 0 10px 10px; }
+      .composer { border-radius: 14px; }
+      .hint { display: none; }
+      .task-bar details.progress ul { max-height: 26vh; }
+      .demo-controls { top: 112px; right: 10px; }
+      .demo-tag { display: none; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: .01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: .01ms !important;
+      }
+      .icon.spin { animation: none; }
+    }
+
+    [hidden] { display: none !important; }
+  </style>
+</head>
+<body>
+  <!-- 内联图标：单色线性，颜色继承 currentColor -->
+  <svg class="sprite" aria-hidden="true">
+    <symbol id="i-chat" viewBox="0 0 24 24">
+      <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
+    </symbol>
+    <symbol id="i-book" viewBox="0 0 24 24">
+      <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+      <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+    </symbol>
+    <symbol id="i-sun" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="4" />
+      <path d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.42-1.42M17.66 6.34l1.41-1.41" />
+    </symbol>
+    <symbol id="i-moon" viewBox="0 0 24 24">
+      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+    </symbol>
+    <symbol id="i-spark" viewBox="0 0 24 24">
+      <path d="M12 2.5l1.9 6.1 6.1 1.9-6.1 1.9L12 18.5l-1.9-6.1L4 10.5l6.1-1.9L12 2.5z" />
+      <path d="M19 16.5l.7 2.3 2.3.7-2.3.7-.7 2.3-.7-2.3-2.3-.7 2.3-.7.7-2.3z" />
+    </symbol>
+    <symbol id="i-check" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="9" />
+      <path d="M8 12.2l2.6 2.6L16 9.4" />
+    </symbol>
+    <symbol id="i-chevron" viewBox="0 0 24 24">
+      <path d="M6 9l6 6 6-6" />
+    </symbol>
+    <symbol id="i-arrow-up" viewBox="0 0 24 24">
+      <path d="M12 19V5M5 12l7-7 7 7" />
+    </symbol>
+    <symbol id="i-arrow-down" viewBox="0 0 24 24">
+      <path d="M12 5v14M19 12l-7 7-7-7" />
+    </symbol>
+  </svg>
+
+  <div class="app-shell">
+    <header class="navbar">
+      <a class="brand" href="#" aria-label="MiniRAG 首页">
+        <span class="logo" aria-hidden="true">M</span>
+        <span class="title">
+          <strong>MiniRAG</strong>
+          <span>智能本地知识库 · 对话与文档管理</span>
+        </span>
+      </a>
+
+      <nav class="tabs" aria-label="页面切换">
+        <a class="tab active" href="#" aria-current="page" onclick="return false">
+          <svg class="icon" aria-hidden="true"><use href="#i-chat" /></svg>
+          对话
+        </a>
+        <a class="tab" href="#" onclick="return false">
+          <svg class="icon" aria-hidden="true"><use href="#i-book" /></svg>
+          文档管理
+        </a>
+      </nav>
+
+      <button class="theme-toggle" id="themeToggle" type="button" aria-label="切换到浅色模式" title="切换到浅色模式">
+        <svg class="icon" aria-hidden="true"><use id="themeIcon" href="#i-sun" /></svg>
+        <span class="theme-label">浅色</span>
+      </button>
+    </header>
+
+    <main class="app-body">
+      <div class="chat-page">
+        <div class="chat" id="chat">
+          <div class="chat-inner">
+            <div class="dayline">今天</div>
+
+            <!-- 欢迎语 -->
+            <div class="msg bot">
+              <div class="avatar" aria-hidden="true">
+                <svg class="icon"><use href="#i-spark" /></svg>
+              </div>
+              <div class="bot-body">
+                <div class="markdown">
+                  <p>你好，我是智能知识库小助手。你可以直接提问，我会在“阶段进度”里展示处理过程。</p>
+                </div>
+                <div class="meta">提示：可以问“如何使用万用表测量电压？”</div>
+              </div>
+            </div>
+
+            <!-- 历史问答：已完成的任务卡片留在消息内 -->
+            <div class="msg user">
+              <div class="user-row">
+                <div class="bubble">华为擎云 S520 有什么四指手势？</div>
+                <div class="meta">20:41</div>
+              </div>
+            </div>
+
+            <div class="msg bot">
+              <div class="avatar" aria-hidden="true">
+                <svg class="icon"><use href="#i-spark" /></svg>
+              </div>
+              <div class="bot-body">
+                <div class="markdown">
+                  <p>四指点击触摸板，可快速打开通知中心和日历。</p>
+
+                  <figure class="figure" aria-label="四指点击触摸板示意图">
+                    <svg viewBox="0 0 340 180" role="img" aria-labelledby="figTitle">
+                      <title id="figTitle">四指点击触摸板：四个指尖同时落在触摸板上</title>
+                      <rect class="fig-device" x="60" y="18" width="220" height="132" rx="12" />
+                      <rect class="fig-screen" x="78" y="36" width="184" height="56" rx="4" />
+                      <rect class="fig-pad" x="118" y="108" width="104" height="28" rx="5" />
+                      <circle class="fig-dot" cx="138" cy="122" r="4" />
+                      <circle class="fig-dot" cx="158" cy="122" r="4" />
+                      <circle class="fig-dot" cx="178" cy="122" r="4" />
+                      <circle class="fig-dot" cx="198" cy="122" r="4" />
+                      <path d="M138 104v14M158 100v18M178 100v18M198 104v14" stroke="var(--text-2)" stroke-width="2" stroke-linecap="round" opacity=".45" />
+                      <text class="fig-label" x="170" y="168" text-anchor="middle">四指点击触摸板</text>
+                    </svg>
+                  </figure>
+                </div>
+
+                <details class="progress" open>
+                  <summary>
+                    <svg class="icon progress-chev" aria-hidden="true"><use href="#i-chevron" /></svg>
+                    阶段进度
+                    <span class="progress-count">（已完成6，进行中0，状态：已完成）</span>
+                  </summary>
+                  <ul>
+                    <li><svg class="icon" aria-hidden="true"><use href="#i-check" /></svg>意图识别</li>
+                    <li><svg class="icon" aria-hidden="true"><use href="#i-check" /></svg>向量化查询</li>
+                    <li><svg class="icon" aria-hidden="true"><use href="#i-check" /></svg>互联网搜索</li>
+                    <li><svg class="icon" aria-hidden="true"><use href="#i-check" /></svg>HyDE 搜索</li>
+                    <li><svg class="icon" aria-hidden="true"><use href="#i-check" /></svg>融合排序</li>
+                    <li><svg class="icon" aria-hidden="true"><use href="#i-check" /></svg>答案输出</li>
+                  </ul>
+                </details>
+
+                <div class="meta">20:41</div>
+              </div>
+            </div>
+
+            <!-- 当前查询：运行中，消息内不再渲染进度卡片 -->
+            <div class="msg user">
+              <div class="user-row">
+                <div class="bubble">HAK 180 在使用阶段有什么注意事项？</div>
+                <div class="meta">20:52</div>
+              </div>
+            </div>
+
+            <div class="msg bot">
+              <div class="avatar" aria-hidden="true">
+                <svg class="icon"><use href="#i-spark" /></svg>
+              </div>
+              <div class="bot-body">
+                <span class="typing" id="liveTyping" aria-label="正在生成回复">
+                  <span class="dot"></span>
+                  <span class="dot"></span>
+                  <span class="dot"></span>
+                </span>
+
+                <div class="markdown" id="liveAnswer" hidden>
+                  <p>HAK 180 在使用阶段需注意以下事项：</p>
+                  <ul>
+                    <li>将设备放置在平整、水平且稳定的表面上（如桌面），避免震动和冲击；同时放置在通风良好的环境中。</li>
+                    <li>谨慎操作，避免将手指放置在设备内部齿轮/滚轮区域以及进纸口、出纸口区域，以防夹伤或人员受伤。</li>
+                  </ul>
+                </div>
+
+                <!-- 完成瞬间由固定栏交接到消息内的历史卡片 -->
+                <details class="progress" id="liveHistory" hidden>
+                  <summary>
+                    <svg class="icon progress-chev" aria-hidden="true"><use href="#i-chevron" /></svg>
+                    阶段进度
+                    <span class="progress-count">（已完成6，进行中0，状态：已完成）</span>
+                  </summary>
+                  <ul>
+                    <li><svg class="icon" aria-hidden="true"><use href="#i-check" /></svg>意图识别</li>
+                    <li><svg class="icon" aria-hidden="true"><use href="#i-check" /></svg>向量化查询</li>
+                    <li><svg class="icon" aria-hidden="true"><use href="#i-check" /></svg>互联网搜索</li>
+                    <li><svg class="icon" aria-hidden="true"><use href="#i-check" /></svg>HyDE 搜索</li>
+                    <li><svg class="icon" aria-hidden="true"><use href="#i-check" /></svg>融合排序</li>
+                    <li><svg class="icon" aria-hidden="true"><use href="#i-check" /></svg>答案输出</li>
+                  </ul>
+                </details>
+
+                <div class="meta" id="liveMeta">20:52</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 停靠区：固定任务栏 + 输入卡（与真实实现同构） -->
+        <div class="composer-wrap">
+          <div class="composer-anchor" id="dock">
+            <button class="scroll-to-bottom" id="scrollBottom" type="button" aria-label="回到底部" title="回到底部">
+              <svg class="icon" aria-hidden="true"><use href="#i-arrow-down" /></svg>
+            </button>
+
+            <!-- P1 固定任务状态栏：运行中挂载；终态卸载并回写消息 -->
+            <div class="task-bar" id="taskBar" role="status" aria-live="polite" aria-atomic="false" aria-label="查询任务状态">
+              <details class="progress" open>
+                <summary>
+                  <svg class="icon progress-chev" aria-hidden="true"><use href="#i-chevron" /></svg>
+                  阶段进度
+                  <span class="progress-count" id="taskCount">（已完成3，进行中1，状态：处理中）</span>
+                </summary>
+                <ul id="taskList"></ul>
+              </details>
+            </div>
+
+            <div class="composer">
+              <textarea id="composerInput" rows="1" placeholder="给智能知识库小助手发送消息" aria-label="输入消息"></textarea>
+              <div class="composer-footer">
+                <button class="tool-pill active" type="button" aria-pressed="true" title="开启后回答会结合网络搜索结果">网络搜索</button>
+                <button class="tool-pill active" type="button" aria-pressed="true" title="开启后先由模型生成假设性回答，再据此在知识库中检索">HyDE 搜索</button>
+
+                <div class="composer-actions">
+                  <span class="api-status" title="查询服务连接状态">
+                    <span class="api-dot ok"></span>服务已连接
+                  </span>
+
+                  <button class="composer-clear" type="button">清空历史会话</button>
+                  <button class="send" id="sendBtn" type="button" aria-label="发送" title="发送（Enter）">
+                    <svg class="icon" aria-hidden="true"><use href="#i-arrow-up" /></svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="hint">
+            快捷键：<span class="kbd">Enter</span> 发送，<span class="kbd">Shift</span> + <span class="kbd">Enter</span> 换行
+          </div>
+        </div>
+
+        <!-- 原型演示控件 -->
+        <div class="demo-controls" id="demoControls" role="group" aria-label="原型演示控制">
+          <span class="demo-tag">原型演示</span>
+          <button class="demo-btn" id="demoFinish" type="button">模拟完成</button>
+          <button class="demo-btn" id="demoReset" type="button">重新演示</button>
+          <button class="demo-close" id="demoClose" type="button" aria-label="隐藏演示控件" title="隐藏演示控件">×</button>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    (function () {
+      var root = document.documentElement;
+      var chat = document.getElementById("chat");
+      var dock = document.getElementById("dock");
+      var taskBar = document.getElementById("taskBar");
+      var taskList = document.getElementById("taskList");
+      var taskCount = document.getElementById("taskCount");
+      var scrollBottom = document.getElementById("scrollBottom");
+      var liveTyping = document.getElementById("liveTyping");
+      var liveAnswer = document.getElementById("liveAnswer");
+      var liveHistory = document.getElementById("liveHistory");
+      var liveMeta = document.getElementById("liveMeta");
+      var sendBtn = document.getElementById("sendBtn");
+      var demoFinish = document.getElementById("demoFinish");
+      var demoReset = document.getElementById("demoReset");
+      var demoClose = document.getElementById("demoClose");
+
+      /* ---------- 主题 ---------- */
+      var themeBtn = document.getElementById("themeToggle");
+      var themeLabel = themeBtn.querySelector(".theme-label");
+      var themeIcon = document.getElementById("themeIcon");
+
+      function applyTheme(theme) {
+        root.setAttribute("data-theme", theme);
+        var dark = theme === "dark";
+        themeLabel.textContent = dark ? "浅色" : "深色";
+        themeIcon.setAttribute("href", dark ? "#i-sun" : "#i-moon");
+        var text = dark ? "切换到浅色模式" : "切换到深色模式";
+        themeBtn.setAttribute("aria-label", text);
+        themeBtn.title = text;
+        try { localStorage.setItem("minicrag-preview-theme", theme); } catch (e) {}
+      }
+
+      applyTheme(root.getAttribute("data-theme") === "dark" ? "dark" : "light");
+      themeBtn.addEventListener("click", function () {
+        applyTheme(root.getAttribute("data-theme") === "dark" ? "light" : "dark");
+      });
+
+      /* 原型参数：?theme=light|dark 便于固定截图主题（同时写入本地存储） */
+      var params = new URLSearchParams(location.search);
+      if (params.has("theme")) {
+        applyTheme(params.get("theme") === "dark" ? "dark" : "light");
+      }
+
+      /* ---------- 贴底 / 回到底部 ---------- */
+      var pinned = true;
+
+      function updateScrollButton() {
+        var distance = chat.scrollHeight - chat.scrollTop - chat.clientHeight;
+        pinned = distance < 20;
+        scrollBottom.classList.toggle("visible", distance > 20);
+      }
+
+      chat.addEventListener("scroll", updateScrollButton);
+
+      scrollBottom.addEventListener("click", function () {
+        pinned = true;
+        chat.scrollTop = chat.scrollHeight;
+        scrollBottom.classList.remove("visible");
+      });
+
+      function followBottom() {
+        if (pinned) chat.scrollTop = chat.scrollHeight;
+      }
+
+      /* ---------- 停靠区高度 → 会话底部留白 ----------
+         停靠区（任务栏/输入卡）高度变化时，若原本贴底则继续贴底；
+         对应用户真实实现里的 onHeightChange → keepBottom。 */
+      function syncPadding() {
+        chat.style.paddingBottom = (dock.offsetHeight + 28) + "px";
+        followBottom();
+      }
+
+      if (window.ResizeObserver) {
+        new ResizeObserver(syncPadding).observe(dock);
+      }
+      window.addEventListener("resize", syncPadding);
+
+      /* ---------- 任务模拟（与 P1 状态机一致：运行中 → 终态交接） ---------- */
+      var STEPS = ["意图识别", "向量化查询", "互联网搜索", "HyDE 搜索", "融合排序", "答案输出"];
+      var doneCount = 3;   // 已完成步骤数；steps[doneCount] 为进行中
+      var timers = [];
+      var finished = false;
+
+      function later(fn, ms) {
+        timers.push(window.setTimeout(fn, ms));
+      }
+
+      function clearTimers() {
+        timers.forEach(window.clearTimeout);
+        timers = [];
+      }
+
+      function line(kind, text) {
+        var icon = kind === "done"
+          ? '<svg class="icon" aria-hidden="true"><use href="#i-check" /></svg>'
+          : '<svg class="icon spin" viewBox="0 0 24 24" aria-hidden="true"><circle class="spin-track" cx="12" cy="12" r="9" /><circle class="spin-arc" cx="12" cy="12" r="9" /></svg>';
+        return '<li>' + icon + text + "</li>";
+      }
+
+      function renderTask() {
+        var html = "";
+        var i;
+        for (i = 0; i < STEPS.length; i++) {
+          if (i < doneCount) html += line("done", STEPS[i]);
+          else if (i === doneCount) html += line("running", STEPS[i]);
+        }
+        taskList.innerHTML = html;
+        var running = doneCount < STEPS.length ? 1 : 0;
+        taskCount.textContent = "（已完成" + doneCount + "，进行中" + running + "，状态：处理中）";
+        syncPadding();
+      }
+
+      function tick() {
+        if (finished) return;
+        if (doneCount >= STEPS.length) {
+          later(finish, 700);
+          return;
+        }
+        doneCount += 1;
+        renderTask();
+        if (doneCount >= STEPS.length) {
+          later(finish, 900);
+        } else {
+          later(tick, 1800);
+        }
+      }
+
+      function finish() {
+        if (finished) return;
+        finished = true;
+        clearTimers();
+
+        // 终态：固定栏卸载，进度回写对应 bot 消息（历史卡片）
+        taskBar.hidden = true;
+        liveTyping.hidden = true;
+        liveAnswer.hidden = false;
+        liveHistory.hidden = false;
+        liveHistory.open = true;
+        liveMeta.textContent = "20:53";
+
+        syncPadding();
+        // 若原本贴底，保持最新内容可见；用户上翻阅读时不强制跳回
+        updateScrollButton();
+      }
+
+      function restart() {
+        clearTimers();
+        finished = false;
+        doneCount = 3;
+
+        taskBar.hidden = false;
+        taskBar.querySelector("details").open = true;
+        liveTyping.hidden = false;
+        liveAnswer.hidden = true;
+        liveHistory.hidden = true;
+        liveMeta.textContent = "20:52";
+
+        renderTask();
+        syncPadding();
+        pinned = true;
+        chat.scrollTop = chat.scrollHeight;
+        scrollBottom.classList.remove("visible");
+
+        later(tick, 1600);
+      }
+
+      demoFinish.addEventListener("click", finish);
+      demoReset.addEventListener("click", restart);
+      demoClose.addEventListener("click", function () {
+        document.getElementById("demoControls").hidden = true;
+      });
+      sendBtn.addEventListener("click", function () {
+        restart();
+      });
+
+      /* 原型参数：?clean=1 隐藏演示控件，?static=1 关闭自动推进（便于截图） */
+      if (params.has("clean")) {
+        document.getElementById("demoControls").hidden = true;
+      }
+
+      /* 输入框随内容增长（仅视觉演示） */
+      var ta = document.getElementById("composerInput");
+      function grow() {
+        ta.style.height = "auto";
+        ta.style.height = Math.min(ta.scrollHeight, 160) + "px";
+        syncPadding();
+      }
+      ta.addEventListener("input", grow);
+
+      /* 初始：贴底，稍后自动推进 */
+      grow();
+      syncPadding();
+      chat.scrollTop = chat.scrollHeight;
+      renderTask();
+
+      /* ?state=done 直接展示完成交接态（便于截图对比） */
+      if (params.get("state") === "done") {
+        finish();
+      } else if (!params.has("static")) {
+        later(tick, 2200);
+      }
+    })();
+  </script>
+</body>
+</html>
