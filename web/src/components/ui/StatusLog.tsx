@@ -21,7 +21,7 @@ interface StatusLogProps {
 /**
  * 进度日志（合并 ChatPage ProgressDetails 与 ImportTaskItem 日志区）：
  * done/running/failed 三态状态行列表，折叠区由调用方决定 open 与 summary 内容
- * （summary 接受 ReactNode：查询卡片需要标题 / 计数分段，窄屏才能整体换行）。
+ * （summary 接受 ReactNode：查询卡片需要标题 / 状态分段，窄屏才能整体换行）。
  */
 export function StatusLog({
   lines,

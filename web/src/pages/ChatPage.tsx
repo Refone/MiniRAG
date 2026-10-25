@@ -50,13 +50,11 @@ export function ChatPage() {
   /**
    * 任务卡片高度高水位（P1）：手动展开只增、手动收起不减，
    * 保证留白不缩短 → 浏览器不会因 max scrollTop 变小而钳制 scrollTop。
-   * 新查询 / 终态 / 清空时归零，由卡片收起后的高度回调重新建立。
+   * 新查询 / 清空时归零，由卡片收起后的高度回调重新建立。
    */
   const cardHighWaterRef = useRef(0);
-  /** 上一次已处理的任务 id / 终态：Activity 切回会重跑 effect，只有真正变化才重置高水位 */
+  /** 上一次已处理的任务 id：Activity 切回会重跑 effect，只有真正变化才重置高水位 */
   const highWaterTaskIdRef = useRef<string | null | undefined>(undefined);
-  const terminalStatusRef = useRef<string | undefined>(undefined);
-  const status = queryTask?.progress.status;
 
   /** 仅在当前处于贴底状态时跟随（流式增量 / 图片加载 / 输入卡高度变化） */
   const keepBottom = useCallback(() => {
@@ -157,19 +155,6 @@ export function ChatPage() {
     highWaterTaskIdRef.current = taskId;
     cardHighWaterRef.current = 0;
   }, [queryTask?.id]);
-
-  // 终态：先归零，让自动收起后的卡片高度重建高水位；原本贴底时跟到答案。
-  // 同样用 ref 防重：Activity 切回重跑 effect 时不再重复重置。
-  useLayoutEffect(() => {
-    if (status !== "completed" && status !== "failed") {
-      terminalStatusRef.current = status;
-      return;
-    }
-    if (terminalStatusRef.current === status) return;
-    terminalStatusRef.current = status;
-    cardHighWaterRef.current = 0;
-    if (pinnedRef.current) scrollToBottom();
-  }, [status, scrollToBottom, pinnedRef]);
 
   return (
     <div className="chat-page" ref={pageRef}>
