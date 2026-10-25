@@ -24,6 +24,7 @@ export function ChatPage() {
   const sending = useChatStore((s) => s.sending);
   const queryTask = useChatStore((s) => s.queryTask);
   const send = useChatStore((s) => s.send);
+  const dismissTask = useChatStore((s) => s.dismissTask);
   const clearHistory = useChatStore((s) => s.clearHistory);
   const enableWebSearch = usePreferenceStore((s) => s.enableWebSearch);
   const enableHyde = usePreferenceStore((s) => s.enableHyde);
@@ -195,7 +196,11 @@ export function ChatPage() {
         showScrollToBottom={showScrollToBottom}
         onScrollToBottom={handleScrollToBottom}
         containerRef={pageRef}
-        statusSlot={queryTask ? <QueryTaskBar task={queryTask} /> : undefined}
+        statusSlot={
+          queryTask ? (
+            <QueryTaskBar task={queryTask} onDismiss={dismissTask} />
+          ) : undefined
+        }
         onHeightChange={handleHeightChange}
       />
     </div>

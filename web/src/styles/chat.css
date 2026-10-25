@@ -463,6 +463,7 @@ details.progress[open] summary::before {
 /* ---- P1：输入框上方唯一的查询任务状态卡片 ---- */
 .task-bar {
   /* 左右各内缩 54px：让出右下角「回到底部」按钮，卡片右缘-按钮左缘=11px */
+  position: relative;
   width: calc(100% - 108px);
   margin: 0 auto 8px;
   pointer-events: auto;
@@ -474,7 +475,16 @@ details.progress[open] summary::before {
   margin: 0;
 }
 
-/* 摘要标题保持单行；窄屏时计数整体换行（见媒体查询） */
+/* 摘要按「阶段进度（…）」连续书写：标题与状态之间不留 flex gap，仅保留箭头间距 */
+.task-bar details.progress summary {
+  gap: 0;
+}
+
+.task-bar details.progress summary::before {
+  margin-right: 6px;
+}
+
+/* 摘要标题保持单行；窄屏时运行步骤摘要整体换行（见媒体查询） */
 .progress-title {
   white-space: nowrap;
 }
@@ -484,6 +494,43 @@ details.progress[open] summary::before {
   max-height: min(200px, 30vh);
   overflow-y: auto;
   padding-right: 2px;
+}
+
+/* 终态关闭按钮：卡片右上角，点击移除任务卡片 */
+.task-bar--closable details.progress summary {
+  padding-right: 24px;
+}
+
+.task-close {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  z-index: 1;
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--text-2);
+  cursor: pointer;
+  transition:
+    color 0.15s,
+    background-color 0.15s;
+}
+
+.task-close:hover {
+  color: var(--danger);
+  background: var(--danger-soft);
+}
+
+.task-close .icon {
+  width: 14px;
+  height: 14px;
+  stroke-width: 2;
 }
 
 @keyframes task-bar-in {
@@ -750,12 +797,13 @@ details.progress[open] summary::before {
     border-radius: var(--r-2xl);
   }
 
-  /* 窄屏摘要整体换行：标题保持单行、计数独占一行，避免「阶段/进度」被拆开 */
+  /* 窄屏摘要可整体换行；仅运行中的步骤摘要独占一行，
+     终态「已完成 / 失败」保持单行，右侧留给关闭按钮 */
   .task-bar details.progress summary {
     flex-wrap: wrap;
   }
 
-  .task-bar details.progress summary .progress-count {
+  .task-bar details.progress summary .progress-count--steps {
     flex: 1 1 100%;
   }
 

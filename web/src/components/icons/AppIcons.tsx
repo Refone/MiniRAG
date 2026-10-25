@@ -105,6 +105,14 @@ export function ArrowDownIcon({ className }: IconProps) {
   );
 }
 
+export function CloseIcon({ className }: IconProps) {
+  return (
+    <IconBase className={className}>
+      <path d="M6 6l12 12M18 6L6 18" />
+    </IconBase>
+  );
+}
+
 export function ScissorsIcon({ className }: IconProps) {
   return (
     <IconBase className={className}>

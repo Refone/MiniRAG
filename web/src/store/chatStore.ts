@@ -92,6 +92,8 @@ interface ChatStoreState {
   historyLoaded: boolean;
 
   send: (text: string) => Promise<void>;
+  /** 关闭终态任务卡片（运行中不可关闭；真正中止留给 P3） */
+  dismissTask: () => void;
   clearHistory: () => Promise<void>;
   ensureHistoryLoaded: () => Promise<void>;
 }
@@ -297,4 +299,14 @@ export const useChatStore = create<ChatStoreState>()((set, get) => ({
     invalidateCache(CACHE_KEY.history(sessionId));
     set((s) => ({ messages: [s.messages[0]], queryTask: null }));
   },
+
+  dismissTask: () =>
+    set((s) => {
+      const progressStatus = s.queryTask?.progress.status;
+      if (progressStatus !== "completed" && progressStatus !== "failed") {
+        return s;
+      }
+      console.log("[chat] 关闭终态任务卡片");
+      return { queryTask: null };
+    }),
 }));
