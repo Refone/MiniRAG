@@ -12,8 +12,16 @@ export interface ChatMessage {
   typing: boolean;
   /** 是否处于 SSE 流式输出中：用于图片语法未写完时的占位截流 */
   streaming: boolean;
-  progress: ProgressView | null;
   error: string | null;
+}
+
+/**
+ * 查询任务卡片视图（P1：常驻、仅内存）。
+ * id = 任务实例标识：用于隔离旧 SSE，也作为卡片内容重置的 React key。
+ */
+export interface QueryTaskView {
+  id: string;
+  progress: ProgressView;
 }
 
 /** 后端历史记录单条（GET /api/history/{sessionId} → history[]） */
