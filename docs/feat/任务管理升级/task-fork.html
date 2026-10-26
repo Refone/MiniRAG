@@ -1,0 +1,1670 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>MiniRAG · ZIP 任务分叉（原型）</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%234f46e5'/%3E%3Ctext x='16' y='22' font-family='sans-serif' font-size='16' font-weight='700' fill='white' text-anchor='middle'%3EM%3C/text%3E%3C/svg%3E" />
+  <script>
+    /* 首帧前决定主题，避免闪白 */
+    (function () {
+      try {
+        var saved = localStorage.getItem("minicrag-fork-theme");
+        var theme = saved === "dark" || saved === "light"
+          ? saved
+          : (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+        document.documentElement.setAttribute("data-theme", theme);
+      } catch (e) { /* 隐私模式 */ }
+    })();
+  </script>
+  <style>
+    /* ============ 设计令牌（与 web/src/styles/tokens.css 对齐） ============ */
+    :root {
+      color-scheme: light;
+      --font-sans: system-ui, -apple-system, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+      --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+      --bg: #f4f5f7;
+      --bg-nav: #ffffff;
+      --surface: #ffffff;
+      --surface-2: #fafbfc;
+      --surface-hover: #f1f2f5;
+      --surface-inset: #eceef1;
+
+      --border: #e4e6eb;
+      --border-strong: #d3d7dd;
+
+      --text: #1f2328;
+      --text-2: #646c7b;
+      --text-3: #8b93a1;
+
+      --accent: #4f46e5;
+      --accent-hover: #4338ca;
+      --accent-soft: #eef2ff;
+      --accent-border: #c7d2fe;
+      --accent-fill: #4f46e5;
+      --accent-fill-hover: #4338ca;
+      --on-accent: #ffffff;
+      --focus: #4f46e5;
+
+      --success: #15803d;
+      --success-soft: #dcfce7;
+      --warning: #b45309;
+      --warning-soft: #fef3c7;
+      --danger: #b91c1c;
+      --danger-soft: #fee2e2;
+      --purple: #7c3aed;
+      --purple-soft: #f3e8ff;
+
+      --shadow-1: 0 1px 2px rgba(15, 23, 42, .06);
+      --shadow-card: 0 10px 28px rgba(15, 23, 42, .08), 0 2px 6px rgba(15, 23, 42, .04);
+
+      --r-xs: 4px;
+      --r-sm: 6px;
+      --r-md: 8px;
+      --r-lg: 10px;
+      --r-xl: 12px;
+      --r-2xl: 16px;
+      --r-pill: 999px;
+    }
+
+    [data-theme="dark"] {
+      color-scheme: dark;
+
+      --bg: #1b1b1f;
+      --bg-nav: #161618;
+      --surface: #202127;
+      --surface-2: #26272e;
+      --surface-hover: #2a2b32;
+      --surface-inset: #161618;
+
+      --border: #2e2e32;
+      --border-strong: #3c3f44;
+
+      --text: #dfdfd6;
+      --text-2: #98989f;
+      --text-3: #6f7076;
+
+      --accent: #a8b1ff;
+      --accent-hover: #c7ccff;
+      --accent-soft: rgba(100, 108, 255, .16);
+      --accent-border: rgba(168, 177, 255, .35);
+      --accent-fill: #5a68dd;
+      --accent-fill-hover: #4f5fe0;
+      --on-accent: #ffffff;
+      --focus: #a8b1ff;
+
+      --success: #3dd68c;
+      --success-soft: rgba(16, 185, 129, .16);
+      --warning: #f9b44e;
+      --warning-soft: rgba(234, 179, 8, .14);
+      --danger: #f66f81;
+      --danger-soft: rgba(244, 63, 94, .16);
+      --purple: #c8abfa;
+      --purple-soft: rgba(159, 122, 234, .16);
+
+      --shadow-1: 0 1px 2px rgba(0, 0, 0, .35);
+      --shadow-card: 0 14px 36px rgba(0, 0, 0, .45), 0 2px 8px rgba(0, 0, 0, .3);
+    }
+
+    /* ============ 基础 ============ */
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      font-family: var(--font-sans);
+      background: var(--bg);
+      color: var(--text);
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
+    }
+    button { font-family: inherit; }
+    a { color: var(--accent); }
+    ::selection { background: var(--accent-soft); color: var(--text); }
+
+    * { scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; }
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: var(--r-pill); }
+
+    :where(a, button, summary, [tabindex]):focus-visible {
+      outline: 2px solid var(--focus);
+      outline-offset: 2px;
+    }
+
+    .sprite { position: absolute; width: 0; height: 0; overflow: hidden; }
+    .icon {
+      width: 16px;
+      height: 16px;
+      flex: 0 0 auto;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 1.8;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+    [hidden] { display: none !important; }
+
+    /* ============ 应用骨架 ============ */
+    .app-shell { height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+    .app-body { flex: 1 1 auto; min-height: 0; display: flex; overflow: hidden; }
+
+    /* ============ 导航栏 ============ */
+    .navbar {
+      flex: 0 0 auto;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 12px 20px;
+      background: var(--bg-nav);
+      border-bottom: 1px solid var(--border);
+    }
+    .brand { display: flex; align-items: center; gap: 10px; min-width: 0; color: inherit; text-decoration: none; }
+    .logo {
+      width: 36px; height: 36px; flex: 0 0 auto;
+      display: grid; place-items: center;
+      border-radius: var(--r-lg);
+      background: var(--accent-fill);
+      color: var(--on-accent);
+      font-size: 15px; font-weight: 700; letter-spacing: -.02em;
+    }
+    .title { display: flex; flex-direction: column; line-height: 1.1; min-width: 0; }
+    .title strong { font-size: 14px; font-weight: 650; white-space: nowrap; }
+    .title span { margin-top: 3px; font-size: 12px; color: var(--text-2); white-space: nowrap; }
+    .tabs { display: flex; align-items: center; gap: 4px; margin-left: auto; }
+    .tab {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 7px 12px;
+      border: 1px solid transparent; border-radius: var(--r-md);
+      color: var(--text-2); font-size: 13px; text-decoration: none;
+      transition: color .15s, background-color .15s, border-color .15s;
+    }
+    .tab:hover { background: var(--surface-hover); color: var(--text); }
+    .tab.active { background: var(--accent-soft); border-color: var(--accent-border); color: var(--accent); font-weight: 600; }
+    .theme-toggle {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 7px 11px;
+      border: 1px solid var(--border); border-radius: var(--r-md);
+      background: transparent; color: var(--text-2);
+      font-size: 12.5px; cursor: pointer;
+      transition: color .15s, border-color .15s, background-color .15s;
+    }
+    .theme-toggle:hover { color: var(--text); border-color: var(--border-strong); background: var(--surface-hover); }
+    .theme-toggle .icon { width: 15px; height: 15px; }
+
+    /* ============ 文档管理页（与真实布局同构） ============ */
+    .docs-page {
+      flex: 1 1 auto;
+      min-height: 0;
+      min-width: 0;
+      display: flex;
+      gap: 16px;
+      padding: 16px;
+    }
+    .elevated {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--r-xl);
+      box-shadow: var(--shadow-card);
+    }
+    .left-panel {
+      flex: 0 0 360px;
+      width: 360px;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .panel-header {
+      flex: 0 0 auto;
+      display: flex; align-items: center; gap: 10px;
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--border);
+    }
+    .head-title { flex: 1 1 auto; min-width: 0; }
+    .head-title h2 {
+      margin: 0; font-size: 15px; font-weight: 650;
+      letter-spacing: -.01em;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .head-sub { display: block; margin-top: 3px; font-size: 12px; color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .pill {
+      flex: 0 0 auto;
+      display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+      border: 1px solid var(--border);
+      background: transparent; color: var(--text-2);
+      padding: 7px 12px; border-radius: var(--r-md);
+      font-size: 13px; font-weight: 500; white-space: nowrap; cursor: pointer;
+      transition: color .15s, border-color .15s, background-color .15s, transform .05s;
+    }
+    .pill:hover { color: var(--text); border-color: var(--border-strong); background: var(--surface-hover); }
+    .pill:active { transform: translateY(1px); }
+    .pill.primary { background: var(--accent-fill); border-color: var(--accent-fill); color: var(--on-accent); font-weight: 600; }
+    .pill.primary:hover { background: var(--accent-fill-hover); border-color: var(--accent-fill-hover); }
+
+    .import-body {
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow-y: auto;
+      padding: 12px 14px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    /* ---- 上传区 ---- */
+    .upload-area {
+      width: 100%;
+      border: 1.5px dashed var(--border-strong);
+      border-radius: var(--r-xl);
+      padding: 14px 14px;
+      text-align: center;
+      cursor: pointer;
+      background: var(--surface-2);
+      color: inherit;
+      transition: border-color .15s, background-color .15s;
+    }
+    .upload-area:hover { border-color: var(--accent); background: var(--accent-soft); }
+    .upload-icon { display: flex; align-items: center; justify-content: center; color: var(--accent); margin-bottom: 4px; }
+    .upload-icon .icon { width: 25px; height: 25px; }
+    .upload-area .upload-main { display: block; font-size: 13.5px; font-weight: 600; color: var(--text); }
+    .upload-area .upload-sub { display: block; margin-top: 5px; font-size: 11.5px; color: var(--text-2); }
+
+    /* ---- 文件卡片 ---- */
+    .file-list { display: flex; flex-direction: column; gap: 8px; }
+    .file-item {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: var(--r-lg);
+      padding: 12px;
+      transition: border-color .2s, box-shadow .2s;
+    }
+    .file-item.is-forked { border-color: var(--accent-border); }
+    .file-item[data-state="error"] { border-color: var(--danger); }
+    .file-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+    .file-title-wrap { flex: 1 1 auto; min-width: 0; }
+    .file-name { font-size: 13px; font-weight: 600; line-height: 1.45; word-break: break-all; }
+    .file-size { margin-top: 2px; font-size: 11.5px; color: var(--text-2); }
+
+    .status-badge {
+      flex: 0 0 auto;
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 3px 9px;
+      border-radius: var(--r-pill);
+      font-size: 11.5px; font-weight: 600; white-space: nowrap;
+      transition: color .2s, background-color .2s;
+    }
+    .badge-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+    .status-uploading { background: var(--warning-soft); color: var(--warning); }
+    .status-processing { background: var(--accent-soft); color: var(--accent); }
+    .status-completed { background: var(--success-soft); color: var(--success); }
+    .status-error { background: var(--danger-soft); color: var(--danger); }
+    .status-pending { background: var(--surface-inset); color: var(--text-2); }
+    .status-interrupted { background: var(--surface-inset); color: var(--text-3); }
+    .status-processing .badge-dot { animation: dot-pulse 1.4s ease-in-out infinite; }
+    @keyframes dot-pulse { 0%, 100% { opacity: .35; } 50% { opacity: 1; } }
+
+    /* ---- 任务日志（沿用导入卡片现有 log-details 样式） ---- */
+    .log-details { margin-top: 6px; font-size: 11.5px; color: var(--text-2); }
+    .log-details summary {
+      display: flex; align-items: center; gap: 4px;
+      cursor: pointer; user-select: none;
+      color: var(--text-2); list-style: none;
+      line-height: 1.5;
+    }
+    .log-details summary::-webkit-details-marker { display: none; }
+    .log-details summary:hover { color: var(--text); }
+    .log-caret { width: 12px; height: 12px; transition: transform .15s; transform: rotate(-90deg); }
+    .log-details[open] .log-caret { transform: rotate(0deg); }
+    .log-hint { color: var(--text-3); }
+    .log-list {
+      list-style: none;
+      margin: 6px 0 0;
+      padding: 0;
+      display: grid;
+      gap: 4px;
+    }
+    .log-line {
+      display: flex;
+      align-items: flex-start;
+      gap: 6px;
+      color: var(--text-2);
+      line-height: 1.55;
+    }
+    .log-line .icon { width: 13px; height: 13px; margin-top: 1px; }
+    .log-line--done .icon { color: var(--success); }
+    .log-line--running .icon { color: var(--warning); }
+    .log-line--failed { color: var(--danger); }
+    .log-line--failed .icon { color: var(--danger); }
+    .log-line--muted { color: var(--text-3); }
+    .log-line--empty { color: var(--text-3); }
+    .spin-track { fill: none; stroke: currentColor; stroke-opacity: .25; stroke-width: 2; }
+    .spin-arc { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-dasharray: 28 100; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .icon.spin { animation: spin 1s linear infinite; transform-origin: 50% 50%; }
+
+    /* ---- 分叉区（本原型新增视觉） ---- */
+    .fork-section { margin-top: 10px; animation: fork-in .28s ease-out both; }
+    .fork-head {
+      display: flex; align-items: center; gap: 6px;
+      padding-top: 9px;
+      border-top: 1px solid var(--border);
+      font-size: 11.5px;
+      color: var(--text-2);
+    }
+    .fork-mark {
+      width: 18px; height: 18px; flex: 0 0 auto;
+      display: inline-flex; align-items: center; justify-content: center;
+      border-radius: var(--r-sm);
+      background: var(--accent-soft);
+      color: var(--accent);
+    }
+    .fork-mark .icon { width: 12px; height: 12px; }
+    .fork-title { min-width: 0; color: var(--text-2); }
+    .fork-title strong { color: var(--text); font-weight: 600; }
+    .fork-count { margin-left: auto; flex: 0 0 auto; font-variant-numeric: tabular-nums; color: var(--text-2); }
+    .fork-meter { display: flex; align-items: center; gap: 3px; margin-top: 7px; }
+    .fork-meter span {
+      flex: 1 1 0;
+      height: 3px;
+      border-radius: var(--r-pill);
+      background: var(--border);
+      transition: background-color .25s;
+    }
+    .fork-meter span.is-processing { background: var(--accent); animation: meter-pulse 1.4s ease-in-out infinite; }
+    .fork-meter span.is-completed { background: var(--success); }
+    .fork-meter span.is-error { background: var(--danger); }
+    .fork-meter span.is-interrupted { background: var(--border-strong); }
+    @keyframes meter-pulse { 0%, 100% { opacity: .45; } 50% { opacity: 1; } }
+
+    .child-tree {
+      list-style: none;
+      margin: 9px 0 0;
+      padding: 0 0 0 13px;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      border-left: 1px dashed var(--border-strong);
+    }
+    .child {
+      position: relative;
+      padding: 7px 9px;
+      border: 1px solid var(--border);
+      border-radius: var(--r-md);
+      background: var(--surface);
+      animation: child-in .24s ease-out both;
+      transition: border-color .2s, background-color .2s, opacity .2s;
+    }
+    .child::before {
+      content: "";
+      position: absolute;
+      left: -15px;
+      top: 18px;
+      width: 10px;
+      border-top: 1px dashed var(--border-strong);
+    }
+    .child[data-state="processing"] { border-color: var(--accent-border); }
+    .child[data-state="error"] { border-color: var(--danger); background: var(--danger-soft); }
+    .child[data-state="interrupted"] { opacity: .78; }
+    .child-head { display: flex; align-items: center; gap: 7px; }
+    .child-doc {
+      width: 18px; height: 18px; flex: 0 0 auto;
+      display: inline-flex; align-items: center; justify-content: center;
+      border-radius: var(--r-xs);
+      background: var(--surface-inset);
+      color: var(--text-2);
+    }
+    .child-doc .icon { width: 11px; height: 11px; }
+    .child-name {
+      flex: 1 1 auto; min-width: 0;
+      font-size: 12px; font-weight: 600; line-height: 1.4;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .child-badge {
+      flex: 0 0 auto;
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 2px 7px;
+      border-radius: var(--r-pill);
+      font-size: 10.5px; font-weight: 600; white-space: nowrap;
+    }
+    .child-badge .badge-dot { width: 5px; height: 5px; }
+    .child .log-details { margin-top: 3px; font-size: 11px; }
+    .child .log-list { margin-top: 5px; gap: 3px; }
+    .child .log-list { max-height: 132px; overflow-y: auto; padding-right: 2px; }
+    .child-wait { margin-top: 4px; font-size: 11px; color: var(--text-3); }
+    .child-error {
+      margin-top: 5px;
+      padding: 4px 6px;
+      border-radius: var(--r-xs);
+      background: var(--danger-soft);
+      color: var(--danger);
+      font-size: 10.5px;
+      line-height: 1.5;
+      overflow-wrap: anywhere;
+    }
+
+    @keyframes fork-in { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: none; } }
+    @keyframes child-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+    /* ============ 右卡片：原型说明（非产品 UI） ============ */
+    .right-panel {
+      flex: 1 1 auto;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .note-header {
+      flex: 0 0 auto;
+      display: flex; align-items: center; gap: 12px;
+      padding: 14px 20px;
+      border-bottom: 1px solid var(--border);
+    }
+    .note-heading { min-width: 0; flex: 1 1 auto; }
+    .note-heading h2 { margin: 0; font-size: 15px; font-weight: 650; letter-spacing: -.01em; }
+    .note-heading p { margin: 3px 0 0; font-size: 12px; color: var(--text-2); }
+    .phase-chip {
+      flex: 0 0 auto;
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 5px 10px;
+      border: 1px solid var(--border);
+      border-radius: var(--r-pill);
+      background: var(--surface-2);
+      color: var(--text-2);
+      font-size: 11.5px; font-weight: 600; white-space: nowrap;
+      transition: color .2s, border-color .2s, background-color .2s;
+    }
+    .phase-chip::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+    .phase-chip[data-state="processing"] { color: var(--accent); border-color: var(--accent-border); background: var(--accent-soft); }
+    .phase-chip[data-state="completed"] { color: var(--success); border-color: transparent; background: var(--success-soft); }
+    .phase-chip[data-state="error"] { color: var(--danger); border-color: transparent; background: var(--danger-soft); }
+
+    .note-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 22px 24px 28px; }
+    .note-lead { max-width: 760px; margin: 0; font-size: 14px; line-height: 1.75; color: var(--text); }
+    .note-lead b { font-weight: 650; }
+
+    .flow {
+      display: flex; align-items: center; flex-wrap: wrap; gap: 8px;
+      margin: 18px 0 20px;
+      font-size: 11.5px; color: var(--text-2);
+    }
+    .flow-node {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 6px 10px;
+      border: 1px solid var(--border);
+      border-radius: var(--r-md);
+      background: var(--surface-2);
+      white-space: nowrap;
+    }
+    .flow-node strong { font-weight: 600; color: var(--text); }
+    .flow-node.is-parent { border-color: var(--border-strong); }
+    .flow-node.is-fork { color: var(--accent); border-color: var(--accent-border); background: var(--accent-soft); }
+    .flow-node.is-child { padding: 5px 8px; }
+    .flow-arrow { color: var(--text-3); font-family: var(--font-mono); }
+    .flow-children { display: inline-flex; gap: 4px; flex-wrap: wrap; }
+
+    .note-grid { display: grid; gap: 10px; margin-bottom: 20px; }
+    .note-item {
+      display: flex; align-items: flex-start; gap: 10px;
+      padding: 12px 13px;
+      border: 1px solid var(--border);
+      border-radius: var(--r-lg);
+      background: var(--surface-2);
+    }
+    .note-num {
+      flex: 0 0 auto;
+      width: 21px; height: 21px;
+      display: inline-flex; align-items: center; justify-content: center;
+      border-radius: var(--r-sm);
+      background: var(--accent-soft);
+      color: var(--accent);
+      font-family: var(--font-mono);
+      font-size: 11px; font-weight: 700;
+    }
+    .note-item strong { display: block; font-size: 12.5px; font-weight: 650; }
+    .note-item p { margin: 3px 0 0; font-size: 12px; line-height: 1.65; color: var(--text-2); }
+    .note-item code {
+      padding: 1px 4px;
+      border: 1px solid var(--border);
+      border-radius: var(--r-xs);
+      background: var(--surface-inset);
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+      color: var(--text);
+    }
+
+    .code-block {
+      border: 1px solid var(--border);
+      border-radius: var(--r-lg);
+      background: var(--surface-inset);
+      overflow: hidden;
+    }
+    .code-head {
+      display: flex; align-items: center; justify-content: space-between; gap: 10px;
+      padding: 8px 12px;
+      border-bottom: 1px solid var(--border);
+      color: var(--text-2);
+      font-size: 11px;
+    }
+    .code-head .code-live { display: inline-flex; align-items: center; gap: 6px; }
+    .code-live::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--success); }
+    .code-block pre {
+      margin: 0;
+      padding: 12px 14px;
+      overflow-x: auto;
+      font-family: var(--font-mono);
+      font-size: 11.5px;
+      line-height: 1.7;
+      color: var(--text);
+      tab-size: 2;
+    }
+    .note-foot { margin: 16px 0 0; font-size: 11.5px; line-height: 1.7; color: var(--text-2); }
+
+    /* ============ 原型演示控件（不属于产品 UI） ============ */
+    .demo-strip {
+      flex: 0 0 auto;
+      display: flex; align-items: center; gap: 6px;
+      padding: 7px 20px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface-2);
+      color: var(--text-2);
+      font-size: 11px;
+    }
+    .demo-tag { color: var(--accent); font-weight: 600; white-space: nowrap; }
+    .demo-btn {
+      padding: 3px 7px;
+      border: 1px solid var(--border);
+      border-radius: var(--r-xs);
+      background: transparent;
+      color: var(--text-2);
+      font-size: 11px;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .demo-btn:hover { color: var(--text); border-color: var(--border-strong); background: var(--surface-hover); }
+    .demo-close {
+      width: 18px; height: 18px; padding: 0;
+      margin-left: auto;
+      border: 0; border-radius: var(--r-xs);
+      background: transparent; color: var(--text-3);
+      font-size: 13px; line-height: 1; cursor: pointer;
+    }
+    .demo-close:hover { color: var(--text); background: var(--surface-hover); }
+
+    /* ============ 响应式 ============ */
+    @media (max-width: 940px) {
+      .left-panel { flex-basis: 320px; width: 320px; }
+    }
+    @media (max-width: 860px) {
+      .docs-page { flex-direction: column; overflow-y: auto; }
+      .left-panel { flex: 0 0 auto; width: 100%; max-height: 62vh; }
+      .right-panel { flex: 1 1 auto; min-height: 420px; }
+      .note-body { padding: 18px 16px 22px; }
+    }
+    @media (max-width: 720px) {
+      .navbar { flex-wrap: wrap; gap: 10px; padding: 10px 14px; }
+      .tabs { order: 3; width: 100%; margin-left: 0; }
+      .tab { flex: 1; justify-content: center; }
+      .theme-toggle { margin-left: auto; }
+      .theme-label { display: none; }
+      .title span { display: none; }
+      .docs-page { padding: 10px; }
+      .demo-strip { padding: 7px 14px; }
+      .demo-tag { display: none; }
+      .child-name { font-size: 11.5px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: .01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: .01ms !important;
+      }
+      .icon.spin { animation: none; }
+    }
+  </style>
+</head>
+<body>
+  <!-- 内联图标：单色线性，颜色继承 currentColor -->
+  <svg class="sprite" aria-hidden="true">
+    <symbol id="i-chat" viewBox="0 0 24 24">
+      <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
+    </symbol>
+    <symbol id="i-book" viewBox="0 0 24 24">
+      <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+      <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+    </symbol>
+    <symbol id="i-sun" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="4" />
+      <path d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.42-1.42M17.66 6.34l1.41-1.41" />
+    </symbol>
+    <symbol id="i-moon" viewBox="0 0 24 24">
+      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+    </symbol>
+    <symbol id="i-upload" viewBox="0 0 24 24">
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+      <path d="M12 16V3M7.5 7.5L12 3l4.5 4.5" />
+    </symbol>
+    <symbol id="i-file" viewBox="0 0 24 24">
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+      <path d="M14 2v6h6" />
+    </symbol>
+    <symbol id="i-fork" viewBox="0 0 24 24">
+      <circle cx="6" cy="5" r="2.5" />
+      <circle cx="18" cy="5" r="2.5" />
+      <circle cx="12" cy="19" r="2.5" />
+      <path d="M6 7.5v2.2a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7.5" />
+      <path d="M12 11.7v4.8" />
+    </symbol>
+    <symbol id="i-check" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="9" />
+      <path d="M8 12.2l2.6 2.6L16 9.4" />
+    </symbol>
+    <symbol id="i-alert" viewBox="0 0 24 24">
+      <path d="M10.3 3.9L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z" />
+      <path d="M12 9v4M12 17h.01" />
+    </symbol>
+    <symbol id="i-chevron" viewBox="0 0 24 24">
+      <path d="M6 9l6 6 6-6" />
+    </symbol>
+    <symbol id="i-arrow-up" viewBox="0 0 24 24">
+      <path d="M12 19V5M5 12l7-7 7 7" />
+    </symbol>
+  </svg>
+
+  <div class="app-shell">
+    <header class="navbar">
+      <a class="brand" href="#" aria-label="MiniRAG 首页" onclick="return false">
+        <span class="logo" aria-hidden="true">M</span>
+        <span class="title">
+          <strong>MiniRAG</strong>
+          <span>智能本地知识库 · 对话与文档管理</span>
+        </span>
+      </a>
+
+      <nav class="tabs" aria-label="页面切换">
+        <a class="tab" href="#" onclick="return false">
+          <svg class="icon" aria-hidden="true"><use href="#i-chat" /></svg>
+          对话
+        </a>
+        <a class="tab active" href="#" aria-current="page" onclick="return false">
+          <svg class="icon" aria-hidden="true"><use href="#i-book" /></svg>
+          文档管理
+        </a>
+      </nav>
+
+      <button class="theme-toggle" id="themeToggle" type="button" aria-label="切换到浅色模式" title="切换到浅色模式">
+        <svg class="icon" aria-hidden="true"><use id="themeIcon" href="#i-sun" /></svg>
+        <span class="theme-label">浅色</span>
+      </button>
+    </header>
+
+    <main class="app-body">
+      <div class="docs-page">
+        <!-- 左卡片：与真实文档管理页的导入视图同构 -->
+        <aside class="left-panel elevated">
+          <header class="panel-header">
+            <button class="pill" type="button">文档列表</button>
+            <div class="head-title">
+              <h2>添加文档</h2>
+              <span class="head-sub">支持 PDF / Markdown / Markdown ZIP</span>
+            </div>
+          </header>
+
+          <div class="import-body" id="importBody">
+            <button class="upload-area" id="uploadArea" type="button" title="点击重新演示上传">
+              <span class="upload-icon">
+                <svg class="icon" aria-hidden="true"><use href="#i-upload" /></svg>
+              </span>
+              <span class="upload-main">点击或拖拽文件到此处 (PDF / MD / ZIP)</span>
+              <span class="upload-sub">ZIP 为 markdown 合集，包内每个 md 将成为一篇独立文档</span>
+            </button>
+
+            <div class="file-list" id="fileList" aria-live="polite" aria-label="导入任务列表"></div>
+          </div>
+        </aside>
+
+        <!-- 右卡片：原型说明（非产品 UI），供评审时对照 -->
+        <section class="right-panel elevated">
+          <header class="note-header">
+            <div class="note-heading">
+              <h2>ZIP 任务分叉</h2>
+              <p>原型说明 · 非产品 UI</p>
+            </div>
+            <span class="phase-chip" id="phaseChip" data-state="processing">解压校验</span>
+          </header>
+
+          <!-- 原型演示控件：固定在产品 UI 之外的说明卡里，避免遮挡真实布局 -->
+          <div class="demo-strip" id="demoControls" role="group" aria-label="原型演示控制">
+            <span class="demo-tag">原型演示</span>
+            <button class="demo-btn" id="demoReplay" type="button">重新演示</button>
+            <button class="demo-btn" id="demoFast" type="button">快进到完成</button>
+            <button class="demo-btn" id="demoFail" type="button">演示单篇失败</button>
+            <button class="demo-close" id="demoClose" type="button" aria-label="隐藏演示控件" title="隐藏演示控件">×</button>
+          </div>
+
+          <div class="note-body">
+            <p class="note-lead">
+              ZIP 上传不再只显示一张“压缩包任务卡”。在<b>解压与 md 校验完成、扇出每个 md 的 tail 之前</b>，
+              后端为每篇 md 分配独立的子任务标识；前端据此 fork 出各自的进度卡片，
+              每张卡片独立更新步骤、耗时与失败归因。
+            </p>
+
+            <div class="flow" aria-label="任务分叉结构">
+              <span class="flow-node is-parent"><strong>1 个</strong> 压缩包任务</span>
+              <span class="flow-arrow">→</span>
+              <span class="flow-node is-fork"><svg class="icon" aria-hidden="true" style="width:13px;height:13px"><use href="#i-fork" /></svg> fork</span>
+              <span class="flow-arrow">→</span>
+              <span class="flow-children">
+                <span class="flow-node is-child">md 1</span>
+                <span class="flow-node is-child">md 2</span>
+                <span class="flow-node is-child">md 3</span>
+                <span class="flow-node is-child">md 4</span>
+              </span>
+            </div>
+
+            <div class="note-grid">
+              <div class="note-item">
+                <span class="note-num">1</span>
+                <div>
+                  <strong>fork 时机</strong>
+                  <p>解压、清理 macOS 垃圾、路径越界校验、md 去重全部通过之后；此时才知道真实的 md 列表，且尚未开始任何 tail 节点。</p>
+                </div>
+              </div>
+              <div class="note-item">
+                <span class="note-num">2</span>
+                <div>
+                  <strong>独立身份</strong>
+                  <p>父任务继续使用原 <code>task_id</code>（Milvus / MinIO 语义不变），子任务用 <code>child_id</code> 作为进度命名空间；父进度仍走 <code>progress</code>，子进度走新增的 <code>child-progress</code> 事件，同一条 SSE 通道。</p>
+                </div>
+              </div>
+              <div class="note-item">
+                <span class="note-num">3</span>
+                <div>
+                  <strong>独立终态</strong>
+                  <p>每个 md 的 tail（图片识别 → 文档切分 → 文档嵌入入库）独立完成或失败；父卡片只保留压缩包级步骤与聚合进度，不再出现“某一步已完成但别的 md 还在跑”的串台。</p>
+                </div>
+              </div>
+            </div>
+
+            <div class="code-block">
+              <div class="code-head">
+                <span>当前阶段 SSE</span>
+                <span class="code-live">实时事件流</span>
+              </div>
+              <pre id="eventCode">event: progress
+data: {
+  "status": "pending"
+}</pre>
+            </div>
+
+            <p class="note-foot">
+              配套方案：<a href="后端方案-导入任务分叉.md">docs/feat/任务管理升级/后端方案-导入任务分叉.md</a><br />
+              演示参数：<span class="kbd">?state=forked｜done｜failed</span> · <span class="kbd">?theme=light</span> · <span class="kbd">?clean=1</span>
+            </p>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    (function () {
+      "use strict";
+
+      /* ==================== 主题 ==================== */
+      var root = document.documentElement;
+      var themeBtn = document.getElementById("themeToggle");
+      var themeLabel = themeBtn.querySelector(".theme-label");
+      var themeIcon = document.getElementById("themeIcon");
+      var params = new URLSearchParams(location.search);
+
+      function applyTheme(theme) {
+        root.setAttribute("data-theme", theme);
+        var dark = theme === "dark";
+        themeLabel.textContent = dark ? "浅色" : "深色";
+        themeIcon.setAttribute("href", dark ? "#i-sun" : "#i-moon");
+        var text = dark ? "切换到浅色模式" : "切换到深色模式";
+        themeBtn.setAttribute("aria-label", text);
+        themeBtn.title = text;
+        try { localStorage.setItem("minicrag-fork-theme", theme); } catch (e) { /* 隐私模式 */ }
+      }
+
+      applyTheme(root.getAttribute("data-theme") === "dark" ? "dark" : "light");
+      themeBtn.addEventListener("click", function () {
+        applyTheme(root.getAttribute("data-theme") === "dark" ? "light" : "dark");
+      });
+      if (params.has("theme")) {
+        applyTheme(params.get("theme") === "dark" ? "dark" : "light");
+      }
+
+      /* ==================== 演示数据 ==================== */
+      var ZIP = {
+        name: "LangGraph 学习笔记.zip",
+        size: "18.4 KB",
+        kind: "Markdown ZIP",
+      };
+      var TAIL_NODES = ["Markdown 图片识别", "文档切分", "文档嵌入入库"];
+      var CHILDREN = [
+        {
+          title: "LangGraph 基础.md",
+          path: "01-基础/LangGraph 基础.md",
+          delay: 0,
+          durations: [850, 650, 1150]
+        },
+        {
+          title: "LangGraph 状态与节点.md",
+          path: "02-进阶/LangGraph 状态与节点.md",
+          delay: 260,
+          durations: [1050, 800, 1400]
+        },
+        {
+          title: "LangGraph 持久化与记忆.md",
+          path: "03-进阶/LangGraph 持久化与记忆.md",
+          delay: 520,
+          durations: [1200, 900, 1650]
+        },
+        {
+          title: "LangGraph 人机协同.md",
+          path: "04-高阶/LangGraph 人机协同.md",
+          delay: 800,
+          durations: [1450, 1050, 1900]
+        }
+      ];
+      var T = {
+        uploadToProcessing: 650,
+        unzipDone: 1900,
+        fork: 2150,
+        childBase: 900,
+        parentFinishDelay: 420
+      };
+      var STATUS = {
+        uploading: { label: "上传中...", cls: "status-uploading" },
+        processing: { label: "处理中...", cls: "status-processing" },
+        completed: { label: "已完成", cls: "status-completed" },
+        error: { label: "失败", cls: "status-error" },
+        pending: { label: "等待中", cls: "status-pending" },
+        interrupted: { label: "未完成", cls: "status-interrupted" }
+      };
+
+      /* ==================== DOM refs ==================== */
+      var fileList = document.getElementById("fileList");
+      var phaseChip = document.getElementById("phaseChip");
+      var eventCode = document.getElementById("eventCode");
+      var demoReplay = document.getElementById("demoReplay");
+      var demoFast = document.getElementById("demoFast");
+      var demoFail = document.getElementById("demoFail");
+      var demoClose = document.getElementById("demoClose");
+      var uploadArea = document.getElementById("uploadArea");
+
+      /* ==================== 状态 ==================== */
+      var S = null;
+      var epoch = 0;
+      var timers = new Set();
+      var ui = null;
+      var elapsedTimer = null;
+
+      function now() { return Date.now(); }
+
+      function later(fn, ms, e) {
+        var id = window.setTimeout(function () {
+          timers.delete(id);
+          if (e !== undefined && e !== epoch) return;
+          fn();
+        }, ms);
+        timers.add(id);
+        return id;
+      }
+
+      function clearTimers() {
+        timers.forEach(window.clearTimeout);
+        timers = new Set();
+      }
+
+      function formatElapsed(ms) {
+        var safe = Math.max(0, ms);
+        return (safe / 1000).toFixed(1) + "s";
+      }
+
+      function elapsedOf(item) {
+        if (!item.startedAt) return 0;
+        return (item.stoppedAt || now()) - item.startedAt;
+      }
+
+      function escapeHtml(text) {
+        return String(text)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;");
+      }
+
+      /* ==================== 图标片段 ==================== */
+      function doneIcon() {
+        return '<svg class="icon" aria-hidden="true"><use href="#i-check" /></svg>';
+      }
+      function failIcon() {
+        return '<svg class="icon" aria-hidden="true"><use href="#i-alert" /></svg>';
+      }
+      function spinIcon() {
+        return '<svg class="icon spin" viewBox="0 0 24 24" aria-hidden="true">' +
+          '<circle class="spin-track" cx="12" cy="12" r="9" />' +
+          '<circle class="spin-arc" cx="12" cy="12" r="9" /></svg>';
+      }
+      function logLine(kind, text) {
+        var icon = kind === "done" ? doneIcon() : kind === "running" ? spinIcon() : kind === "failed" ? failIcon() : "";
+        return '<li class="log-line log-line--' + kind + '">' + icon +
+          '<span>' + escapeHtml(text) + '</span></li>';
+      }
+      function caretIcon() {
+        return '<svg class="icon log-caret" aria-hidden="true"><use href="#i-chevron" /></svg>';
+      }
+
+      /* ==================== 初始状态 ==================== */
+      function freshState() {
+        return {
+          phase: "uploading",
+          parent: {
+            status: "uploading",
+            startedAt: now(),
+            stoppedAt: null,
+            done: [],
+            running: [],
+            completedScheduled: false
+          },
+          children: [],
+          forked: false,
+          failed: false,
+          armedFailure: false
+        };
+      }
+
+      /* ==================== 父卡片 ==================== */
+      function buildFileCard() {
+        fileList.innerHTML =
+          '<div class="file-item zip-card" id="zipCard" data-state="uploading" role="status" aria-live="polite" aria-label="ZIP 导入任务">' +
+            '<div class="file-top">' +
+              '<div class="file-title-wrap">' +
+                '<div class="file-name">' + escapeHtml(ZIP.name) + '</div>' +
+                '<div class="file-size" id="fileMeta">' + escapeHtml(ZIP.size) + ' · ' + escapeHtml(ZIP.kind) + '</div>' +
+              '</div>' +
+              '<span class="status-badge status-uploading" id="parentBadge"><span class="badge-dot"></span>上传中...</span>' +
+            '</div>' +
+            '<details class="log-details parent-log" id="parentLog" open>' +
+              '<summary>' +
+                caretIcon() +
+                '<span id="parentSummary">已耗时 0.0s，上传中</span>' +
+                '<span class="log-hint" id="parentHint"></span>' +
+              '</summary>' +
+              '<ul class="log-list" id="parentLines"></ul>' +
+            '</details>' +
+            '<div class="fork-section" id="forkSection" hidden>' +
+              '<div class="fork-head">' +
+                '<span class="fork-mark"><svg class="icon" aria-hidden="true"><use href="#i-fork" /></svg></span>' +
+                '<span class="fork-title">已分叉 <strong id="forkTotal">' + CHILDREN.length + '</strong> 个 md 任务</span>' +
+                '<span class="fork-count" id="forkCount">0 / ' + CHILDREN.length + ' 完成</span>' +
+              '</div>' +
+              '<div class="fork-meter" id="forkMeter" role="progressbar" aria-label="子任务进度"></div>' +
+              '<ul class="child-tree" id="childTree" aria-label="md 子任务"></ul>' +
+            '</div>' +
+          '</div>';
+
+        ui = {
+          card: document.getElementById("zipCard"),
+          meta: document.getElementById("fileMeta"),
+          badge: document.getElementById("parentBadge"),
+          details: document.getElementById("parentLog"),
+          summary: document.getElementById("parentSummary"),
+          hint: document.getElementById("parentHint"),
+          lines: document.getElementById("parentLines"),
+          forkSection: document.getElementById("forkSection"),
+          forkTotal: document.getElementById("forkTotal"),
+          forkCount: document.getElementById("forkCount"),
+          forkMeter: document.getElementById("forkMeter"),
+          childTree: document.getElementById("childTree"),
+          childEls: []
+        };
+
+        /* 父任务日志由用户手动开合；fork 时自动收起，之后不再强制 */
+        ui.details.addEventListener("toggle", function () {
+          if (!S || !S.forked) return;
+        });
+      }
+
+      function setBadge(el, status) {
+        var meta = STATUS[status] || STATUS.processing;
+        var base = el.classList.contains("status-badge") ? "status-badge" : "child-badge";
+        el.className = base + " " + meta.cls;
+        el.innerHTML = '<span class="badge-dot"></span>' + meta.label;
+      }
+
+      function renderParentLines() {
+        var p = S.parent;
+        var html = "";
+        p.done.forEach(function (n) { html += logLine("done", n); });
+        p.running.forEach(function (n) { html += logLine("running", n); });
+        if (!html) html = logLine("muted", S.phase === "uploading" ? "上传中，等待后端受理…" : "等待父任务步骤");
+        ui.lines.innerHTML = html;
+      }
+
+      function renderParent() {
+        var p = S.parent;
+        ui.card.setAttribute("data-state", p.status);
+        ui.card.classList.toggle("is-forked", S.forked);
+        setBadge(ui.badge, p.status);
+        renderParentLines();
+
+        if (S.forked) {
+          ui.meta.textContent = ZIP.size + " · " + ZIP.kind + " · " + CHILDREN.length + " 篇 md";
+        } else {
+          ui.meta.textContent = ZIP.size + " · " + ZIP.kind;
+        }
+
+        if (p.status === "completed") {
+          ui.details.open = false;
+          ui.hint.textContent = " · 点击收起 / 展开";
+        } else if (p.status === "error") {
+          ui.details.open = S.forked ? false : true;
+          ui.hint.textContent = " · 点击收起 / 展开";
+        } else if (S.forked) {
+          ui.hint.textContent = " · 点击收起 / 展开";
+        } else {
+          ui.hint.textContent = "";
+        }
+
+        updateParentElapsed();
+        updateForkSummary();
+      }
+
+      function updateParentElapsed() {
+        if (!ui || !S) return;
+        var p = S.parent;
+        var elapsed = formatElapsed(elapsedOf(p));
+        if (p.status === "uploading") {
+          ui.summary.textContent = "已耗时 " + elapsed + "，上传中";
+        } else if (p.status === "processing" && !S.forked) {
+          ui.summary.textContent = "已耗时 " + elapsed + "，解压校验中";
+        } else if (p.status === "processing" && S.forked) {
+          ui.summary.textContent = "压缩包处理完成 · 已耗时 " + elapsed;
+        } else if (p.status === "completed") {
+          ui.summary.textContent = "耗时 " + elapsed + " · 全部子任务完成";
+        } else if (p.status === "error") {
+          ui.summary.textContent = "失败 · 已耗时 " + elapsed;
+        }
+      }
+
+      /* ==================== 分叉后的子任务 ==================== */
+      function buildMeter() {
+        var html = "";
+        for (var i = 0; i < CHILDREN.length; i++) {
+          html += '<span data-index="' + i + '"></span>';
+        }
+        ui.forkMeter.innerHTML = html;
+        ui.forkMeter.setAttribute("aria-valuemin", "0");
+        ui.forkMeter.setAttribute("aria-valuemax", String(CHILDREN.length));
+      }
+
+      function buildChildren() {
+        var html = "";
+        CHILDREN.forEach(function (c, i) {
+          html +=
+            '<li class="child" id="child-' + i + '" data-state="pending" style="animation-delay:' + (i * 45) + 'ms">' +
+              '<div class="child-head">' +
+                '<span class="child-doc"><svg class="icon" aria-hidden="true"><use href="#i-file" /></svg></span>' +
+                '<span class="child-name" title="' + escapeHtml(c.path) + '">' + escapeHtml(c.title) + '</span>' +
+                '<span class="child-badge status-pending" data-role="badge"><span class="badge-dot"></span>等待中</span>' +
+              '</div>' +
+              '<details class="log-details child-log" data-role="details">' +
+                '<summary>' + caretIcon() +
+                  '<span data-role="summary">等待开始</span>' +
+                  '<span class="log-hint"> · 点击收起 / 展开</span>' +
+                '</summary>' +
+                '<ul class="log-list" data-role="lines"></ul>' +
+              '</details>' +
+              '<div class="child-error" data-role="error" hidden></div>' +
+            '</li>';
+        });
+        ui.childTree.innerHTML = html;
+
+        ui.childEls = CHILDREN.map(function (_, i) {
+          var el = document.getElementById("child-" + i);
+          var details = el.querySelector('[data-role="details"]');
+          return {
+            el: el,
+            badge: el.querySelector('[data-role="badge"]'),
+            details: details,
+            summary: el.querySelector('[data-role="summary"]'),
+            lines: el.querySelector('[data-role="lines"]'),
+            error: el.querySelector('[data-role="error"]')
+          };
+        });
+      }
+
+      function renderChild(i) {
+        var c = S.children[i];
+        var el = ui.childEls[i];
+        if (!c || !el) return;
+
+        el.el.setAttribute("data-state", c.status);
+        setBadge(el.badge, c.status);
+
+        var html = "";
+        c.done.forEach(function (n) { html += logLine("done", n); });
+        c.running.forEach(function (n) { html += logLine("running", n); });
+        c.failed.forEach(function (n) { html += logLine("failed", n); });
+        if (c.status === "interrupted") html += logLine("muted", "父任务已结束，本子任务未完成");
+        if (!html) html = logLine("muted", c.status === "pending" ? "排队等待执行…" : "暂无进度");
+        el.lines.innerHTML = html;
+
+        if (c.status === "processing") {
+          el.details.open = true;
+        } else if (c.status === "completed") {
+          el.details.open = false;
+        } else if (c.status === "error") {
+          el.details.open = true;
+        } else if (c.status === "interrupted") {
+          el.details.open = false;
+        } else if (c.status === "pending") {
+          el.details.open = false;
+        }
+
+        if (c.error) {
+          el.error.hidden = false;
+          el.error.textContent = c.error;
+        } else {
+          el.error.hidden = true;
+          el.error.textContent = "";
+        }
+
+        updateChildSummary(i);
+      }
+
+      function updateChildSummary(i) {
+        var c = S.children[i];
+        var el = ui.childEls[i];
+        if (!c || !el) return;
+        var text;
+        if (c.status === "pending") {
+          text = "等待开始";
+        } else if (c.status === "processing") {
+          text = "已耗时 " + formatElapsed(elapsedOf(c)) + " · " + (c.running[0] || "处理中");
+        } else if (c.status === "completed") {
+          text = "耗时 " + formatElapsed(elapsedOf(c));
+        } else if (c.status === "error") {
+          text = "失败于 " + (c.failed[0] || "未知步骤");
+        } else {
+          text = "未完成";
+        }
+        el.summary.textContent = text;
+      }
+
+      function updateForkSummary() {
+        if (!ui || !S || !S.forked) return;
+        var counts = { pending: 0, processing: 0, completed: 0, error: 0, interrupted: 0 };
+        S.children.forEach(function (c) { counts[c.status] = (counts[c.status] || 0) + 1; });
+
+        var text = counts.completed + " / " + S.children.length + " 完成";
+        if (counts.processing) text += " · " + counts.processing + " 进行中";
+        if (counts.pending) text += " · " + counts.pending + " 等待";
+        if (counts.error) text += " · " + counts.error + " 失败";
+        if (counts.interrupted) text += " · " + counts.interrupted + " 未完成";
+        ui.forkCount.textContent = text;
+
+        var done = counts.completed;
+        ui.forkMeter.setAttribute("aria-valuenow", String(done));
+        ui.forkMeter.setAttribute("aria-valuetext", text);
+        Array.prototype.forEach.call(ui.forkMeter.children, function (seg, i) {
+          var c = S.children[i];
+          seg.className = c ? "is-" + c.status : "";
+        });
+      }
+
+      /* ==================== 阶段与事件说明 ==================== */
+      function setPhase(phase) {
+        S.phase = phase;
+        var map = {
+          uploading: { text: "上传中", state: "processing" },
+          processing: { text: "解压校验", state: "processing" },
+          fork: { text: "fork ×" + CHILDREN.length, state: "processing" },
+          running: { text: "子任务运行中", state: "processing" },
+          completed: { text: "全部完成", state: "completed" },
+          failed: { text: "子任务失败", state: "error" }
+        };
+        var meta = map[phase] || map.processing;
+        phaseChip.textContent = meta.text;
+        phaseChip.setAttribute("data-state", meta.state);
+      }
+
+      function renderEventCode() {
+        var code = "";
+        if (S.phase === "uploading") {
+          code = [
+            "// 上传受理后连接 /api/upload/sse/{task_id}",
+            "event: progress",
+            "data: { \"status\": \"pending\" }"
+          ].join("\n");
+        } else if (S.phase === "processing") {
+          code = [
+            "event: progress",
+            "data: {",
+            "  \"status\": \"processing\",",
+            "  \"done_list\": [\"识别文档类别\"],",
+            "  \"running_list\": [\"处理 Markdown 压缩包\"]",
+            "}"
+          ].join("\n");
+        } else if (S.phase === "fork") {
+          code = [
+            "event: fork",
+            "data: {",
+            "  \"parent_task_id\": \"6f2c…\",",
+            "  \"total\": 4,",
+            "  \"children\": [",
+            "    { \"child_id\": \"6f2c…:md:0\", \"title\": \"LangGraph 基础\",",
+            "      \"path\": \"01-基础/LangGraph 基础.md\", \"index\": 0 },",
+            "    { \"child_id\": \"6f2c…:md:1\", \"title\": \"LangGraph 状态与节点\", \"index\": 1 },",
+            "    … 共 4 项",
+            "  ]",
+            "}"
+          ].join("\n");
+        } else if (S.phase === "running") {
+          var target = null;
+          for (var i = 0; i < S.children.length; i++) {
+            if (S.children[i].status === "processing") { target = i; break; }
+          }
+          var c = target == null ? null : S.children[target];
+          code = [
+            "// fork 事件已在解压校验通过后下发（4 个 child_id）",
+            "event: child-progress   // 子任务进度，带 child_id",
+            "data: {",
+            "  \"child_id\": \"6f2c…:md:" + (target == null ? 0 : target) + "\",",
+            "  \"status\": \"processing\",",
+            "  \"done_list\": " + JSON.stringify(c ? c.done : ["Markdown 图片识别"]) + ",",
+            "  \"running_list\": " + JSON.stringify(c && c.running.length ? c.running : ["文档切分"]),
+            "}"
+          ].join("\n");
+        } else if (S.phase === "completed") {
+          code = [
+            "// 每个 md 的 completed 事件都带 child_id",
+            "event: child-progress",
+            "data: { \"child_id\": \"6f2c…:md:3\", \"status\": \"complete\" }",
+            "",
+            "// 最后是父任务终态，随后关流",
+            "event: progress",
+            "data: { \"status\": \"complete\" }",
+            "event: __close__"
+          ].join("\n");
+        } else if (S.phase === "failed") {
+          var failedChild = null;
+          for (var j = 0; j < S.children.length; j++) {
+            if (S.children[j].status === "error") { failedChild = j; break; }
+          }
+          var fc = failedChild == null ? null : S.children[failedChild];
+          code = [
+            "event: child-progress   // 失败归因到具体 md",
+            "data: {",
+            "  \"child_id\": \"6f2c…:md:" + (failedChild == null ? 2 : failedChild) + "\",",
+            "  \"status\": \"failed\",",
+            "  \"done_list\": " + JSON.stringify(fc ? fc.done : ["Markdown 图片识别", "文档切分"]) + ",",
+            "  \"failed_list\": " + JSON.stringify(fc && fc.failed.length ? fc.failed : ["文档嵌入入库"]) + ",",
+            "  \"error\": " + JSON.stringify(fc ? fc.error : "VLM 请求超时（模拟）"),
+            "}",
+            "",
+            "event: error      // 父任务失败",
+            "event: __close__"
+          ].join("\n");
+        }
+        eventCode.textContent = code;
+      }
+
+      function updatePhaseChipByChildren() {
+        if (S.failed) {
+          setPhase("failed");
+        } else if (S.parent.status === "completed") {
+          setPhase("completed");
+        } else if (S.children.some(function (c) { return c.status === "processing"; })) {
+          setPhase("running");
+        } else if (S.forked) {
+          setPhase("fork");
+        }
+      }
+
+      /* ==================== 流程 ==================== */
+      function doFork(e) {
+        if (e !== epoch || !S || S.forked) return;
+        S.forked = true;
+        S.children = CHILDREN.map(function (c, i) {
+          return {
+            index: i,
+            title: c.title,
+            path: c.path,
+            durations: c.durations,
+            delay: c.delay,
+            status: "pending",
+            startedAt: null,
+            stoppedAt: null,
+            done: [],
+            running: [],
+            failed: [],
+            error: ""
+          };
+        });
+
+        ui.forkSection.hidden = false;
+        buildMeter();
+        buildChildren();
+        renderParent();
+        setPhase("fork");
+        renderEventCode();
+
+        /* 父任务日志在分叉后收起，把空间留给子任务卡片 */
+        ui.details.open = false;
+
+        S.children.forEach(function (c, i) {
+          later(function () { startChild(i); }, T.childBase + c.delay, e);
+        });
+
+        /* 失败演示：让第 3 篇在“文档嵌入入库”处失败（此时第 1 篇通常已完成） */
+        if (S.armedFailure) {
+          var idx = 2;
+          var meta = CHILDREN[idx];
+          var failAt = T.childBase + meta.delay + meta.durations[0] + meta.durations[1] + 180;
+          later(function () { failChild(idx); }, failAt, e);
+        }
+      }
+
+      function startChild(i) {
+        if (!S || S.failed) return;
+        var c = S.children[i];
+        if (!c || c.status !== "pending") return;
+        c.status = "processing";
+        c.startedAt = now();
+        c.running = [TAIL_NODES[0]];
+        renderChild(i);
+        updateForkSummary();
+        updatePhaseChipByChildren();
+        renderEventCode();
+
+        runStep(i, 0);
+      }
+
+      function runStep(i, step) {
+        if (!S || S.failed) return;
+        var c = S.children[i];
+        if (!c || c.status !== "processing") return;
+
+        c.running = [TAIL_NODES[step]];
+        renderChild(i);
+        updatePhaseChipByChildren();
+        renderEventCode();
+
+        later(function () {
+          if (!S || S.failed) return;
+          c.done = c.done.concat([TAIL_NODES[step]]);
+          c.running = [];
+
+          if (step + 1 < TAIL_NODES.length) {
+            runStep(i, step + 1);
+          } else {
+            c.status = "completed";
+            c.stoppedAt = now();
+            renderChild(i);
+            updateForkSummary();
+            updatePhaseChipByChildren();
+            renderEventCode();
+            maybeFinishParent();
+          }
+        }, c.durations[step]);
+      }
+
+      function maybeFinishParent() {
+        if (!S || S.failed || S.parent.completedScheduled) return;
+        var allDone = S.children.length > 0 && S.children.every(function (c) {
+          return c.status === "completed";
+        });
+        if (!allDone) return;
+        S.parent.completedScheduled = true;
+        var e = epoch;
+        later(function () {
+          if (!S || S.failed) return;
+          S.parent.status = "completed";
+          S.parent.stoppedAt = now();
+          S.parent.running = [];
+          renderParent();
+          setPhase("completed");
+          renderEventCode();
+        }, T.parentFinishDelay, e);
+      }
+
+      function failChild(index) {
+        if (!S || !S.forked || S.failed) return;
+        var c = S.children[index];
+        if (!c || c.status === "completed" || c.status === "error") return;
+
+        S.failed = true;
+        c.failed = c.running.length ? [c.running[0]] : ["文档切分"];
+        c.running = [];
+        c.status = "error";
+        c.stoppedAt = now();
+        c.error = c.failed[0] === "文档嵌入入库"
+          ? "embedding 请求超时（模拟）"
+          : "模型返回空切片（模拟）";
+
+        /* 兄弟任务：已完成保留，其余冻结为“未完成” */
+        S.children.forEach(function (other, i) {
+          if (i === index || other.status === "completed") return;
+          other.status = "interrupted";
+          other.running = [];
+          other.stoppedAt = now();
+        });
+
+        S.parent.status = "error";
+        S.parent.stoppedAt = now();
+        S.parent.running = [];
+
+        clearTimers();
+        renderParent();
+        S.children.forEach(function (_, i) { renderChild(i); });
+        updateForkSummary();
+        setPhase("failed");
+        renderEventCode();
+      }
+
+      /* ==================== 快照 / 演示入口 ==================== */
+      function installSnapshotChildren(states) {
+        S.forked = true;
+        S.children = CHILDREN.map(function (c, i) {
+          var st = states[i] || {};
+          return {
+            index: i,
+            title: c.title,
+            path: c.path,
+            durations: c.durations,
+            delay: c.delay,
+            status: st.status || "pending",
+            startedAt: st.startedAt === null ? null : (st.startedAt || now()),
+            stoppedAt: st.stoppedAt || null,
+            done: st.done ? st.done.slice() : [],
+            running: st.running ? st.running.slice() : [],
+            failed: st.failed ? st.failed.slice() : [],
+            error: st.error || ""
+          };
+        });
+        S.parent.done = ["识别文档类别", "处理 Markdown 压缩包"];
+        S.parent.running = [];
+        ui.forkSection.hidden = false;
+        buildMeter();
+        buildChildren();
+        renderParent();
+        S.children.forEach(function (_, i) { renderChild(i); });
+        updateForkSummary();
+      }
+
+      function snapshotForked() {
+        S = freshState();
+        S.parent.status = "processing";
+        S.parent.startedAt = now() - 2400;
+        installSnapshotChildren([
+          { status: "completed", startedAt: now() - 1800, stoppedAt: now() - 700, done: TAIL_NODES.slice() },
+          { status: "processing", startedAt: now() - 1200, done: [TAIL_NODES[0]], running: [TAIL_NODES[1]] },
+          { status: "processing", startedAt: now() - 900, done: [TAIL_NODES[0]], running: [TAIL_NODES[1]] },
+          { status: "pending" }
+        ]);
+        setPhase("running");
+        renderEventCode();
+        /* 静态快照只展开一张处理中卡片，保证 4 张子卡在 1280×800 内完整可见 */
+        if (ui.childEls[2]) ui.childEls[2].details.open = false;
+      }
+
+      function snapshotDone() {
+        S = freshState();
+        S.parent.status = "completed";
+        S.parent.startedAt = now() - 9200;
+        S.parent.stoppedAt = now() - 300;
+        installSnapshotChildren(CHILDREN.map(function (_, i) {
+          return {
+            status: "completed",
+            startedAt: now() - 7000 + i * 260,
+            stoppedAt: now() - 300,
+            done: TAIL_NODES.slice()
+          };
+        }));
+        setPhase("completed");
+        renderEventCode();
+      }
+
+      function snapshotFailed() {
+        S = freshState();
+        S.failed = true;
+        S.parent.status = "error";
+        S.parent.startedAt = now() - 6800;
+        S.parent.stoppedAt = now() - 250;
+        installSnapshotChildren([
+          { status: "completed", startedAt: now() - 5000, stoppedAt: now() - 800, done: TAIL_NODES.slice() },
+          { status: "interrupted", startedAt: now() - 4200, stoppedAt: now() - 250, done: [TAIL_NODES[0], TAIL_NODES[1]] },
+          { status: "error", startedAt: now() - 3800, stoppedAt: now() - 250, done: [TAIL_NODES[0], TAIL_NODES[1]], failed: [TAIL_NODES[2]], error: "embedding 请求超时（模拟）" },
+          { status: "interrupted", startedAt: now() - 3400, stoppedAt: now() - 250, done: [TAIL_NODES[0]] }
+        ]);
+        setPhase("failed");
+        renderEventCode();
+      }
+
+      function replay(options) {
+        var opts = options || {};
+        epoch += 1;
+        clearTimers();
+        S = freshState();
+        S.armedFailure = !!opts.armedFailure;
+        buildFileCard();
+        renderParent();
+        setPhase("uploading");
+        renderEventCode();
+
+        var e = epoch;
+        later(function () {
+          if (!S) return;
+          S.parent.status = "processing";
+          S.parent.done = ["识别文档类别"];
+          S.parent.running = ["处理 Markdown 压缩包"];
+          renderParent();
+          setPhase("processing");
+          renderEventCode();
+        }, T.uploadToProcessing, e);
+
+        later(function () {
+          if (!S) return;
+          S.parent.done = ["识别文档类别", "处理 Markdown 压缩包"];
+          S.parent.running = [];
+          renderParent();
+        }, T.unzipDone, e);
+
+        later(function () { doFork(e); }, T.fork, e);
+      }
+
+      function fastForward() {
+        epoch += 1;
+        clearTimers();
+        S = freshState();
+        S.parent.startedAt = now() - 6400;
+        buildFileCard();
+
+        S.parent.status = "processing";
+        installSnapshotChildren(CHILDREN.map(function (c) {
+          return {
+            status: "completed",
+            startedAt: now() - 3000 - c.delay,
+            stoppedAt: now() - 300,
+            done: TAIL_NODES.slice()
+          };
+        }));
+
+        S.parent.status = "completed";
+        S.parent.stoppedAt = now();
+        S.parent.running = [];
+        renderParent();
+        updateForkSummary();
+        setPhase("completed");
+        renderEventCode();
+      }
+
+      /* ==================== 控件 ==================== */
+      demoReplay.addEventListener("click", function () { replay(); });
+      demoFast.addEventListener("click", fastForward);
+      demoFail.addEventListener("click", function () {
+        if (S && S.forked && !S.failed && S.parent.status === "processing") {
+          var idx = -1;
+          for (var i = 0; i < S.children.length; i++) {
+            if (S.children[i].status === "processing") { idx = i; break; }
+          }
+          if (idx >= 0) { failChild(idx); return; }
+        }
+        replay({ armedFailure: true });
+      });
+      uploadArea.addEventListener("click", function () { replay(); });
+      demoClose.addEventListener("click", function () {
+        document.getElementById("demoControls").hidden = true;
+      });
+
+      /* ==================== 启动 ==================== */
+      if (params.has("clean")) {
+        document.getElementById("demoControls").hidden = true;
+      }
+
+      var stateParam = params.get("state");
+      if (stateParam === "forked") {
+        buildFileCard();
+        snapshotForked();
+      } else if (stateParam === "done") {
+        buildFileCard();
+        snapshotDone();
+      } else if (stateParam === "failed") {
+        buildFileCard();
+        snapshotFailed();
+      } else if (params.has("static")) {
+        S = freshState();
+        S.parent.status = "processing";
+        S.parent.startedAt = now() - 1800;
+        S.parent.done = ["识别文档类别"];
+        S.parent.running = ["处理 Markdown 压缩包"];
+        buildFileCard();
+        renderParent();
+        setPhase("processing");
+        renderEventCode();
+      } else {
+        replay();
+      }
+
+      /* 静态快照（?state= / ?static）冻结耗时，便于评审截图；实时演示继续走表 */
+      if (!stateParam && !params.has("static")) {
+        elapsedTimer = window.setInterval(function () {
+          if (!S) return;
+          updateParentElapsed();
+          if (S.forked) {
+            S.children.forEach(function (_, i) { updateChildSummary(i); });
+            updateForkSummary();
+          }
+        }, 100);
+      }
+    })();
+  </script>
+</body>
+</html>
