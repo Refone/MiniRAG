@@ -430,6 +430,14 @@
     }
     .child-badge .badge-dot { width: 5px; height: 5px; }
     .child .log-details { margin-top: 3px; font-size: 11px; }
+    /* 摘要行固定单行：状态文案变化不改变子卡高度 */
+    .child .log-details summary [data-role="summary"] {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .child .log-details summary .log-hint { flex: 0 0 auto; }
     .child .log-list { margin-top: 5px; gap: 3px; }
     .child .log-list { max-height: 132px; overflow-y: auto; padding-right: 2px; }
     .child-wait { margin-top: 4px; font-size: 11px; color: var(--text-3); }
@@ -783,6 +791,13 @@
                 <div>
                   <strong>独立终态</strong>
                   <p>每个 md 的 tail（图片识别 → 文档切分 → 文档嵌入入库）独立完成或失败；父卡片只保留压缩包级步骤与聚合进度，不再出现“某一步已完成但别的 md 还在跑”的串台。</p>
+                </div>
+              </div>
+              <div class="note-item">
+                <span class="note-num">4</span>
+                <div>
+                  <strong>不自动展开</strong>
+                  <p>子卡日志默认收起，状态变化不自动开合；当前步骤与耗时在摘要行更新，避免任务推进时卡片高度反复跳变。用户点击才展开明细。</p>
                 </div>
               </div>
             </div>
@@ -1156,17 +1171,8 @@ data: {
         if (!html) html = logLine("muted", c.status === "pending" ? "排队等待执行…" : "暂无进度");
         el.lines.innerHTML = html;
 
-        if (c.status === "processing") {
-          el.details.open = true;
-        } else if (c.status === "completed") {
-          el.details.open = false;
-        } else if (c.status === "error") {
-          el.details.open = true;
-        } else if (c.status === "interrupted") {
-          el.details.open = false;
-        } else if (c.status === "pending") {
-          el.details.open = false;
-        }
+        /* 子卡日志不随状态自动开合：避免每个 md 开始/完成时卡片高度跳变。
+           明细由用户手动展开；收起状态下仍可通过摘要行看到当前步骤与耗时。 */
 
         if (c.error) {
           el.error.hidden = false;
@@ -1511,8 +1517,6 @@ data: {
         ]);
         setPhase("running");
         renderEventCode();
-        /* 静态快照只展开一张处理中卡片，保证 4 张子卡在 1280×800 内完整可见 */
-        if (ui.childEls[2]) ui.childEls[2].details.open = false;
       }
 
       function snapshotDone() {
