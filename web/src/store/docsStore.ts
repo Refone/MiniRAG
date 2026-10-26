@@ -20,6 +20,9 @@ import type { ToastItem, ToastKind } from "@/types/app";
 import type {
   DocsDetailResponse,
   DocsListItem,
+  ForkChild,
+  ImportChildStatus,
+  ImportChildTask,
   ImportFile,
 } from "@/types/docs";
 
@@ -58,6 +61,36 @@ const esMap: Record<string, EventSource> = {};
 /** 已完成并触发过列表刷新的 taskId (避免重复刷新, 现状逻辑平移) */
 const refreshedTasks = new Set<string>();
 let toastIdSeq = 0;
+
+/** 后端 child status -> 前端展示态 (interrupted 只在前端派生) */
+const CHILD_STATUS_MAP: Record<string, ImportChildStatus> = {
+  pending: "pending",
+  processing: "processing",
+  complete: "completed",
+  failed: "error",
+};
+
+/** fork 事件 -> 前端子任务初始态 (默认收起由组件控制, 与 store 无关) */
+function childFromFork(child: ForkChild): ImportChildTask {
+  return {
+    id: child.child_id,
+    title: child.title,
+    path: child.path,
+    index: child.index,
+    status: "pending",
+    startedAt: null,
+    stoppedAt: null,
+    done: [],
+    running: [],
+    failed: [],
+    error: "",
+  };
+}
+
+/** 子任务终态判断 (父任务结束时用于冻结仍未完成的兄弟任务) */
+function isChildTerminal(status: ImportChildStatus): boolean {
+  return status === "completed" || status === "error" || status === "interrupted";
+}
 
 export const useDocsStore = create<DocsStoreState>()((set, get) => ({
   docs: [],
@@ -162,9 +195,75 @@ export const useDocsStore = create<DocsStoreState>()((set, get) => ({
             files: s.files.map((f) => (f.id === id ? { ...f, ...patch } : f)),
           }));
 
+        const updateChild = (
+          fileId: string,
+          childId: string,
+          updater: (child: ImportChildTask) => ImportChildTask,
+        ) =>
+          set((s) => ({
+            files: s.files.map((f) =>
+              f.id === fileId
+                ? {
+                    ...f,
+                    children: f.children.map((c) =>
+                      c.id === childId ? updater(c) : c,
+                    ),
+                  }
+                : f,
+            ),
+          }));
+
+        const hasChild = (fileId: string, childId: string) =>
+          get().files.some(
+            (f) =>
+              f.id === fileId && f.children.some((c) => c.id === childId),
+          );
+
+        /**
+         * 父任务终态时冻结仍未完成的子任务。
+         * - complete 但仍有非终态 child: 协议违例, 只 warn, 不伪造完成;
+         * - failed / 断连: 已失败 child 保留 error, 其余置 interrupted。
+         */
+        const freezeChildren = (
+          fileId: string,
+          parentTone: "completed" | "error",
+        ) => {
+          const file = get().files.find((f) => f.id === fileId);
+          if (!file) return;
+
+          const stuck = file.children.filter((c) => !isChildTerminal(c.status));
+          if (stuck.length === 0) return;
+
+          if (parentTone === "completed") {
+            console.warn(
+              `[import] 父任务已完成但仍有 ${stuck.length} 个子任务未终态`,
+              stuck.map((c) => c.id),
+            );
+          } else {
+            console.warn(
+              `[import] 父任务失败/断连，冻结 ${stuck.length} 个子任务`,
+              stuck.map((c) => c.id),
+            );
+          }
+
+          const stamp = Date.now();
+          updateFile(fileId, {
+            children: file.children.map((c) =>
+              isChildTerminal(c.status)
+                ? c
+                : {
+                    ...c,
+                    status: "interrupted",
+                    running: [],
+                    stoppedAt: stamp,
+                  },
+            ),
+          });
+        };
+
         /** 上传受理成功后建立 SSE 连接, 实时接收任务进度 (对齐 chatStore 的推流机制) */
         const startSse = (taskId: string, fileId: string) => {
-          let terminal = false;
+          let parentTerminal = false;
 
           const handle = openStatusSse(
             `${API_BASE}/api/upload/sse/${taskId}`,
@@ -172,44 +271,197 @@ export const useDocsStore = create<DocsStoreState>()((set, get) => ({
               onOpen: () =>
                 console.log(`[import] SSE 已连接（/upload/sse/${taskId}）`),
 
+              onFork: (d) => {
+                if (!d || parentTerminal) return;
+                if (!Array.isArray(d.children) || d.children.length === 0) {
+                  console.warn(`[import] fork 事件缺少 children（task ${taskId}）`);
+                  return;
+                }
+
+                set((s) => ({
+                  files: s.files.map((f) => {
+                    if (f.id !== fileId) return f;
+                    const prevById = new Map(
+                      f.children.map((c) => [c.id, c]),
+                    );
+                    const children = d.children.map((child) => {
+                      const prev = prevById.get(child.child_id);
+                      return prev
+                        ? {
+                            ...prev,
+                            title: child.title,
+                            path: child.path,
+                            index: child.index,
+                          }
+                        : childFromFork(child);
+                    });
+                    return {
+                      ...f,
+                      forked: true,
+                      children,
+                      status:
+                        f.status === "uploading" ? "processing" : f.status,
+                    };
+                  }),
+                }));
+
+                console.log(
+                  `[import] fork：task ${taskId} 收到 ${d.children.length} 个 md 子任务`,
+                );
+              },
+
               onProgress: (d) => {
-                if (!d) return;
-                updateFile(fileId, {
-                  done: d.done_list || [],
-                  running: d.running_list || [],
-                });
+                if (!d || parentTerminal) return;
+
+                const failed = d.failed_list || [];
+                const done = d.done_list || [];
+                const running = d.running_list || [];
+
                 if (d.status === "complete") {
+                  parentTerminal = true;
+                  updateFile(fileId, {
+                    status: "completed",
+                    done,
+                    running: [],
+                    failed,
+                  });
+                  freezeChildren(fileId, "completed");
                   console.log(`[import] 任务 ${taskId} 处理完成`);
-                  terminal = true;
-                  updateFile(fileId, { status: "completed" });
+
                   invalidateCache(CACHE_KEY.docsList);
                   // 导入完成 → 列表自动刷新（同一任务只触发一次）
                   if (!refreshedTasks.has(taskId)) {
                     refreshedTasks.add(taskId);
-                    get().pushToast("info", "文档列表已自动刷新（导入完成 → 后台刷新）");
+                    get().pushToast(
+                      "info",
+                      "文档列表已自动刷新（导入完成 → 后台刷新）",
+                    );
                     void get().loadDocs();
                   }
                 } else if (d.status === "failed") {
+                  parentTerminal = true;
+                  updateFile(fileId, {
+                    status: "error",
+                    done,
+                    running: [],
+                    failed,
+                  });
+                  freezeChildren(fileId, "error");
                   console.error(`[import] 任务 ${taskId} 处理失败`);
-                  terminal = true;
-                  updateFile(fileId, { status: "error" });
-                } else if (d.status === "processing" || d.status === "pending") {
-                  updateFile(fileId, { status: "processing" });
+                } else if (
+                  d.status === "processing" ||
+                  d.status === "pending"
+                ) {
+                  updateFile(fileId, {
+                    status: "processing",
+                    done,
+                    running,
+                    failed,
+                  });
                 }
+              },
+
+              onChildProgress: (d) => {
+                if (!d || parentTerminal) return;
+
+                const status = CHILD_STATUS_MAP[d.status];
+                if (!status) {
+                  console.warn(
+                    `[import] 未知子任务状态：${d.status}（child ${d.child_id}）`,
+                  );
+                  return;
+                }
+                if (!hasChild(fileId, d.child_id)) {
+                  console.warn(
+                    `[import] 收到未登记子任务进度，可能丢失 fork 事件：${d.child_id}`,
+                  );
+                  return;
+                }
+
+                const stamp = Date.now();
+                updateChild(fileId, d.child_id, (c) => {
+                  const done = d.done_list ?? c.done;
+                  const running = d.running_list ?? c.running;
+                  const failed = d.failed_list ?? c.failed;
+
+                  if (status === "pending") {
+                    return {
+                      ...c,
+                      status,
+                      done,
+                      running: [],
+                      failed,
+                      error: d.error ?? c.error,
+                    };
+                  }
+
+                  if (status === "processing") {
+                    return {
+                      ...c,
+                      status,
+                      startedAt: c.startedAt ?? stamp,
+                      stoppedAt: null,
+                      done,
+                      running,
+                      failed,
+                      error: d.error ?? c.error,
+                    };
+                  }
+
+                  if (status === "completed") {
+                    return {
+                      ...c,
+                      status,
+                      startedAt: c.startedAt ?? stamp,
+                      stoppedAt: stamp,
+                      done,
+                      running: [],
+                      failed: [],
+                      error: "",
+                    };
+                  }
+
+                  // error
+                  return {
+                    ...c,
+                    status,
+                    startedAt: c.startedAt ?? stamp,
+                    stoppedAt: stamp,
+                    done,
+                    running: [],
+                    failed: failed.length > 0 ? failed : c.failed,
+                    error: d.error || c.error || "处理失败",
+                  };
+                });
               },
 
               // 不在终态事件时关流, 等收到服务端 __close__ 信号再关闭连接
               onServerClose: () => {
-                console.log(`[import] SSE 收到 __close__，关闭连接（task ${taskId}）`);
+                console.log(
+                  `[import] SSE 收到 __close__，关闭连接（task ${taskId}）`,
+                );
+                if (!parentTerminal) {
+                  parentTerminal = true;
+                  // 服务端未给终态就关流: 按断连处理, 不伪造完成
+                  updateFile(fileId, { status: "error", running: [] });
+                  freezeChildren(fileId, "error");
+                }
                 delete esMap[fileId];
               },
 
               onError: (msg) => {
                 // 原生连接错误与服务端 event: error 共用此回调 (后者是带 data 的 MessageEvent)
-                console.warn(`[import] SSE 中断：${msg}`);
-                if (!terminal) updateFile(fileId, { status: "error" });
+                console.warn(`[import] SSE 错误/中断：${msg}`);
+                if (!parentTerminal) {
+                  parentTerminal = true;
+                  updateFile(fileId, { status: "error", running: [] });
+                  freezeChildren(fileId, "error");
+                }
                 delete esMap[fileId];
               },
+
+              // 导入流在 error 后还会发 __close__, 等它关流即可
+              closeOnServerError: false,
             },
           );
           esMap[fileId] = handle.es;
@@ -224,7 +476,10 @@ export const useDocsStore = create<DocsStoreState>()((set, get) => ({
             status: "uploading",
             startedAt: Date.now(),
             done: [],
+            failed: [],
             running: [],
+            forked: false,
+            children: [],
           };
           set((s) => ({ files: [newFile, ...s.files] }));
           console.log(`[import] 开始上传：${file.name}（${newFile.sizeKB}）`);

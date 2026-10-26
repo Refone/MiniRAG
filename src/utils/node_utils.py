@@ -13,7 +13,7 @@ import time
 from typing import Any, Callable
 
 from utils.logging_utils import logger
-from utils.task_utils import add_done_node, add_running_node
+from utils.task_utils import add_done_node, add_failed_node, add_running_node
 
 
 def node_log(desc: str | None = None):
@@ -83,8 +83,22 @@ def step_log(desc: str | None = None):
     return deco
 
 
+def _trace_id(state) -> str:
+    """进度命名空间: ZIP 子任务优先 child_task_id, 其余沿用 task_id/session_id。"""
+    return (
+        state.get("child_task_id")
+        or state.get("task_id")
+        or state.get("session_id")
+        or "-"
+    )
+
+
 def _task_trace(node_name: str, *, need_push: bool = False) -> Callable[..., Any]:
-    """任务追踪包装: 开始时记 running, 结束(含异常)时记 done。
+    """任务追踪包装: 开始时记 running, 成功结束时记 done, 失败时记 failed。
+
+    - 有 `child_task_id` 时记录到子任务命名空间, 与父任务 done/running 隔离;
+    - 失败节点不再误记为 done, 由 task_utils 记录 failed/error;
+    - 失败快照不在这里推送, 交给子任务包装节点 / import_service 统一收口。
 
     need_push 原样透传给 task_utils 的 add_running_node / add_done_node:
     是否在状态变化后立刻触发 SSE 推送。这里不做任何写死, 由装饰器使用方决定。
@@ -93,17 +107,15 @@ def _task_trace(node_name: str, *, need_push: bool = False) -> Callable[..., Any
     def deco(func):
         @wraps(func)
         def wrapper(state, *args, **kwargs):
-            if "task_id" in state:
-                trace_id = state["task_id"]
-            elif "session_id" in state:
-                trace_id = state["session_id"]
-            else:
-                trace_id = "-"
+            trace_id = _trace_id(state)
             add_running_node(trace_id, node_name, need_push=need_push)
             try:
-                return func(state, *args, **kwargs)
-            finally:
-                add_done_node(trace_id, node_name, need_push=need_push)
+                result = func(state, *args, **kwargs)
+            except Exception as e:
+                add_failed_node(trace_id, node_name, str(e))
+                raise
+            add_done_node(trace_id, node_name, need_push=need_push)
+            return result
 
         return wrapper
 
@@ -124,8 +136,8 @@ def trace_node(
                    默认取被修饰函数的函数名 `func.__name__`。
         log_trace  是否记录执行日志 (复用 `node_log`), 默认 True。
         task_trace 是否记录任务追踪; 为 True 时在节点开始时自动调用
-                   `add_running_node`, 结束或异常退出时自动调用 `add_done_node`,
-                   默认 True。
+                   `add_running_node`, 成功结束时调用 `add_done_node`, 失败时
+                   调用 `add_failed_node` (不推送, 由上层收口), 默认 True。
         need_push  任务状态变化后是否立刻触发 SSE 推送 (透传给
                    `add_running_node` / `add_done_node`), 默认 False。
                    仅在 `task_trace=True` 时有效; 需要实时进度的节点自行开启,

@@ -24,6 +24,19 @@ class FileType:
     UNKNOWN = "<unknown>"
 
 
+class MdChild(TypedDict):
+    """md 压缩包分叉出的单个子任务描述 (node_md_fork 产出)。"""
+
+    child_task_id: str
+    # md 文件名 (不含后缀); _check_unique_stems 已保证唯一, 可直接作为 file_title
+    title: str
+    # 相对解压根目录的 POSIX 路径, 仅用于展示 / 消歧
+    path: str
+    # 绝对路径, 仅供分支 state 使用; 不进入 SSE 载荷
+    markdown_file_path: str
+    index: int
+
+
 class ImportGraphState(TypedDict):
     """
     导入图状态
@@ -34,8 +47,15 @@ class ImportGraphState(TypedDict):
     例如路径保持 str, 而非 Path,
     """
 
-    # 任务 ID
+    # 任务 ID (父任务 / 上传任务; 子任务分支仍沿用父 task_id 做业务写入)
     task_id: str
+
+    # 子任务进度 ID; 父任务 / PDF / 独文件 md 为空字符串。
+    # 注意: 必须声明在 state 中, 否则 Send/子图会丢弃该字段。
+    child_task_id: str
+
+    # md 压缩包分叉清单 (仅父任务保留; node_md_fork 产出)
+    md_children: list[MdChild]
 
     # 原始文件路径, 不确定文件格式
     origin_file_path: str
@@ -60,6 +80,8 @@ class ImportGraphState(TypedDict):
 
 _DEFAULT_STATE: ImportGraphState = {
     "task_id": "",
+    "child_task_id": "",
+    "md_children": [],
     "origin_file_path": "",
     "markdown_file_path": "",
     "markdown_file_paths": [],

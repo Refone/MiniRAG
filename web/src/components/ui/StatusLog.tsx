@@ -11,6 +11,8 @@ interface StatusLogProps {
   /** 折叠区摘要行（不传则不渲染 summary）；聊天页传结构化节点，导入页传字符串 */
   summary?: ReactNode;
   open?: boolean;
+  /** details 开合回调（受控调用方可同步本地状态） */
+  onToggle?: (open: boolean) => void;
   emptyText?: string;
   /** details 元素类名：聊天页 "progress" / 导入任务 "log-details" */
   className?: string;
@@ -27,12 +29,18 @@ export function StatusLog({
   lines,
   summary,
   open,
+  onToggle,
   emptyText = "暂无进度",
   className = "progress",
   listClassName,
 }: StatusLogProps) {
+  // open 为 undefined 时不接管 DOM: 子任务卡由用户手动开合
   return (
-    <details className={className} open={open}>
+    <details
+      className={className}
+      {...(open === undefined ? {} : { open })}
+      onToggle={(e) => onToggle?.(e.currentTarget.open)}
+    >
       {summary && <summary>{summary}</summary>}
       <ul className={listClassName}>
         {lines.length === 0 ? (

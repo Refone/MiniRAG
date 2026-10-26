@@ -1,7 +1,7 @@
 /** 集中常量（跨模块共享；模块私有常量就近保留） */
 
 import type { PageKey } from "@/types/app";
-import type { ImportStatus, PreviewMode } from "@/types/docs";
+import type { ImportChildStatus, ImportStatus, PreviewMode } from "@/types/docs";
 
 /* ==================== storage key ==================== */
 
@@ -50,6 +50,19 @@ export const IMPORT_STATUS: {
   { value: "processing", label: "处理中...", className: "status-processing" },
   { value: "completed", label: "已完成", className: "status-completed" },
   { value: "error", label: "失败", className: "status-error" },
+];
+
+/** ZIP 子任务状态展示（interrupted 为前端派生态） */
+export const IMPORT_CHILD_STATUS: {
+  value: ImportChildStatus;
+  label: string;
+  className: string;
+}[] = [
+  { value: "pending", label: "等待中", className: "status-pending" },
+  { value: "processing", label: "处理中...", className: "status-processing" },
+  { value: "completed", label: "已完成", className: "status-completed" },
+  { value: "error", label: "失败", className: "status-error" },
+  { value: "interrupted", label: "未完成", className: "status-interrupted" },
 ];
 
 /** 上传区文件类型约束 */

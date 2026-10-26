@@ -63,9 +63,22 @@
   border-radius: var(--r-lg);
   padding: 12px;
   display: flex;
+  flex-direction: column;
+  gap: 10px;
+  transition: border-color 0.2s;
+}
+
+.file-item[data-state="error"] {
+  border-color: var(--danger);
+}
+
+/* 顶部行：文件名 / 父级日志在左，状态徽标在右；fork 区在下一行整宽 */
+.file-head {
+  display: flex;
   justify-content: space-between;
   align-items: flex-start;
   gap: 10px;
+  min-width: 0;
 }
 
 .file-info {
@@ -128,6 +141,16 @@
   color: var(--danger);
 }
 
+.status-pending {
+  background-color: var(--surface-inset);
+  color: var(--text-2);
+}
+
+.status-interrupted {
+  background-color: var(--surface-inset);
+  color: var(--text-3);
+}
+
 .log-details {
   margin-top: 6px;
   font-size: 11.5px;
@@ -164,6 +187,238 @@
   display: flex;
   align-items: baseline;
   gap: 6px;
+}
+
+/* ---- ZIP 分叉：父卡聚合 + md 子任务树 ---- */
+.file-fork {
+  margin-top: 2px;
+}
+
+.fork-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+  color: var(--text-2);
+  font-size: 11.5px;
+  min-width: 0;
+}
+
+.fork-mark {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--r-sm);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.fork-mark .icon {
+  width: 12px;
+  height: 12px;
+}
+
+.fork-title {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fork-title strong {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.fork-count {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 58%;
+  margin-left: auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.fork-meter {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  margin-top: 7px;
+}
+
+.fork-meter span {
+  flex: 1 1 0;
+  height: 3px;
+  border-radius: var(--r-pill);
+  background: var(--border);
+  transition: background-color 0.25s;
+}
+
+.fork-meter span.is-processing {
+  background: var(--accent);
+  animation: fork-meter-pulse 1.4s ease-in-out infinite;
+}
+
+.fork-meter span.is-completed {
+  background: var(--success);
+}
+
+.fork-meter span.is-error {
+  background: var(--danger);
+}
+
+.fork-meter span.is-interrupted {
+  background: var(--border-strong);
+}
+
+@keyframes fork-meter-pulse {
+  0%,
+  100% {
+    opacity: 0.45;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.child-tree {
+  list-style: none;
+  margin: 9px 0 0;
+  padding: 0 0 0 13px;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border-left: 1px dashed var(--border-strong);
+}
+
+.child-item {
+  position: relative;
+  padding: 7px 9px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  animation: child-item-in 0.22s ease-out both;
+  transition: border-color 0.2s, background-color 0.2s, opacity 0.2s;
+}
+
+.child-item::before {
+  content: "";
+  position: absolute;
+  left: -15px;
+  top: 18px;
+  width: 10px;
+  border-top: 1px dashed var(--border-strong);
+}
+
+.child-item[data-state="processing"] {
+  border-color: var(--accent-border);
+}
+
+.child-item[data-state="error"] {
+  border-color: var(--danger);
+  background: var(--danger-soft);
+}
+
+.child-item[data-state="interrupted"] {
+  opacity: 0.78;
+}
+
+.child-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.child-file-icon {
+  width: 13px;
+  height: 13px;
+  flex: 0 0 auto;
+  color: var(--text-2);
+}
+
+.child-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.child-item .status-badge {
+  padding: 2px 7px;
+  gap: 4px;
+  font-size: 10.5px;
+}
+
+.child-item .status-badge .badge-dot {
+  width: 5px;
+  height: 5px;
+}
+
+/* 子卡日志：非受控 details，默认收起；状态变化不自动开合 */
+.child-item .log-details {
+  margin-top: 3px;
+  font-size: 11px;
+}
+
+.child-item .log-details summary {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.child-summary {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.child-item .log-hint {
+  flex: 0 0 auto;
+  color: var(--text-3);
+}
+
+.child-item .log-list {
+  max-height: 132px;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+
+.child-error {
+  margin-top: 5px;
+  padding: 4px 6px;
+  border-radius: var(--r-xs);
+  background: var(--danger-soft);
+  color: var(--danger);
+  font-size: 10.5px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+@keyframes child-item-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 
 /* ============ 文档管理页布局 ============ */

@@ -88,6 +88,18 @@ export function FileIcon({ className }: IconProps) {
   );
 }
 
+export function ForkIcon({ className }: IconProps) {
+  return (
+    <IconBase className={className}>
+      <circle cx="6" cy="5" r="2.5" />
+      <circle cx="18" cy="5" r="2.5" />
+      <circle cx="12" cy="19" r="2.5" />
+      <path d="M6 7.5v2.2a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7.5" />
+      <path d="M12 11.7v4.8" />
+    </IconBase>
+  );
+}
+
 export function UploadIcon({ className }: IconProps) {
   return (
     <IconBase className={className}>

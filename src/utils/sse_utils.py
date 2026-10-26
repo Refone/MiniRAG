@@ -9,6 +9,8 @@ from fastapi import Request
 class SSEEvent:
     READY = "ready"  # 连接建立
     PROGRESS = "progress"  # 任务节点进度
+    FORK = "fork"  # ZIP 解析完成, 下发 md 子任务清单
+    CHILD_PROGRESS = "child-progress"  # 单个 md 子任务的进度快照
     DELTA = "delta"  # LLM 流式输出增量
     FINAL = "final"  # 最终完整答案
     ERROR = "error"  # 错误信息

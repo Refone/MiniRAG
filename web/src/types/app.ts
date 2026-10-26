@@ -10,12 +10,24 @@ export interface ProgressView {
   status: string;
 }
 
-/** SSE 状态事件载荷（/api/query/sse 与 /api/upload/sse 共用） */
+/** 父任务 SSE 状态事件载荷（/api/query/sse 与 /api/upload/sse 的 progress） */
 export interface StatusResponse {
   status: string;
   done_list?: string[];
   running_list?: string[];
+  /** 失败节点（仅失败时下发；父任务 / 旧后端可能为空） */
+  failed_list?: string[];
   answer?: string;
+  error?: string;
+}
+
+/** ZIP 子任务 SSE 状态事件载荷（/api/upload/sse 的 child-progress） */
+export interface ChildProgressResponse {
+  child_id: string;
+  status: string;
+  done_list?: string[];
+  running_list?: string[];
+  failed_list?: string[];
   error?: string;
 }
 

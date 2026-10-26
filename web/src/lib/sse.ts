@@ -8,12 +8,17 @@
  * 返回 handle：{ es } 供调用方持有连接引用（生命周期=会话，切 Tab 不断流），
  * { close } 手动关闭（内部已幂等）。
  */
-import type { StatusResponse } from "@/types/app";
+import type { ChildProgressResponse, StatusResponse } from "@/types/app";
+import type { ForkResponse } from "@/types/docs";
 
 export interface SseHandlers {
   onOpen?: () => void;
-  /** progress 事件（data 解析失败时为 null，透传原样） */
+  /** progress 事件（父任务；data 解析失败时为 null，透传原样） */
   onProgress?: (data: StatusResponse | null) => void;
+  /** fork 事件（ZIP 解压校验完成，下发 md 子任务清单） */
+  onFork?: (data: ForkResponse | null) => void;
+  /** child-progress 事件（单个 md 子任务进度） */
+  onChildProgress?: (data: ChildProgressResponse | null) => void;
   /** delta 事件（仅非空 delta 触发） */
   onDelta?: (delta: string) => void;
   /** final 事件（data 可能为 null，透传原样） */
@@ -22,6 +27,12 @@ export interface SseHandlers {
   onError?: (message: string) => void;
   /** 收到服务端 __close__ 信号 */
   onServerClose?: () => void;
+  /**
+   * 收到服务端 `event: error` 时是否立即关流。
+   * 默认 true (查询流错误后不保证再发 __close__);
+   * 导入流会补发 __close__, 传 false 可等正常关流, 避免 EventSource 被 abort。
+   */
+  closeOnServerError?: boolean;
 }
 
 export interface SseHandle {
@@ -54,6 +65,16 @@ export function openStatusSse(url: string, handlers: SseHandlers): SseHandle {
     handlers.onProgress?.(d);
   });
 
+  es.addEventListener("fork", (e) => {
+    const d = parseEventData<ForkResponse>((e as MessageEvent).data);
+    handlers.onFork?.(d);
+  });
+
+  es.addEventListener("child-progress", (e) => {
+    const d = parseEventData<ChildProgressResponse>((e as MessageEvent).data);
+    handlers.onChildProgress?.(d);
+  });
+
   es.addEventListener("delta", (e) => {
     const d = parseEventData<{ delta?: string }>((e as MessageEvent).data);
     const delta = d?.delta || "";
@@ -72,14 +93,19 @@ export function openStatusSse(url: string, handlers: SseHandlers): SseHandle {
 
   es.addEventListener("error", (e) => {
     let msg = "SSE 连接中断/失败";
+    let serverError = false;
     try {
       const raw = (e as MessageEvent).data;
-      if (raw) msg = JSON.parse(raw).error || msg;
+      if (raw) {
+        serverError = true;
+        msg = JSON.parse(raw).error || msg;
+      }
     } catch {
       /* ignore */
     }
     handlers.onError?.(msg);
-    close();
+    // 服务端业务错误 (带 data) 后通常还会发 __close__; 只有原生连接错误才必须立即关
+    if (!serverError || handlers.closeOnServerError !== false) close();
   });
 
   return { es, close };
