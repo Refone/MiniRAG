@@ -70,18 +70,18 @@ def node_log(func):
     return wrapper
 ```
 
-> 现在, 可以实现如下测试代码:
+> 现在, 可以实现如下验证代码:
 >
 > ```python
 > @node_log
-> def node_test(state: NodeState):
+> def node_demo(state: NodeState):
 >     logger.info("processing...")
 >     state["a"] = state["a"] + 1
 >     return state
 >
 > """
 > ... | INFO    | logging_util.py:wrapper:66  节点开始
-> ... | INFO    | logging_util.py:node_test:92  ...
+> ... | INFO    | logging_util.py:node_demo:92  ...
 > ... | INFO    | logging_util.py:wrapper:71  节点完成, 耗时=0ms
 > """
 > ```
@@ -132,23 +132,23 @@ def node_log(node_name: str):
     return deco
 ```
 
-- 此时, 可以得到这样的测试效果:
+- 此时, 可以得到这样的运行效果:
 
   ```python
-  @node_log("node_test")
-  def node_test(state: NodeState):
+  @node_log("node_demo")
+  def node_demo(state: NodeState):
       logger.info("processing...")
       state["a"] = state["a"] + 1
       return state
 
   start_state: NodeState = {"a": 0, "task_id": 12345}
-  end_state = node_test(state=start_state)
+  end_state = node_demo(state=start_state)
   logger.info(end_state["a"])
 
   """
-  ... | INFO    | logging_util.py:wrapper:72  <task_id = 12345> [node_test] 节点开始
-  ... | INFO    | logging_util.py:node_test:97  processing...
-  ... | INFO    | logging_util.py:wrapper:76  <task_id = 12345> [node_test] 节点完成, 耗时=0ms
+  ... | INFO    | logging_util.py:wrapper:72  <task_id = 12345> [node_demo] 节点开始
+  ... | INFO    | logging_util.py:node_demo:97  processing...
+  ... | INFO    | logging_util.py:wrapper:76  <task_id = 12345> [node_demo] 节点完成, 耗时=0ms
   ... | INFO    | logging_util.py:<module>:103 1
   """
   ```

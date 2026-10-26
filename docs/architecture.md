@@ -89,7 +89,7 @@ mini-rag/
 │   ├── setup.md            # 环境部署 (Milvus docker compose)
 │   ├── poll_response.json  # MinerU 轮询响应样例
 │   └── request_url_response.json  # MinerU 申请上传地址响应样例
-├── dev/                    # 实验性调试脚本 (直接运行观察 src 逻辑, 不受测试保护)
+├── dev/                    # 实验性调试脚本 (直接运行观察 src 逻辑)
 │   ├── README.md           # dev 目录用途与文件清单说明
 │   └── import_pdf.py       # 导入流程 (PDF 分支) 调试脚本, 走 MinerU 转换
 ├── src/                    # 主要源码 (即 import 根, 靠 PYTHONPATH=src 暴露)
@@ -117,27 +117,7 @@ mini-rag/
 │   │   ├── path_utils.py    # get_project_root / from_project_root / get_path_dir
 │   │   └── task_utils.py    # 4 个进程内任务状态字典 (running/done/status/result) + SSE 占位
 │   └── web/                # 最终 Web 呈现 (仅 .gitkeep, 待实现)
-├── test/                   # pytest 测试目录
-│   ├── conftest.py         # 全局 fixture (project_root / sample_md / sample_pdf ...) + 三档 marker 的 --run-unit/--run-smoke/--run-integration 开关
-│   ├── unit/               # 单元测试, 与 src 目录一一镜像 (默认运行)
-│   │   ├── conftest.py     # autouse 的 clean_task_store, 隔离 task_utils 全局字典
-│   │   ├── api/ web/       # 占位 (仅 .gitkeep)
-│   │   ├── common/         # config/env_config_test.py, enum/doc_type_test.py, prompt/ (占位)
-│   │   ├── processor/      # import_processor/ (main_graph_test.py, state_test.py, nodes/ 7 个)
-│   │   │                   # query_processor/ (占位)
-│   │   └── utils/          # logging / node / path / task_utils_test.py
-│   ├── smoke/              # 冒烟测试, 真实 apikey / 网络请求 (默认跳过, --run-smoke 开启)
-│   │   ├── conftest.py     # clean_task_store + pytest_runtest_call 用例横幅分隔
-│   │   └── import_flow_test.py  # 导入链路冒烟 (md 直通 / pdf 走 MinerU)
-│   ├── integration/        # 集成测试, 模块耦合 (默认跳过, --run-integration 开启; 目前仅 .gitkeep)
-│   ├── experimental/       # 试验性脚本, 仅供参考
-│   │   └── colorful_print_test.py  # ANSI 彩色打印实验
-│   └── test-data/          # 测试样例文件
-│       ├── entropy.pdf             # PDF 样例
-│       ├── hak180产品安全手册.pdf    # PDF 样例 (MinerU 转换自测用)
-│       ├── 第一章-初识智能体.md      # Markdown 样例
-│       └── test.txt                # 不支持的类型, 用于负向用例
-├── pyproject.toml          # 依赖声明 + pytest / coverage 配置
+├── pyproject.toml          # 依赖声明
 ├── uv.lock                 # uv 锁文件
 ├── .env / .env.sample      # 环境变量 (真实 .env 不入库, 只提交 sample)
 ├── .python-version         # 3.12

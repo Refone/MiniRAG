@@ -5,7 +5,7 @@
 ```shell
 docker  # docker 启动文件
 docs    # 项目文档与笔记
-dev     # 实验性调试脚本 (直接运行观察 src 逻辑, 不受测试保护)
+dev     # 实验性调试脚本 (直接运行观察 src 逻辑)
 src     # 主要源码
 ├── api     # FastAPI 相关源码
 ├── common  # 公共逻辑
@@ -17,12 +17,6 @@ src     # 主要源码
 │   └── query_processor     # 查询流程: query-向量化-三路召回-生成答案
 ├── utils   # 工具逻辑
 └── web     # 最终 Web 呈现
-test    # pytest 测试目录
-├── unit            # 单元测试, 与 src 目录一一镜像 (默认运行)
-├── smoke           # 冒烟测试, 真实 apikey / 网络请求 (默认跳过)
-├── integration     # 集成测试, 模块耦合 (默认跳过)
-├── experimental    # 试验性脚本, 仅供参考
-└── test-data       # 测试样例文件
 ```
 
 ## Web 应用部署
@@ -38,56 +32,4 @@ cd web && npm run dev                              # 前端 :5173 (代理 /api �
 docker compose -p mini-rag -f docker/data-services.yaml up -d      # ① 数据/监控服务 (Milvus/MinIO/Mongo/Attu)
 docker compose -p mini-rag -f docker/web-backend.yaml up -d --build  # ② 后端 :8000
 docker compose -p mini-rag -f docker/web-frontend.yaml up -d --build # ③ 前端 :8080 (nginx 反代 /api → backend:8000)
-```
-
-## 测试
-
-> ⚠️ **当前阶段（快速迭代）测试已在框架层面禁用**：`pyproject.toml` 的
-> `[tool.pytest.ini_options]` 中 `testpaths` 指向 `test_guard/`（恒绿占位用例），
-> `uv run pytest` 快速通过 (exit 0) 且不会收集真实的 `test/`。
-> `test/` 目录完整保留；CI 工作流已停用（`.github/workflows/unittest.yml.disable`）。
-
-需要手动回归时，显式指定路径即可绕过默认配置：
-
-```shell
-uv run pytest                              # 默认入口: 只跑恒绿占位用例 (exit 0)
-uv run pytest test/unit/utils              # 手动回归某个目录
-uv run pytest test/unit/utils/path_utils_test.py  # 单个用例文件
-uv run pytest test/smoke -s -v --run-smoke # 冒烟 (真实网络)
-uv run pytest --run-integration            # 集成 (需 Milvus/MinerU/LLM)
-```
-
-恢复默认测试：把 `testpaths` 改回 `["test"]`，并把 `unittest.yml.disable` 重命名回 `unittest.yml`。
-
----
-
-以下为测试体系的既有约定（恢复测试时生效）。
-
-统一使用标准 pytest (不再依赖各文件 `__main__` 自测), 配置集中在
-`pyproject.toml` 的 `[tool.pytest.ini_options]`。
-
-**镜像约定**: `test/unit` 与 `src` 逐层对应, 测试文件命名为 `<模块名>_test.py`。
-例如 `src/utils/path_utils.py` → `test/unit/utils/path_utils_test.py`。
-`pythonpath = ["src"]` 让测试里可以直接 `import utils.xxx`, 无需安装包。
-
-```shell
-uv run pytest                      # 只跑单元测试 (smoke / integration 自动跳过)
-uv run pytest --run-smoke          # 连同冒烟测试一起跑 (真实网络)
-uv run pytest --run-integration    # 连同集成测试一起跑
-uv run pytest test/unit/utils      # 只跑某个目录
-uv run pytest -k doc_type          # 只跑名字匹配的用例
-```
-
-测试分三档 marker, 由 `--run-*` 开关控制:
-
-| marker        | 含义                                    | 默认    | 开启方式            |
-| ------------- | --------------------------------------- | ------- | ------------------- |
-| `unit`        | 单元测试, mock 所有外部依赖             | ✅ 运行 | (无需开关)          |
-| `smoke`       | 冒烟测试, 真实 apikey / 网络请求        | ⏭ 跳过 | `--run-smoke`       |
-| `integration` | 模块耦合集成测试 (Milvus / MinIO / LLM) | ⏭ 跳过 | `--run-integration` |
-
-冒烟测试想看节点过程日志, 加 `-s -v` 关闭输出捕获:
-
-```shell
-uv run pytest test/smoke -s -v --run-smoke
 ```

@@ -41,7 +41,7 @@ chunk 数量、文件大小和载入时间。
 ```bash
 cd <repo root>                      # 脚本里的路径是相对当前目录的
 python src/utils/markdown_splitter.py
-# test/test-data/第一章-初识智能体.md  ->  tmp/chunks.json
+# 任意 Markdown 文件  ->  tmp/chunks.json
 ```
 
 切分参数(标题切分 + 超长块用 `RecursiveCharacterTextSplitter` 继续切)在脚本的

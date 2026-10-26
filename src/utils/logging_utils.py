@@ -97,8 +97,7 @@ def fix_log_position(record):
 
         只按文件路径判断。早先用 `'_log' in frame.function` 过滤, 会把函数名里含
         "_log" 的正常业务函数 (如 sync_log_files) 一并跳过, 日志归属错位到它的
-        上一层调用方, file/line 也跟着错 —— 见 test/unit/utils/logging_utils_test.py
-        的 test_position_keeps_user_frames_named_like_logging。
+        上一层调用方, file/line 也跟着错。
         """
         filename = frame.filename.replace("\\", "/")
         if filename.rsplit("/", 1)[-1] == "logging_utils.py":
@@ -149,10 +148,10 @@ if __name__ == "__main__":
     logger.critical("这是一条 CRITICAL 信息")
     logger.success("这是一条 SUCCESS 信息")
 
-    logger.info("测试 brief_list 函数: {}", brief_list([1, 2, 3, 4, 5, 6, 7, 8, 9]))
-    logger.info("测试 brief_list 函数 (短列表): {}", brief_list([1, 2, 3]))
+    logger.info("示例 brief_list 函数: {}", brief_list([1, 2, 3, 4, 5, 6, 7, 8, 9]))
+    logger.info("示例 brief_list 函数 (短列表): {}", brief_list([1, 2, 3]))
 
-    logger.info("测试 brief_dict 函数: {}", brief_dict({i: i * i for i in range(10)}))
+    logger.info("示例 brief_dict 函数: {}", brief_dict({i: i * i for i in range(10)}))
     logger.info(
-        "测试 brief_dict 函数 (短字典): {}", brief_dict({i: i * i for i in range(3)})
+        "示例 brief_dict 函数 (短字典): {}", brief_dict({i: i * i for i in range(3)})
     )

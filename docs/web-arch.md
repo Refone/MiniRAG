@@ -6,7 +6,7 @@
 
 - `src/` 是**扁平源码根**，下面已有 `api/`、`common/`、`processor/`、`utils/` 四个顶层包
 - 现有代码的 import 风格是 `from processor...` / `from utils...` / `from common...` —— 也就是**把 `src/` 本身当 `sys.path` 根**，而不是 `from mini_rag.processor...` 这种标准 src-layout 单包
-- `src/api/` 目前只有一个 `test.py`（返回字符串），**还没有真正的 FastAPI app**
+- `src/api/` 早期只有一个占位模块（返回字符串），**还没有真正的 FastAPI app**
 - LangGraph 图已经写在 `src/processor/{import_processor, query_processor}/main_graph.py`，编译成了 `import_processor` 等图实例
 - `pyproject.toml` 用 `uv` 管理依赖，但**没有 `[build-system]`/包配置**，包不是「安装」出来的，import 依赖 `src` 在 path 上
 - `docker/data-services.yaml` 目前**只有基础设施**（Milvus / MinIO / MongoDB / Attu），还没有应用容器
@@ -102,14 +102,7 @@ server: {
 
 ### 4. Python import 会不会有问题？→ **会，而且这是最容易踩的坑**
 
-现状是「`src` 当 path 根」的扁平布局。`pytest` 能过，是因为 `pyproject.toml` 里有：
-
-```toml
-[tool.pytest.ini_options]
-pythonpath = ["src"]
-```
-
-但 **uvicorn 运行时不会读这个配置**。从项目根目录跑 `uvicorn api.main:app`，`src` 不在 `sys.path`，`from processor...` 会直接 `ModuleNotFoundError`。
+现状是「`src` 当 path 根」的扁平布局。**uvicorn 运行时不会自动把 `src` 加入 `sys.path`**。从项目根目录跑 `uvicorn api.main:app`，`src` 不在 `sys.path`，`from processor...` 会直接 `ModuleNotFoundError`。
 
 **推荐方案 A（零改动现有代码，最快跑通）**：统一用 `src` 作为 app 目录：
 
@@ -133,7 +126,7 @@ CMD ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000"]
 ⚠️ 额外两个隐藏坑（和 import 同源，都是「根目录识别」问题）：
 
 1. `utils/path_utils.py` 的 `get_project_root()` 靠向上找 `pyproject.toml`/`uv.lock`/`.env` 来定位根目录。**Dockerfile 里必须把这些标记文件一起 COPY 进去**（或 `ENV PROJECT_ROOT=/app`），否则运行时 `PROJECT_ROOT` 解析会抛异常。
-2. `src/api/test.py` 这种裸 `test.py` 模块名建议改名（容易和测试约定、以及意外 shadow 冲突），顺手换个有意义的名字。
+2. `src/api/xxx.py` 这种过于泛化的裸模块名建议改名（容易和其它模块重名、以及意外 shadow 冲突），顺手换个有意义的名字。
 
 ## Docker 封装建议
 

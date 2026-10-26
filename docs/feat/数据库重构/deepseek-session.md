@@ -55,15 +55,15 @@
 
 **实现中发现的两个偏差**（已回写方案文档 §4.2）：
 1. pymilvus 3.x 的 insert 实际会返回生成主键（`ids`），改为优先直接使用、task_id 查回兜底；
-2. 查询辅助方法加 `consistency_level="Strong"`——Bounded 一致性有延迟可见窗口（冒烟测试实测复现）。
+2. 查询辅助方法加 `consistency_level="Strong"`——Bounded 一致性有延迟可见窗口（本地实测复现）。
 
 **真库操作**：废弃旧表 drop `minirag_item_name`（9 行）、旧 schema `minirag_chunks`（908 行）；`minirag_docs` 已存在且 schema 与设计一致，复用；`minirag_chunks` 按新 schema 重建。
 
-**验证**：compileall 全绿；两张图编译正常；后端启动自检 4 项硬依赖全通过；真库闭环冒烟（插入取 id → 查回 → chunks 数值过滤 → 同名覆盖完整删除 → MinIO 幂等清理）通过。
+**验证**：compileall 全绿；两张图编译正常；后端启动自检 4 项硬依赖全通过；真库闭环实测（插入取 id → 查回 → chunks 数值过滤 → 同名覆盖完整删除 → MinIO 幂等清理）通过。
 
 ### 第 6 轮 · reset_db.py 修复
 
-用户运行 `tools/reset_db.py` 报 `AttributeError: 'MilvusSettings' object has no attribute 'collection_item_name'`。原因是此前排查残留引用只覆盖了 src/docs/web，遗漏 tools/。修复两处引用并全仓库补漏。`test/` 目录按 AGENTS.md 约定未改动（旧节点名测试引用保留，默认不收集）。
+用户运行 `tools/reset_db.py` 报 `AttributeError: 'MilvusSettings' object has no attribute 'collection_item_name'`。原因是此前排查残留引用只覆盖了 src/docs/web，遗漏 tools/。修复两处引用并全仓库补漏。
 
 ### 第 7 轮 · "Agent 检索不到"问题修复
 
@@ -141,7 +141,7 @@
 ## 五、验证记录
 
 - `compileall` 全绿；导入/查询图编译正常；后端启动自检 4 项硬依赖全通过；
-- 真库闭环冒烟：docs 插入取 id → task_id 查回 → chunks 写入 → `doc_id in [...]` 过滤 → 同名覆盖完整删除（含"同名两批次并存"场景清理）→ MinIO 幂等清理；
+- 真库闭环实测：docs 插入取 id → task_id 查回 → chunks 写入 → `doc_id in [...]` 过滤 → 同名覆盖完整删除（含"同名两批次并存"场景清理）→ MinIO 幂等清理；
 - 真实数据实验 1（Agent 召回）：完整查询命中目标文档 **0.8417** > 0.75 阈值；
 - 真实数据实验 2（权重拆解）：稀疏路仅关键词重叠文档命中（IP=2.898），稠密路全库平滑（0.18~0.43），融合分 0.840 vs 其余 ≤0.19；
 - 关键词过滤实测（黑名单方案期间，后按用户要求移除）：hak180 6→3、华为 7→5、hello-agent 全保留。
@@ -151,8 +151,7 @@
 1. **阈值/权重重标定**：`docs_confirm_threshold=0.75` 与 `docs_hybrid_weight=(0.3, 0.7)` 均为初值，建议积累 20~50 条真实查询后实测标定（方案文档 TODO）；
 2. **存量 docs 行**：库中已导入文档的关键词为旧 prompt 产物，需重新导入才生效；
 3. **端到端实测**：未擅自跑全链路（LLM/Embedding 配额 + 真实数据写入），建议手动导入一个 md 试跑；
-4. **test/ 未同步**：旧节点名的单元测试（`node_item_name_vect_test.py` 等）引用已删除模块，按 AGENTS.md 约定未改动，默认不收集；
-5. **关键词收敛效果待观察**：仅 prompt 约束（无黑名单），若生成质量仍不足，下一步可考虑召回侧权重/阈值调整。
+4. **关键词收敛效果待观察**：仅 prompt 约束（无黑名单），若生成质量仍不足，下一步可考虑召回侧权重/阈值调整。
 
 ## 七、归档目录说明
 

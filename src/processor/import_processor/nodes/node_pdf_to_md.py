@@ -170,7 +170,7 @@ def step_3_download_and_unzip(zip_url: str, file_title: str) -> Path:
     把 full.md 重命名为 <file_title>.md 后返回其路径。
     """
 
-    # 在函数内解析目录而非模块级常量: 既让 from_project_root 可被测试 mock,
+    # 在函数内解析目录而非模块级常量: 既让 from_project_root 便于替换,
     # 也避免 import 时机过早固定路径。
     md_dir = Path(ENV_CONFIG.output_dir.import_tmp_dir)
     md_dir.mkdir(parents=True, exist_ok=True)

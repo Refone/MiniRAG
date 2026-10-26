@@ -9,7 +9,6 @@
 .venv
 **/__pycache__
 *.pyc
-.pytest_cache
 reports
 
 # 前端: 前后端镜像共用仓库根作为构建上下文,
@@ -26,5 +25,4 @@ output
 logs
 tmp
 docs
-test
 docker/volumes

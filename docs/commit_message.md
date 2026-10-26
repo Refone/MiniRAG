@@ -28,10 +28,9 @@ Conventional Commits（约定式提交），它脱胎于 Angular 提交规范，
 | `style`    | 格式调整，不影响逻辑（空格、分号等） |
 | `refactor` | 重构，不是新功能也不是修 bug         |
 | `perf`     | 性能优化                             |
-| `test`     | 增加或修改测试                       |
 | `build`    | 构建系统或依赖变更                   |
 | `ci`       | CI 配置变更                          |
-| `chore`    | 杂项，不修改 src 或 test             |
+| `chore`    | 杂项，不修改 src 或文档              |
 | `revert`   | 回滚某个提交                         |
 
 ### ✅ 好的示例
