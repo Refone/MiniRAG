@@ -3,7 +3,7 @@
 > 归档日期：2026-10-20
 > 需求状态：✅ 已完成（代码实现 + 真库验证通过，阈值/权重标定与全链路实测遗留）
 > 会话模型：DeepSeek（deepseek-session）
-> 关联文档：本目录下 `Milvus minirag_docs_meta db design.md`（原始设计）、`Milvs DB Refactor.md`（重构定案）、`milvus_db_design.md`（旧设计，历史版本）
+> 关联文档：本目录下 `Milvus minirag_docs_meta db design.md`（原始设计）、`Milvus DB Refactor.md`（重构定案）、`milvus_db_design.md`（旧设计，历史版本）
 
 ---
 
@@ -32,7 +32,7 @@
 
 ### 第 2 轮 · 方案文档预览
 
-创建 `docs/Milvs DB Refactor.md` 改动方案预览稿（8 个部分：决策记录 / 表结构定案 / 导入链路 / 查询链路 / 废弃策略 / 代码清单 / 风险 / 评审记录）。
+创建 `docs/Milvus DB Refactor.md` 改动方案预览稿（8 个部分：决策记录 / 表结构定案 / 导入链路 / 查询链路 / 废弃策略 / 代码清单 / 风险 / 评审记录）。
 
 ### 第 3 轮 · 第一轮评审（用户 4 点）
 
@@ -54,6 +54,7 @@
 - **文档**：setup.md / architecture.md / milvus_db_design.md（历史标记）/ web types.ts 同步。
 
 **实现中发现的两个偏差**（已回写方案文档 §4.2）：
+
 1. pymilvus 3.x 的 insert 实际会返回生成主键（`ids`），改为优先直接使用、task_id 查回兜底；
 2. 查询辅助方法加 `consistency_level="Strong"`——Bounded 一致性有延迟可见窗口（本地实测复现）。
 
@@ -102,41 +103,41 @@
 
 ## 三、关键决策记录总表
 
-| # | 决策 | 出处 |
-| :--- | :--- | :--- |
-| 1 | docs 主键保持 Int64 自增；实现上优先用 insert 返回的 `ids`，`task_id` 查回兜底（Strong 一致性） | 第 1 轮 + 第 5 轮 |
-| 2 | docs 向量精简为 `keywords_sparse_vector` + `abstract_dense_vector` 两路 | 第 1 轮 |
-| 3 | confirm/suspect 对象为文档（doc_id），展示用 file_title | 第 1 轮 |
-| 4 | 旧表直接废弃，不写迁移脚本 | 第 1 轮 |
-| 5 | keywords/abstract 由 LLM 导入时生成 | 第 1 轮 |
-| 6 | 采纳 `task_id` 字段（批次唯一键，查回与溯源） | 第 3 轮 |
-| 7 | `document_split` 之后合并为单节点 `node_document_embedding` | 第 3 轮 |
-| 8 | `confirm_list` 为二级召回唯一 doc_id 源；confirm 阈值放宽至 0.75（待标定）；suspect 仅用于终止提示 | 第 3 轮 |
-| 9 | 重导入递归清理 MinIO 三份制品（前缀含 task_id） | 第 3 轮 |
-| 10 | 同名覆盖：先完整删除（MinIO + chunks + docs），后插入新文档 | 第 4 轮 |
-| 11 | 一级召回直接使用重写后的完整查询，无 LLM 线索提取 | 第 8 轮 |
-| 12 | `doc_titles` 不入 state（仅 intent_recognize 内使用） | 第 9 轮 |
-| 13 | keywords 收敛只靠 prompt（文档指纹原则），**否决黑名单方式** | 第 11 轮 |
+| #   | 决策                                                                                               | 出处              |
+| :-- | :------------------------------------------------------------------------------------------------- | :---------------- |
+| 1   | docs 主键保持 Int64 自增；实现上优先用 insert 返回的 `ids`，`task_id` 查回兜底（Strong 一致性）    | 第 1 轮 + 第 5 轮 |
+| 2   | docs 向量精简为 `keywords_sparse_vector` + `abstract_dense_vector` 两路                            | 第 1 轮           |
+| 3   | confirm/suspect 对象为文档（doc_id），展示用 file_title                                            | 第 1 轮           |
+| 4   | 旧表直接废弃，不写迁移脚本                                                                         | 第 1 轮           |
+| 5   | keywords/abstract 由 LLM 导入时生成                                                                | 第 1 轮           |
+| 6   | 采纳 `task_id` 字段（批次唯一键，查回与溯源）                                                      | 第 3 轮           |
+| 7   | `document_split` 之后合并为单节点 `node_document_embedding`                                        | 第 3 轮           |
+| 8   | `confirm_list` 为二级召回唯一 doc_id 源；confirm 阈值放宽至 0.75（待标定）；suspect 仅用于终止提示 | 第 3 轮           |
+| 9   | 重导入递归清理 MinIO 三份制品（前缀含 task_id）                                                    | 第 3 轮           |
+| 10  | 同名覆盖：先完整删除（MinIO + chunks + docs），后插入新文档                                        | 第 4 轮           |
+| 11  | 一级召回直接使用重写后的完整查询，无 LLM 线索提取                                                  | 第 8 轮           |
+| 12  | `doc_titles` 不入 state（仅 intent_recognize 内使用）                                              | 第 9 轮           |
+| 13  | keywords 收敛只靠 prompt（文档指纹原则），**否决黑名单方式**                                       | 第 11 轮          |
 
 ## 四、实现变更清单（代码）
 
-| 文件 | 变更 |
-| :--- | :--- |
-| `src/common/config/env_config.py` | `collection_docs`（minirag_docs）；MinIO 新增 origin-files / final-markdowns / chunks-json 目录 |
-| `src/common/config/app_config.py` | `item_name_*` → `docs_*`；`docs_confirm_threshold=0.75`（放宽，待实测标定） |
-| `src/common/client/milvus_client.py` | 重写：docs/chunks 新 schema 与索引；`hybrid_search_docs`；`hybrid_search_chunks(doc_ids)`；`_minirag_hybrid_search` anns_field 参数化；文档级增删查辅助（Strong 一致性 + filter 转义） |
-| `src/common/client/minio_client.py` | `doc_artifact_prefix` + `clear_doc_artifacts` |
-| `src/common/prompt/prompt_doc_keywords_abstract.py` | 新增：keywords/abstract 生成 prompt（文档指纹原则，无黑名单） |
-| `src/processor/import_processor/nodes/node_document_embedding.py` | 新增：合并节点（同名覆盖先删后插 + 制品上传 + LLM 元数据 + 双表写入） |
-| `src/processor/import_processor/nodes/node_item_name_vect.py` / `node_chunks_vect.py` | 删除 |
-| `src/processor/import_processor/{state,main_graph,nodes/__init__}.py` | 移除 item_name；子图接线 `md_img → document_split → document_embedding` |
-| `src/processor/query_processor/state.py` | `doc_queries` / `doc_titles` 不入 state；confirm/suspect 为 doc id 列表 |
-| `src/processor/query_processor/nodes/node_intent_recognize.py` | 一级召回直接用 rewritten_query；文档粒度 confirm/suspect；终止提示语 |
-| `src/processor/query_processor/nodes/node_search_embedding.py` / `node_search_hyde.py` | `doc_ids` 过滤 |
-| `src/api/setup.py` | `prepare_docs_collection` / `prepare_chunks_collection` |
-| `tools/reset_db.py` | 集合名与方法名同步 |
-| `web/src/lib/types.ts` | 移除废弃 `item_names` 字段 |
-| `docs/setup.md` / `docs/architecture.md` | 集合名、管线图与节点清单同步 |
+| 文件                                                                                   | 变更                                                                                                                                                                                   |
+| :------------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/common/config/env_config.py`                                                      | `collection_docs`（minirag_docs）；MinIO 新增 origin-files / final-markdowns / chunks-json 目录                                                                                        |
+| `src/common/config/app_config.py`                                                      | `item_name_*` → `docs_*`；`docs_confirm_threshold=0.75`（放宽，待实测标定）                                                                                                            |
+| `src/common/client/milvus_client.py`                                                   | 重写：docs/chunks 新 schema 与索引；`hybrid_search_docs`；`hybrid_search_chunks(doc_ids)`；`_minirag_hybrid_search` anns_field 参数化；文档级增删查辅助（Strong 一致性 + filter 转义） |
+| `src/common/client/minio_client.py`                                                    | `doc_artifact_prefix` + `clear_doc_artifacts`                                                                                                                                          |
+| `src/common/prompt/prompt_doc_keywords_abstract.py`                                    | 新增：keywords/abstract 生成 prompt（文档指纹原则，无黑名单）                                                                                                                          |
+| `src/processor/import_processor/nodes/node_document_embedding.py`                      | 新增：合并节点（同名覆盖先删后插 + 制品上传 + LLM 元数据 + 双表写入）                                                                                                                  |
+| `src/processor/import_processor/nodes/node_item_name_vect.py` / `node_chunks_vect.py`  | 删除                                                                                                                                                                                   |
+| `src/processor/import_processor/{state,main_graph,nodes/__init__}.py`                  | 移除 item_name；子图接线 `md_img → document_split → document_embedding`                                                                                                                |
+| `src/processor/query_processor/state.py`                                               | `doc_queries` / `doc_titles` 不入 state；confirm/suspect 为 doc id 列表                                                                                                                |
+| `src/processor/query_processor/nodes/node_intent_recognize.py`                         | 一级召回直接用 rewritten_query；文档粒度 confirm/suspect；终止提示语                                                                                                                   |
+| `src/processor/query_processor/nodes/node_search_embedding.py` / `node_search_hyde.py` | `doc_ids` 过滤                                                                                                                                                                         |
+| `src/api/setup.py`                                                                     | `prepare_docs_collection` / `prepare_chunks_collection`                                                                                                                                |
+| `tools/reset_db.py`                                                                    | 集合名与方法名同步                                                                                                                                                                     |
+| `web/src/lib/types.ts`                                                                 | 移除废弃 `item_names` 字段                                                                                                                                                             |
+| `docs/setup.md` / `docs/architecture.md`                                               | 集合名、管线图与节点清单同步                                                                                                                                                           |
 
 ## 五、验证记录
 
@@ -158,7 +159,7 @@
 ```
 docs/feat/数据库重构/
 ├── Milvus minirag_docs_meta db design.md   # 原始新表设计（用户手写）
-├── Milvs DB Refactor.md                    # 重构定案方案（经两轮评审 + 实现备注）
+├── Milvus DB Refactor.md                    # 重构定案方案（经两轮评审 + 实现备注）
 ├── milvus_db_design.md                     # 旧表设计（历史版本）
 └── deepseek-session.md                     # 本会话归档（即本文件）
 ```

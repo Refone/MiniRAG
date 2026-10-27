@@ -2,7 +2,7 @@
 
 > ⚠️ **历史版本**: 本文档描述的是 `minirag_item_name` / `minirag_chunks` 旧表设计,
 > 已被 `Milvus minirag_docs_meta db design.md` 及重构定案
-> `Milvs DB Refactor.md` 取代, 仅作历史参考。
+> `Milvus DB Refactor.md` 取代, 仅作历史参考。
 
 **文档级索引（kb_item_name）**
 
@@ -20,14 +20,14 @@
 
 **核心定位**：检索的 “精准匹配层”，存储细粒度语义切片，直接为大模型提供上下文证据。
 
-| 字段名        | 字段类型          | 核心作用                                               |
-| :------------ | :---------------- | :----------------------------------------------------- |
-| id            | Int64（自增主键） | 切片全局唯一标识，作为数据操作主键                     |
-| file_title    | VarChar(65535)    | 关联原始文档名称，实现切片 - 文档溯源                  |
-| item_name     | VarChar(65535)    | 关联文档级核心主体，解决切片主语缺失问题               |
-| chunk_content | VarChar(65535)    | 切片文本内容（含标题层级），是向量编码的核心数据源     |
-| dense_vector  | FloatVector(1024) | 切片语义向量，适配模糊语义检索，提升上下文匹配度       |
-| sparse_vector | SparseFloatVector | 切片关键词向量，适配精确检索，提升术语匹配精度         |
+| 字段名        | 字段类型          | 核心作用                                           |
+| :------------ | :---------------- | :------------------------------------------------- |
+| id            | Int64（自增主键） | 切片全局唯一标识，作为数据操作主键                 |
+| file_title    | VarChar(65535)    | 关联原始文档名称，实现切片 - 文档溯源              |
+| item_name     | VarChar(65535)    | 关联文档级核心主体，解决切片主语缺失问题           |
+| chunk_content | VarChar(65535)    | 切片文本内容（含标题层级），是向量编码的核心数据源 |
+| dense_vector  | FloatVector(1024) | 切片语义向量，适配模糊语义检索，提升上下文匹配度   |
+| sparse_vector | SparseFloatVector | 切片关键词向量，适配精确检索，提升术语匹配精度     |
 
 > 字段以 `src/common/client/milvus_client.py` 的 `prepare_chunks_collection` 建表逻辑为准。
 > 切片的标题层级目前由 `_format_chunk_content` 拼成 Markdown 标题行随 `chunk_content` 一并写入，
