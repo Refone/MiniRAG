@@ -4,10 +4,10 @@
 
 ## 当前项目现状（关键事实）
 
-- `src/` 是**扁平源码根**，下面已有 `api/`、`common/`、`processor/`、`utils/` 四个顶层包
-- 现有代码的 import 风格是 `from processor...` / `from utils...` / `from common...` —— 也就是**把 `src/` 本身当 `sys.path` 根**，而不是 `from mini_rag.processor...` 这种标准 src-layout 单包
+- `src/` 是**扁平源码根**，下面已有 `api/`、`common/`、`graphs/`、`service/`、`utils/` 五个顶层包
+- 现有代码的 import 风格是 `from graphs...` / `from utils...` / `from common...` —— 也就是**把 `src/` 本身当 `sys.path` 根**，而不是 `from mini_rag.graphs...` 这种标准 src-layout 单包
 - `src/api/` 早期只有一个占位模块（返回字符串），**还没有真正的 FastAPI app**
-- LangGraph 图已经写在 `src/processor/{import_processor, query_processor}/main_graph.py`，编译成了 `import_processor` 等图实例
+- LangGraph 图已经写在 `src/graphs/{import_graph, query_graph}/{import_graph, query_graph}.py`，编译成了 `import_graph` / `query_graph` 等图实例
 - `pyproject.toml` 用 `uv` 管理依赖，但**没有 `[build-system]`/包配置**，包不是「安装」出来的，import 依赖 `src` 在 path 上
 - `docker/data-services.yaml` 目前**只有基础设施**（Milvus / MinIO / MongoDB / Attu），还没有应用容器
 
@@ -23,12 +23,12 @@ src/api          —— FastAPI 框架层（HTTP 入口）
 src/service      —— 业务编排层（"API 逻辑"，新增）
    │  调用
    ▼
-src/processor    —— LangGraph 图（状态/节点/编译）
-src/common       —— 通用（config/model/client/enum/prompt）
+src/graphs       —— LangGraph 图（状态/节点/编译）
+src/common       —— 通用（client/config/model/prompt/store）
 src/utils        —— 工具
 ```
 
-规则：**api → service → processor → common/utils**，单向调用，不反向、不跨层乱引。
+规则：**api → service → graphs → common/utils**，单向调用，不反向、不跨层乱引。
 
 ## 完整目录结构
 
@@ -51,11 +51,11 @@ mini-rag/
 │   ├── service/                      # ② 业务编排层（新建）
 │   │   ├── __init__.py
 │   │   ├── chat_service.py           #    组装图、管历史、astream 流式输出
-│   │   ├── import_service.py         #    调用 import_processor 图
-│   │   └── query_service.py          #    调用 query_processor 图
-│   ├── processor/                    # ③ LangGraph 层（已存在，保持纯图定义）
-│   │   ├── import_processor/         #    state.py / nodes/ / main_graph.py
-│   │   └── query_processor/
+│   │   ├── import_service.py         #    调用 import_graph 图
+│   │   └── query_service.py          #    调用 query_graph 图
+│   ├── graphs/                       # ③ LangGraph 层（已存在，保持纯图定义）
+│   │   ├── import_graph/             #    import_graph.py / import_graph_state.py / nodes/
+│   │   └── query_graph/              #    query_graph.py / query_graph_state.py / nodes/
 │   ├── common/                       # ④ 通用层（已存在）
 │   └── utils/                        # ⑤ 工具层（已存在）
 ├── web/                              # ⑥ Vite 前端（已存在，待脚手架）
@@ -96,13 +96,13 @@ server: {
 
 ### 3. API 逻辑放哪？→ `src/service/`（新建）
 
-这里的「API 逻辑」我理解为**业务编排层**：负责拿 router 传来的参数、调 `processor/` 里编译好的图（`ainvoke`/`astream`）、做状态转换和会话管理、把结果封装成 service 层结构返回给 router。
+这里的「API 逻辑」我理解为**业务编排层**：负责拿 router 传来的参数、调 `graphs/` 里编译好的图（`ainvoke`/`astream`）、做状态转换和会话管理、把结果封装成 service 层结构返回给 router。
 
-> 如果你说的「API 逻辑」其实是指 LangGraph 图本身的节点/边逻辑，那它已经在 `src/processor/` 了，不用动。service 层只是它的「调用者 + 门面」。
+> 如果你说的「API 逻辑」其实是指 LangGraph 图本身的节点/边逻辑，那它已经在 `src/graphs/` 了，不用动。service 层只是它的「调用者 + 门面」。
 
 ### 4. Python import 会不会有问题？→ **会，而且这是最容易踩的坑**
 
-现状是「`src` 当 path 根」的扁平布局。**uvicorn 运行时不会自动把 `src` 加入 `sys.path`**。从项目根目录跑 `uvicorn api.main:app`，`src` 不在 `sys.path`，`from processor...` 会直接 `ModuleNotFoundError`。
+现状是「`src` 当 path 根」的扁平布局。**uvicorn 运行时不会自动把 `src` 加入 `sys.path`**。从项目根目录跑 `uvicorn api.main:app`，`src` 不在 `sys.path`，`from graphs...` 会直接 `ModuleNotFoundError`。
 
 **推荐方案 A（零改动现有代码，最快跑通）**：统一用 `src` 作为 app 目录：
 
@@ -121,7 +121,7 @@ ENV PYTHONPATH=/app/src
 CMD ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000"]
 ```
 
-**方案 B（更规范，但要改代码）**：给 `pyproject.toml` 加 `[build-system]` + 包配置，或干脆迁成标准 src-layout —— `src/mini_rag/` 单包，import 改成 `from mini_rag.processor...`。这样无需 PYTHONPATH，最稳，但现有所有 import 都要改一遍。**建议先用 A，等要发 PyPI 包或团队扩大再迁 B。**
+**方案 B（更规范，但要改代码）**：给 `pyproject.toml` 加 `[build-system]` + 包配置，或干脆迁成标准 src-layout —— `src/mini_rag/` 单包，import 改成 `from mini_rag.graphs...`。这样无需 PYTHONPATH，最稳，但现有所有 import 都要改一遍。**建议先用 A，等要发 PyPI 包或团队扩大再迁 B。**
 
 ⚠️ 额外两个隐藏坑（和 import 同源，都是「根目录识别」问题）：
 
@@ -137,7 +137,7 @@ CMD ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000"]
 
 ---
 
-要不要我接着把骨架真正搭起来？可以按这个顺序：① 在 `web/` 生成 Vite 脚手架 + proxy 配置 → ② 在 `src/api/` 写 `main.py` + 一个最小 `chat` 路由 → ③ 建 `src/service/` 并接上 `import_processor` 图 → ④ 写两个 Dockerfile + 两个应用 yaml。你确认下「API 逻辑」是否就是我理解的 service 编排层，我就开工。
+要不要我接着把骨架真正搭起来？可以按这个顺序：① 在 `web/` 生成 Vite 脚手架 + proxy 配置 → ② 在 `src/api/` 写 `main.py` + 一个最小 `chat` 路由 → ③ 建 `src/service/` 并接上 `import_graph` 图 → ④ 写两个 Dockerfile + 两个应用 yaml。你确认下「API 逻辑」是否就是我理解的 service 编排层，我就开工。
 
 ---
 

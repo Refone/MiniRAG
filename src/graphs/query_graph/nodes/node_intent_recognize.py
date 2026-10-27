@@ -4,9 +4,9 @@ from common.config.app_config import APP_CONFIG
 from common.model import LLM
 from common.prompt.prompt_query_rewrite import PromptQueryRewrite
 from utils.logging_utils import logger
-from processor.query_processor.chat_history import chat_history_manager, MessageRole
+from common.store.chat_history import chat_history_manager, MessageRole
 from utils.node_utils import step_log, trace_node
-from processor.query_processor.state import QueryGraphState
+from graphs.query_graph.query_graph_state import QueryGraphState
 
 
 @step_log(desc="校验并获取数据")
@@ -169,7 +169,7 @@ def node_intent_recognize(state: QueryGraphState) -> QueryGraphState:
 
 if __name__ == "__main__":
     from rich import print as rprint
-    from processor.query_processor.state import create_state, save_state
+    from graphs.query_graph.query_graph_state import create_state, save_state
     from utils.path_utils import PROJECT_ROOT
 
     init_state = create_state(

@@ -66,15 +66,12 @@ class ChatHistoryManager:
         limit: int | None = APP_CONFIG.chat_message_lookback_count,
     ) -> list[ChatMessage]:
         try:
-            cursor = (
-                self.chat_history.find(
-                    {"session_id": session_id},
-                    {
-                        "_id": False
-                    },  # 不返回 MongoDB 自动生成的 _id 字段, ObjectId 类型不可序列化
-                )
-                .sort("timestamp", DESCENDING)
-            )
+            cursor = self.chat_history.find(
+                {"session_id": session_id},
+                {
+                    "_id": False
+                },  # 不返回 MongoDB 自动生成的 _id 字段, ObjectId 类型不可序列化
+            ).sort("timestamp", DESCENDING)
             if limit is not None:
                 cursor = cursor.limit(limit)
             messages: list[ChatMessage] = list(cursor)
@@ -91,7 +88,7 @@ class ChatHistoryManager:
         session_id: str,
         limit: int = APP_CONFIG.chat_message_lookback_count,
     ) -> str:
-        history_list = chat_history_manager.get_latest_messages(
+        history_list = self.get_latest_messages(
             session_id=session_id,
             limit=limit,
         )[::-1]

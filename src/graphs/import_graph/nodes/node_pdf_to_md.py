@@ -6,7 +6,7 @@ import requests
 
 from common.config.app_config import APP_CONFIG
 from common.config.env_config import ENV_CONFIG
-from processor.import_processor.state import ImportGraphState
+from graphs.import_graph.import_graph_state import ImportGraphState
 from utils.logging_utils import logger
 from utils.node_utils import step_log, trace_node
 from pypdf import PdfReader
@@ -226,7 +226,7 @@ def node_pdf_to_md(state: ImportGraphState) -> ImportGraphState:
 
 if __name__ == "__main__":
     from rich import print as rprint
-    from processor.import_processor.state import load_state, save_state
+    from graphs.import_graph.import_graph_state import load_state, save_state
     from utils.path_utils import PROJECT_ROOT
 
     prev_state = load_state(str(PROJECT_ROOT / "output/tmp/import_01_entry.json"))

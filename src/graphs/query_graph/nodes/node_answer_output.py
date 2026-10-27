@@ -1,8 +1,8 @@
 from common.prompt.prompt_final_answer import PromptFinalAnswer
-from processor.query_processor.chat_history import chat_history_manager, MessageRole
+from common.store.chat_history import chat_history_manager, MessageRole
 from utils.node_utils import trace_node
 from utils.logging_utils import logger
-from processor.query_processor.state import QueryGraphState, RerankResult
+from graphs.query_graph.query_graph_state import QueryGraphState, RerankResult
 from common.model import LLM
 from utils.sse_utils import SSEEvent, sse_push
 
@@ -98,7 +98,7 @@ def node_answer_output(state: QueryGraphState) -> QueryGraphState:
 
 if __name__ == "__main__":
     from rich import print as rprint
-    from processor.query_processor.state import load_state, save_state
+    from graphs.query_graph.query_graph_state import load_state, save_state
     from utils.path_utils import PROJECT_ROOT
 
     prev_state1 = load_state(PROJECT_ROOT / "output/tmp/query_01_intent_recognize.json")

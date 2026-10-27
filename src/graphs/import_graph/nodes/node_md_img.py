@@ -12,7 +12,7 @@ from common.config.env_config import ENV_CONFIG
 from common.model import VLM
 from common.model.qwen3_vl_plus import encode_image
 from common.prompt.prompt_image_summary import PromptImageSummary
-from processor.import_processor.state import ImportGraphState
+from graphs.import_graph.import_graph_state import ImportGraphState
 from utils.markdown_utils import extract_surrounding_context, find_image_position
 from utils.path_utils import PROJECT_ROOT
 from utils.node_utils import trace_node, step_log
@@ -351,7 +351,7 @@ def node_md_img(state: ImportGraphState) -> ImportGraphState:
 
 if __name__ == "__main__":
     from rich import print as rprint
-    from processor.import_processor.state import load_state, save_state
+    from graphs.import_graph.import_graph_state import load_state, save_state
 
     prev_state = load_state(str(PROJECT_ROOT / "output/tmp/import_02_pdf_to_md.json"))
     next_state = node_md_img(prev_state)

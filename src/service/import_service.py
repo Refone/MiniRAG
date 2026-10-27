@@ -1,5 +1,5 @@
-from processor.import_processor.main_graph import import_processor
-from processor.import_processor.state import ImportGraphState, create_state
+from graphs.import_graph.import_graph import import_graph
+from graphs.import_graph.import_graph_state import ImportGraphState, create_state
 from utils import task_utils
 from utils.logging_utils import logger
 from utils.sse_utils import SSEEvent, sse_push
@@ -8,7 +8,7 @@ from utils.sse_utils import SSEEvent, sse_push
 async def arun_import(task_id: str, origin_file_path: str) -> ImportGraphState:
     """异步执行导入图, 返回最终状态。
 
-    import_processor 是同步编译图; 这里用 ainvoke 让 LangGraph 把同步节点
+    import_graph 是同步编译图; 这里用 ainvoke 让 LangGraph 把同步节点
     调度到线程池, 避免阻塞 FastAPI 事件循环。
 
     进度经 SSE 推送 (队列在 POST /upload 时创建, 前端连
@@ -27,7 +27,7 @@ async def arun_import(task_id: str, origin_file_path: str) -> ImportGraphState:
     logger.info("导入任务启动: task_id={}, path={}", task_id, origin_file_path)
 
     try:
-        end_state = await import_processor.ainvoke(initial_state)
+        end_state = await import_graph.ainvoke(initial_state)
     except Exception as e:
         task_utils.set_task_status(task_id, task_utils.TaskStatus.FAILED.value)
         task_utils.set_task_error(task_id, str(e))

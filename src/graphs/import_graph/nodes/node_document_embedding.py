@@ -16,10 +16,10 @@ from common.config.env_config import ENV_CONFIG
 from utils.markdown_splitter import Chunk
 from utils.node_utils import trace_node, step_log
 from utils.logging_utils import logger, brief_list, brief_dict
-from processor.import_processor.state import FileType, ImportGraphState
+from graphs.import_graph.import_graph_state import FileType, ImportGraphState
 
 # node_md_img 的产物命名约定: {stem}_fixed.md (原始 md 为 {stem}.md)
-from processor.import_processor.nodes.node_md_img import _MD_FIXED_SUFFIX
+from graphs.import_graph.nodes.node_md_img import _MD_FIXED_SUFFIX
 
 
 @step_log(desc="校验并获取数据")
@@ -415,7 +415,7 @@ def node_document_embedding(state: ImportGraphState) -> ImportGraphState:
 
 if __name__ == "__main__":
     from rich import print as rprint
-    from processor.import_processor.state import load_state, save_state
+    from graphs.import_graph.import_graph_state import load_state, save_state
     from utils.path_utils import PROJECT_ROOT
 
     prev_state = load_state(

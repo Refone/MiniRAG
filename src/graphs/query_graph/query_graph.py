@@ -1,8 +1,7 @@
 from langgraph.graph import END, StateGraph
 
-from processor import query_processor
-from processor.query_processor.state import QueryGraphState
-from processor.query_processor.nodes import *
+from graphs.query_graph.query_graph_state import QueryGraphState
+from graphs.query_graph.nodes import *
 
 builder = StateGraph(QueryGraphState)
 
@@ -45,20 +44,20 @@ builder.add_edge("node_search_web", "node_rrf_and_rerank")
 builder.add_edge("node_rrf_and_rerank", "node_answer_output")
 builder.add_edge("node_answer_output", END)
 
-query_processor = builder.compile()
+query_graph = builder.compile()
 
 if __name__ == "__main__":
     from utils.logging_utils import logger
-    from processor.query_processor.state import create_state
+    from graphs.query_graph.query_graph_state import create_state
     from rich import print as rprint
 
-    logger.info("Starting query processor...")
+    logger.info("Starting query graph...")
 
     start = create_state(
         session_id="test-flow-session-id",
         original_query="使用 HAK180 时，有什么注意事项？",
     )
-    end = query_processor.invoke(start)
+    end = query_graph.invoke(start)
     rprint(end)
 
-    logger.info("Query processor finished.")
+    logger.info("Query graph finished.")

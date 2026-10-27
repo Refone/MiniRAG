@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from processor.import_processor.state import (
+from graphs.import_graph.import_graph_state import (
     ImportGraphState,
     file_type_from_filename,
     FileType,
@@ -27,7 +27,7 @@ def node_entry(state: ImportGraphState) -> ImportGraphState:
 
 
 if __name__ == "__main__":
-    from processor.import_processor.state import create_state, save_state
+    from graphs.import_graph.import_graph_state import create_state, save_state
     from utils.path_utils import PROJECT_ROOT
     from rich import print as rprint
 

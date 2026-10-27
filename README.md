@@ -3,20 +3,25 @@
 ## 基本架构
 
 ```shell
+asset   # 示例文档与演示素材
 docker  # docker 启动文件
 docs    # 项目文档与笔记
-dev     # 实验性调试脚本 (直接运行观察 src 逻辑)
+scripts # 一次性维护脚本 (生成 .env.sample / 重置数据库)
 src     # 主要源码
-├── api     # FastAPI 相关源码
-├── common  # 公共逻辑
+├── api       # FastAPI 相关源码 (HTTP 入口 / DTO / 启动自检)
+├── common    # 公共逻辑
+│   ├── client  # Milvus / MinIO / MongoDB 客户端
 │   ├── config  # 各种配置类
-│   ├── enum    # 枚举定义
-│   └── prompt  # 提示词模板
-├── processor   # 核心 LangGraph 处理逻辑
-│   ├── import_processor    # 导入流程: 文档导入-切分-向量化-落库
-│   └── query_processor     # 查询流程: query-向量化-三路召回-生成答案
-├── utils   # 工具逻辑
-└── web     # 最终 Web 呈现
+│   ├── model   # LLM / Embedding / Reranker / VLM 封装
+│   ├── prompt  # 提示词模板
+│   └── store   # 持久化 (会话历史)
+├── graphs    # 核心 LangGraph 处理逻辑
+│   ├── import_graph    # 导入流程: 文档导入-切分-向量化-落库
+│   └── query_graph     # 查询流程: query-向量化-三路召回-生成答案
+├── service   # 业务编排层 (把图包装成服务)
+└── utils     # 工具逻辑
+tools   # 独立工具 (markdown-splitter)
+web     # 前端 (Vite + React)
 ```
 
 ## Web 应用部署

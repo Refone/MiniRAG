@@ -4,15 +4,16 @@ from langgraph.config import get_config
 from langgraph.constants import END
 from langgraph.graph import StateGraph
 from langgraph.types import Send
-from processor.import_processor.state import (
+from graphs.import_graph.import_graph_state import (
     FileType,
     ImportGraphState,
     _keep_latest,
     create_state,
 )
-from processor.import_processor.nodes import *
+from graphs.import_graph.nodes import *
 from utils import task_utils
 from utils.node_utils import trace_node
+
 
 # --------------------------------------------------------------------------- #
 # md 后续处理子图 (node_md_img -> document_split -> document_embedding)
@@ -43,7 +44,7 @@ md_tail_workflow.set_entry_point("node_md_img")
 md_tail_workflow.add_edge("node_md_img", "node_document_split")
 md_tail_workflow.add_edge("node_document_split", "node_document_embedding")
 md_tail_workflow.add_edge("node_document_embedding", END)
-md_tail_processor = md_tail_workflow.compile()
+md_tail_graph = md_tail_workflow.compile()
 
 
 # --------------------------------------------------------------------------- #
@@ -60,7 +61,7 @@ def node_md_tail_branch(state: ImportGraphState):
     child_id = state.get("child_task_id") or ""
     try:
         # 透传当前 LangGraph config, 保留 callbacks / tracing / recursion limit
-        result = md_tail_processor.invoke(state, get_config())
+        result = md_tail_graph.invoke(state, get_config())
     except Exception as e:
         if child_id:
             task_utils.fail_child(child_id, str(e))
@@ -155,16 +156,16 @@ workflow.add_conditional_edges(
 )
 workflow.add_edge("node_md_tail", END)
 
-import_processor = workflow.compile()
+import_graph = workflow.compile()
 
 if __name__ == "__main__":
     from utils import task_utils
-    from processor.import_processor.state import create_state
+    from graphs.import_graph.import_graph_state import create_state
     from utils.logging_utils import logger
     from utils.path_utils import PROJECT_ROOT
     from rich import print as rprint
 
-    print(import_processor.get_graph().draw_ascii())
+    print(import_graph.get_graph().draw_ascii())
 
     task_id = "import-pdf-test"
     # origin_file_path = PROJECT_ROOT / "asset/hak180产品安全手册.pdf"
@@ -176,7 +177,7 @@ if __name__ == "__main__":
         origin_file_path=str(origin_file_path),
     )
 
-    end_state = import_processor.invoke(initial_state)
+    end_state = import_graph.invoke(initial_state)
 
     logger.complete()
 

@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from common.config.env_config import ENV_CONFIG
-from processor.import_processor.state import ImportGraphState, MdChild
+from graphs.import_graph.import_graph_state import ImportGraphState, MdChild
 from utils import task_utils
 from utils.logging_utils import logger
 from utils.node_utils import trace_node

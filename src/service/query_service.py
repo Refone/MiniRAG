@@ -1,8 +1,8 @@
-from processor.query_processor.main_graph import query_processor
+from graphs.query_graph.query_graph import query_graph
 from utils.sse_utils import SSEEvent, sse_push
 from utils.task_utils import clear_task, set_task_status, TaskStatus
 from utils.logging_utils import logger
-from processor.query_processor.state import create_state
+from graphs.query_graph.query_graph_state import create_state
 
 
 async def arun_query(
@@ -21,7 +21,7 @@ async def arun_query(
             enable_web_search=enable_web_search,
             enable_hyde=enable_hyde,
         )
-        end_state = await query_processor.ainvoke(start_state)
+        end_state = await query_graph.ainvoke(start_state)
 
         sse_push(
             sse_id=session_id,

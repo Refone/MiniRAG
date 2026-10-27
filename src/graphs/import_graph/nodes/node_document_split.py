@@ -3,7 +3,7 @@ from pathlib import Path
 
 from common.config.app_config import APP_CONFIG
 from utils.node_utils import trace_node, step_log
-from processor.import_processor.state import ImportGraphState
+from graphs.import_graph.import_graph_state import ImportGraphState
 from utils.markdown_splitter import split_markdown, Chunk
 from utils.logging_utils import logger
 
@@ -105,7 +105,7 @@ def node_document_split(state: ImportGraphState) -> ImportGraphState:
 
 if __name__ == "__main__":
     from rich import print as rprint
-    from processor.import_processor.state import load_state, save_state
+    from graphs.import_graph.import_graph_state import load_state, save_state
     from utils.path_utils import PROJECT_ROOT
 
     prev_state = load_state(str(PROJECT_ROOT / "output/tmp/import_03_md_img.json"))

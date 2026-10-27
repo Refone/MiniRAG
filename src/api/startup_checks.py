@@ -1,6 +1,6 @@
 """后端启动自检。
 
-setup() 在 FastAPI lifespan 中执行, 检查分为两类:
+startup_checks() 在 FastAPI lifespan 中执行, 检查分为两类:
 
 1. 硬依赖 (任一项失败则阻止后端启动):
    - Milvus: 连通性 + docs / chunks 集合初始化
@@ -106,7 +106,7 @@ _HARD_STEPS: list[tuple[str, Callable[[], None], str]] = [
 ]
 
 
-def setup() -> None:
+def startup_checks() -> None:
     """后端启动自检: 逐项执行硬依赖检查, 汇总失败并阻止启动。"""
     logger.info("开始执行后端启动自检 ...")
 

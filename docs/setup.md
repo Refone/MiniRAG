@@ -17,7 +17,7 @@ wget https://github.com/milvus-io/milvus/raw/refs/heads/master/deployments/docke
 
 ## 后端启动自检
 
-后端 (FastAPI) 启动时会执行 `src/api/setup.py` 的自检流程:
+后端 (FastAPI) 启动时会执行 `src/api/startup_checks.py` 的自检流程:
 
 **硬依赖** (任一项失败则拒绝启动, 并汇总报告全部失败项与排查提示):
 
@@ -38,5 +38,5 @@ wget https://github.com/milvus-io/milvus/raw/refs/heads/master/deployments/docke
 如需手动触发自检:
 
 ```bash
-.venv/bin/python -c "from api.setup import setup; setup()"
+.venv/bin/python -c "from api.startup_checks import startup_checks; startup_checks()"
 ```

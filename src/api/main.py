@@ -28,17 +28,17 @@ from service import docs_service
 from service.import_service import arun_import
 from service.query_service import arun_query
 from utils import task_utils
-from api.setup import setup
+from api.startup_checks import startup_checks
 from utils.logging_utils import logger
 from utils.path_utils import PROJECT_ROOT
 from utils.sse_utils import sse_create_queue, sse_generator
-from processor.query_processor.chat_history import ChatMessage, chat_history_manager
+from common.store.chat_history import ChatMessage, chat_history_manager
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("MiniRag API 启动 (version={})", __version__)
-    setup()
+    startup_checks()
     yield
     logger.info("MiniRag API 关闭")
 

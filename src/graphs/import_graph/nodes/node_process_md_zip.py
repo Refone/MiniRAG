@@ -4,13 +4,13 @@ from pathlib import Path, PurePosixPath
 from urllib.parse import unquote
 
 from common.config.env_config import ENV_CONFIG
-from processor.import_processor.state import ImportGraphState
+from graphs.import_graph.import_graph_state import ImportGraphState
 from utils.logging_utils import logger
 from utils.node_utils import step_log, trace_node
 
 # 复用 node_process_standalone_md 的图片处理工具 (图片语法正则 / 在线图片下载 /
 # 地址改写), 保证「独文件 md」与「压缩包 md」两条路径行为一致。
-from processor.import_processor.nodes.node_process_standalone_md import (
+from graphs.import_graph.nodes.node_process_standalone_md import (
     _IMG_TAG_RE,
     _MARKDOWN_IMAGE_RE,
     _build_local_filename,
@@ -363,7 +363,7 @@ def node_process_md_zip(state: ImportGraphState) -> ImportGraphState:
 
 if __name__ == "__main__":
     from rich import print as rprint
-    from processor.import_processor.state import create_state, save_state
+    from graphs.import_graph.import_graph_state import create_state, save_state
     from utils.path_utils import PROJECT_ROOT
 
     start_state = create_state(

@@ -1,6 +1,6 @@
 """网络连通性探测工具。
 
-供后端启动自检 (api/setup.py) 与各数据服务 client 的 check_health 使用:
+供后端启动自检 (api/startup_checks.py) 与各数据服务 client 的 check_health 使用:
 先用带超时的 TCP 探测确认服务可达, 再发起真实协议请求 (ping / list_buckets 等),
 避免服务未启动时被 SDK 默认的长超时 (如 MinIO 5 分钟) 拖住启动流程。
 """

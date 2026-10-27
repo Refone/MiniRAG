@@ -9,8 +9,8 @@ from utils.node_utils import trace_node, step_log
 from utils.logging_utils import logger
 from utils.token_utils import compute_token
 from common.client.milvus_client import MilvusChunksRecall
-from processor.query_processor.state import DataFrom, QueryGraphState, RerankResult
-from processor.query_processor.nodes.node_search_web import WebSearchResult
+from graphs.query_graph.query_graph_state import DataFrom, QueryGraphState, RerankResult
+from graphs.query_graph.nodes.node_search_web import WebSearchResult
 
 
 @step_log(desc="验证并获取数据")
@@ -248,7 +248,7 @@ def node_rrf_and_rerank(state: QueryGraphState) -> QueryGraphState:
 
 if __name__ == "__main__":
     from rich import print as rprint
-    from processor.query_processor.state import load_state, save_state
+    from graphs.query_graph.query_graph_state import load_state, save_state
     from utils.path_utils import PROJECT_ROOT
 
     prev_state1 = load_state(PROJECT_ROOT / "output/tmp/query_01_intent_recognize.json")

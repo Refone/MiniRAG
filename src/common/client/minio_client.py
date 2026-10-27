@@ -15,7 +15,7 @@ class MiniRagMinioClient:
     def __init__(self):
         """只保存配置并构建惰性客户端, 不做任何网络请求。
 
-        bucket 的创建放到了 prepare_bucket() 里, 由启动自检 (api/setup.py)
+        bucket 的创建放到了 prepare_bucket() 里, 由启动自检 (api/startup_checks.py)
         或 reset_db.py 显式调用: 若在 __init__ 里连网, MinIO 未启动时
         import common.client 就会直接抛异常, 自检流程根本来不及报告。
         """
@@ -42,7 +42,7 @@ class MiniRagMinioClient:
         """准备 bucket: 不存在则创建, 并设置匿名只读策略。
 
         不放在 __init__ 里 (构造必须无网络副作用), 由启动自检
-        (api/setup.py) 与 tools/reset_db.py 在需要时显式调用。
+        (api/startup_checks.py) 与 scripts/reset_db.py 在需要时显式调用。
         """
         if self._minio.bucket_exists(self.bucket_name):
             logger.info(f"MinIO bucket '{self.bucket_name}' 已存在")

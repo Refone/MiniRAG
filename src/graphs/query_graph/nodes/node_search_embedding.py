@@ -2,7 +2,7 @@ from common.client import MILVUS_CLIENT
 from common.client.milvus_client import MilvusChunksRecall
 from utils.node_utils import step_log, trace_node
 from utils.logging_utils import logger
-from processor.query_processor.state import QueryGraphState
+from graphs.query_graph.query_graph_state import QueryGraphState
 
 
 @step_log(desc="校验并获取数据")
@@ -52,7 +52,7 @@ def node_search_embedding(state: QueryGraphState) -> QueryGraphState:
 
 if __name__ == "__main__":
     from rich import print as rprint
-    from processor.query_processor.state import load_state, save_state
+    from graphs.query_graph.query_graph_state import load_state, save_state
     from utils.path_utils import PROJECT_ROOT
 
     prev_state = load_state(PROJECT_ROOT / "output/tmp/query_01_intent_recognize.json")
