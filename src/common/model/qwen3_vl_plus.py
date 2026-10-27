@@ -50,7 +50,7 @@ if __name__ == "__main__":
     from utils.path_utils import PROJECT_ROOT
     from rich import print as rprint
 
-    local_image_path = str(PROJECT_ROOT / "asset/RAG.png")
+    local_image_path = str(PROJECT_ROOT / "test/fixture/RAG.png")
     remote_image_url = "https://pics3.baidu.com/feed/f31fbe096b63f624208f2298bc4e78e91b4ca372.jpeg@f_auto?token=4e343c1319d17140423146fb4bb60b6b"
 
     response = asyncio.run(

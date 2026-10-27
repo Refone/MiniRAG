@@ -167,7 +167,7 @@ if __name__ == "__main__":
 
     from rich import print as rprint
     md_content = ""
-    md_path = "asset/hello-agent.md"
+    md_path = "test/fixture/hello-agent.md"
     with open(md_path, "r") as f:
         md_content = f.read()
 

@@ -33,7 +33,7 @@ if __name__ == "__main__":
 
     start1 = create_state(
         task_id="test_task_start",
-        origin_file_path=str(PROJECT_ROOT / "asset/hello-agent.md"),
+        origin_file_path=str(PROJECT_ROOT / "test/fixture/hello-agent.md"),
     )
     end1 = node_entry(start1)
     rprint(end1)
@@ -41,7 +41,7 @@ if __name__ == "__main__":
     try:
         start2 = create_state(
             task_id="test_task_start",
-            origin_file_path=str(PROJECT_ROOT / "asset/test.txt"),
+            origin_file_path=str(PROJECT_ROOT / "test/fixture/test.txt"),
         )
         end2 = node_entry(start2)
         rprint(end2)
@@ -50,7 +50,7 @@ if __name__ == "__main__":
 
     start_state = create_state(
         task_id="test_task_start",
-        origin_file_path=str(PROJECT_ROOT / "asset/万用表RS-12的使用.pdf"),
+        origin_file_path=str(PROJECT_ROOT / "test/fixture/万用表RS-12的使用.pdf"),
     )
     end_state = node_entry(start_state)
     rprint(end_state)

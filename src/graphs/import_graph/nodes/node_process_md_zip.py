@@ -368,7 +368,7 @@ if __name__ == "__main__":
 
     start_state = create_state(
         task_id="test_task_start",
-        origin_file_path=str(PROJECT_ROOT / "asset/LangGraph 学习笔记.zip"),
+        origin_file_path=str(PROJECT_ROOT / "test/fixture/LangGraph 学习笔记.zip"),
     )
     end_state = node_process_md_zip(start_state)
     rprint(end_state)

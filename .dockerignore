@@ -19,10 +19,12 @@ web/dist
 # 数据 / 运行时产物 / 密钥
 .env
 .env.sample
-asset
 model
 output
 logs
 tmp
 docs
 docker/volumes
+
+# 测试资源 (大体积样例文件, 运行镜像不需要)
+test

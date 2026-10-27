@@ -196,7 +196,7 @@ if __name__ == "__main__":
     start_state = create_state(
         task_id="test_task_start",
         file_title="hello-agent",
-        origin_file_path=str(PROJECT_ROOT / "asset/hello-agent.md"),
+        origin_file_path=str(PROJECT_ROOT / "test/fixture/hello-agent.md"),
     )
     end_state = node_process_standalone_md(start_state)
     rprint(end_state)

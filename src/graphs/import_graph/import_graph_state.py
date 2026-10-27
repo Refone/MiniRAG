@@ -149,7 +149,7 @@ if __name__ == "__main__":
 
     state = create_state(
         task_id="test-task-001",
-        origin_file_path=str(PROJECT_ROOT / "asset/万用表RS-12的使用.pdf"),
+        origin_file_path=str(PROJECT_ROOT / "test/fixture/万用表RS-12的使用.pdf"),
     )
 
     rprint(state)

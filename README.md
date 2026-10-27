@@ -3,7 +3,6 @@
 ## 基本架构
 
 ```shell
-asset   # 示例文档与演示素材
 docker  # docker 启动文件
 docs    # 项目文档与笔记
 scripts # 一次性维护脚本 (生成 .env.sample / 重置数据库)
@@ -20,6 +19,7 @@ src     # 主要源码
 │   └── query_graph     # 查询流程: query-向量化-三路召回-生成答案
 ├── service   # 业务编排层 (把图包装成服务)
 └── utils     # 工具逻辑
+test    # 测试资源 (fixture/ 下为各节点 __main__ 调试用的样例文件)
 tools   # 独立工具 (markdown-splitter)
 web     # 前端 (Vite + React)
 ```
