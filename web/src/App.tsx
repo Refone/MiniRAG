@@ -1,7 +1,7 @@
 import { Activity, useEffect, useState } from "react";
 import { NavBar } from "@/components/layout/NavBar";
 import { ChatPage } from "@/pages/ChatPage";
-import { ImportPage } from "@/pages/ImportPage";
+import { DocumentPage } from "@/pages/DocumentPage";
 import { useChatStore } from "@/store/chatStore";
 import { useDocsStore } from "@/store/docsStore";
 import { usePreferenceStore } from "@/store/preferenceStore";
@@ -46,8 +46,8 @@ export default function App() {
         <Activity mode={page === "chat" ? "visible" : "hidden"}>
           <ChatPage />
         </Activity>
-        <Activity mode={page === "import" ? "visible" : "hidden"}>
-          <ImportPage />
+        <Activity mode={page === "docs" ? "visible" : "hidden"}>
+          <DocumentPage />
         </Activity>
       </main>
     </div>

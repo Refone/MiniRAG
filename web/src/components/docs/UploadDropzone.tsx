@@ -6,7 +6,7 @@ interface UploadDropzoneProps {
   onFiles: (list: FileList) => void;
 }
 
-/** 点击/拖拽上传区（dragging 视觉内部自持；原 ImportPage 上传区平移） */
+/** 点击/拖拽上传区（dragging 视觉内部自持；文档管理页上传区平移） */
 export function UploadDropzone({ onFiles }: UploadDropzoneProps) {
   const [dragging, setDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);

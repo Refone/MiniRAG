@@ -148,7 +148,7 @@ CMD ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000"]
 ```shell
 web/src/
 ├── components/   # UI 组件（props 化、零 store 依赖；icons/markdown/layout/chat/docs/ui）
-├── pages/        # 页面组合层（ChatPage / ImportPage，接线 + 页面私有视觉状态）
+├── pages/        # 页面组合层（ChatPage / DocumentPage，接线 + 页面私有视觉状态）
 ├── store/        # 按存储方式分层：preferenceStore（localStorage persist）+ chat/docs/session（会话内存）
 ├── lib/          # 基础设施：constants.ts / api(client+chat+docs+upload) / cache(request+image) / sse.ts
 ├── hooks/        # 共享 Hook：useScrollRestore / useImageUrl / useApiHealth

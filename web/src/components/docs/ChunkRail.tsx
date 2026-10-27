@@ -20,7 +20,7 @@ interface ChunkRailProps {
 }
 
 /**
- * ChunkRail（原 ImportPage ChunkRail 逻辑平移，内部自持全部状态）：
+ * ChunkRail（文档管理页 ChunkRail 逻辑平移，内部自持全部状态）：
  * 长度分布条 + 悬停 tip + 滚动高亮 + 点击平滑定位。
  * - resetKey 变化 → railActive 归 0（保留 prevSelKeyRef 守卫：仅真正切换
  *   文档/模式时重置，切回 Tab 保持原高亮，与恢复的滚动位置一致）

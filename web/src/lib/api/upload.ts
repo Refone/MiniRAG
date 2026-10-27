@@ -1,4 +1,4 @@
-/** 上传 API（Session-MVVM V0: 自 ImportPage 收敛至此） */
+/** 上传 API（Session-MVVM V0: 自文档管理页收敛至此） */
 
 import { request } from "./client";
 import type { ImportUploadResponse } from "@/types/docs";

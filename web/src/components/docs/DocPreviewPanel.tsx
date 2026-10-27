@@ -23,7 +23,7 @@ interface DocPreviewPanelProps {
 }
 
 /**
- * 右卡片（原 ImportPage 右预览区平移）：
+ * 右卡片（文档管理页右预览区平移）：
  * 分段开关 + 空态/骨架/原文/切块/特征 渲染 + ChunkRail（chunks 模式）。
  * 预览区滚动守卫由页面 useScrollRestore 持有（resetKey 语义），ChunkRail 自行监听高亮。
  */

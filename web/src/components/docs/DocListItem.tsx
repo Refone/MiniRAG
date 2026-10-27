@@ -10,7 +10,7 @@ interface DocListItemProps {
   onDelete: () => void;
 }
 
-/** 文档列表条目（原 ImportPage DocItem 原样平移）；memo 剪枝 (BUG-004) */
+/** 文档列表条目（文档管理页 DocItem 原样平移）；memo 剪枝 (BUG-004) */
 export const DocListItem = memo(function DocListItem({
   doc,
   selected,

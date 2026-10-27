@@ -1,7 +1,7 @@
 /** 应用级、跨域共享的类型契约 */
 
 /** 应用页面键（App.tsx 内 PageKey 状态切换即本项目的"路由"） */
-export type PageKey = "chat" | "import";
+export type PageKey = "chat" | "docs";
 
 /** 任务进度视图（chat/docs 双域共享，SSE progress 事件 → 展示态） */
 export interface ProgressView {

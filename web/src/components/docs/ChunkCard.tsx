@@ -10,7 +10,7 @@ interface ChunkCardProps {
   showSplit: boolean;
 }
 
-/** 切块卡片（原 ImportPage chunks 渲染平移）：badge/标题栈/级别/字数 + markdown 正文 */
+/** 切块卡片（文档管理页 chunks 渲染平移）：badge/标题栈/级别/字数 + markdown 正文 */
 export function ChunkCard({ index, chunk, showSplit }: ChunkCardProps) {
   const title = (chunk.title_stack || [])
     .filter(Boolean)

@@ -12,7 +12,7 @@ interface ConfirmModalProps {
   onCancel: () => void;
 }
 
-/** 确认弹窗（自 ImportPage 删除确认弹窗抽出） */
+/** 确认弹窗（自文档管理页删除确认弹窗抽出） */
 export function ConfirmModal({
   title,
   children,

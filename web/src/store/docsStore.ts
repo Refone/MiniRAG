@@ -1,7 +1,7 @@
 /**
  * 文档管理 Store (Session-MVVM V0, 设计文档 §4.2)
  *
- * - 列表/详情/预览模式/导入任务为会话级状态, 不随 ImportPage 隐藏/卸载销毁;
+ * - 列表/详情/预览模式/导入任务为会话级状态, 不随文档管理页隐藏/卸载销毁;
  * - 上传 SSE (esMap) 生命周期=会话: 切 Tab 不再断流 (PRD 最痛点);
  * - 读接口走 requestCache; 失效点收敛在本 store 动作内 (设计 §5.2):
  *   上传完成 → invalidate("docs:list"); 删除 → invalidate("docs:list")+detail;

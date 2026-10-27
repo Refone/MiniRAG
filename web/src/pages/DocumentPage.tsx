@@ -1,5 +1,5 @@
 /**
- * 文档管理页（原 ImportPage 升级版，交互与视觉对照 docs/feat/文档管理页面/demo-v4.html）
+ * 文档管理页（交互与视觉对照 docs/feat/文档管理页面/demo-v4.html）
  *
  * 结构：左卡片（文档列表 ⇄ 导入 横向滑动）+ 右卡片（预览：空态 / 原文 / 切块 / 特征）。
  * 后端契约见 docs/feat/文档管理页面/后端方案.md §4/§5/§6。
@@ -19,7 +19,7 @@ import { useDocsStore } from "@/store/docsStore";
 import { usePreferenceStore } from "@/store/preferenceStore";
 import type { DocsListItem } from "@/types/docs";
 
-export function ImportPage() {
+export function DocumentPage() {
   /* ---- docsStore 订阅 ---- */
   const docs = useDocsStore((s) => s.docs);
   const total = useDocsStore((s) => s.total);

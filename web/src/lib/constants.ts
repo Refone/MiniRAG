@@ -14,7 +14,7 @@ export const PREFERENCE_STORE_NAME = "kb-preferences";
 
 export const PAGE_TABS: { key: PageKey; label: string }[] = [
   { key: "chat", label: "对话" },
-  { key: "import", label: "文档管理" },
+  { key: "docs", label: "文档管理" },
 ];
 
 /* ==================== 对话域 ==================== */

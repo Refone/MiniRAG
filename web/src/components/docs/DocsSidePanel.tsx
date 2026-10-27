@@ -20,7 +20,7 @@ interface DocsSidePanelProps {
 }
 
 /**
- * 左卡片（原 ImportPage 左面板平移）：文档列表 ⇄ 导入 横向滑动。
+ * 左卡片（文档管理页左面板平移）：文档列表 ⇄ 导入 横向滑动。
  * - view 状态内部自持（Activity 保活保留）
  * - 文档列表 / 导入列表滚动守卫由内部 useScrollRestore 自持（现状语义）
  */

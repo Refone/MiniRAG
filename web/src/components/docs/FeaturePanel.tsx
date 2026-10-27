@@ -3,7 +3,7 @@ interface FeaturePanelProps {
   abstract: string;
 }
 
-/** 特征子页（原 ImportPage features 渲染平移）：关键词 chips + 摘要 */
+/** 特征子页（文档管理页 features 渲染平移）：关键词 chips + 摘要 */
 export function FeaturePanel({ keywords, abstract }: FeaturePanelProps) {
   const kwList = keywords
     .split(/[,，]/)
