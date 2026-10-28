@@ -2,10 +2,11 @@ from datetime import datetime
 from enum import StrEnum
 from typing import TypedDict
 
+from pymongo import DESCENDING
+
 from common.client import MONGODB_CLIENT
 from common.config.app_config import APP_CONFIG
 from utils.logging_utils import logger
-from pymongo import DESCENDING
 
 
 class ChatMessage(TypedDict):
@@ -97,11 +98,11 @@ class ChatHistoryManager:
         for index, item in enumerate(history_list):
             if item["role"] == MessageRole.USER:
                 history_summary_list.append(
-                    f"历史对话 {index+1} | 用户提问 | {item['text']}"
+                    f"历史对话 {index + 1} | 用户提问 | {item['text']}"
                 )
             elif item["role"] == MessageRole.ASSISTANT:
                 history_summary_list.append(
-                    f"历史对话 {index+1} | 助手回答 | {item['text']}"
+                    f"历史对话 {index + 1} | 助手回答 | {item['text']}"
                 )
 
         history_summary = "\n".join(history_summary_list)

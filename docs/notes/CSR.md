@@ -13,8 +13,8 @@ CSR（Compressed Sparse Row，压缩稀疏行）是一种专门存储稀疏矩�
 第 `i` 行的非零元素范围是：
 
 ```python
-data[indptr[i] : indptr[i+1]]
-indices[indptr[i] : indptr[i+1]]
+data[indptr[i] : indptr[i + 1]]
+indices[indptr[i] : indptr[i + 1]]
 ```
 
 举例，一个 $3 \times 5$ 的矩阵：
@@ -28,9 +28,9 @@ indices[indptr[i] : indptr[i+1]]
 CSR 表示为：
 
 ```python
-data    = [3, 4, 1, 2]
+data = [3, 4, 1, 2]
 indices = [2, 4, 0, 4]
-indptr  = [0, 2, 2, 4]   # 长度 n+1
+indptr = [0, 2, 2, 4]  # 长度 n+1
 ```
 
 - 第 0 行：`data[0:2] = [3,4]`，列索引 `[2,4]`

@@ -6,9 +6,9 @@ from urllib.parse import unquote, urlsplit
 import requests
 
 from common.config.env_config import ENV_CONFIG
+from graphs.import_graph.import_graph_state import ImportGraphState
 from utils.logging_utils import logger
 from utils.node_utils import step_log, trace_node
-from graphs.import_graph.import_graph_state import ImportGraphState
 
 # 在线图片地址以 http/https 开头
 _HTTP_PREFIXES = ("http://", "https://")
@@ -186,6 +186,7 @@ def node_process_standalone_md(state: ImportGraphState) -> ImportGraphState:
 
 if __name__ == "__main__":
     from rich import print as rprint
+
     from graphs.import_graph.import_graph_state import (
         ImportGraphState,
         create_state,

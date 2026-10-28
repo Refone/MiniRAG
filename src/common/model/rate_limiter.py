@@ -1,9 +1,10 @@
 import asyncio
-from collections import deque
-import time
 import threading
+import time
+from collections import deque
 
 from langchain_core.rate_limiters import BaseRateLimiter
+
 
 class SlidingWindowRateLimiter(BaseRateLimiter):
     """本地滑动窗口限速器(单进程,协程安全)。"""

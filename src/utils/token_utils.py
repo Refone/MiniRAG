@@ -17,10 +17,10 @@ from __future__ import annotations
 import base64
 import unicodedata
 from functools import lru_cache
-from pathlib import Path
-from utils.path_utils import PROJECT_ROOT
 
 import tiktoken
+
+from utils.path_utils import PROJECT_ROOT
 
 # 固定项目资源: 词表文件与 src/common/model 包同目录
 _VOCAB_PATH = PROJECT_ROOT / "src" / "common" / "model" / "qwen.tiktoken"

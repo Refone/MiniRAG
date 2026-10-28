@@ -1,7 +1,8 @@
 from pymongo import MongoClient
+
+from common.config.env_config import ENV_CONFIG
 from utils.logging_utils import logger
 from utils.net_utils import probe_tcp
-from common.config.env_config import ENV_CONFIG
 
 
 class MiniRagMongoClient(MongoClient):

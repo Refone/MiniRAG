@@ -1,7 +1,6 @@
-import json
 import copy
+import json
 from typing import Annotated, TypedDict
-
 
 
 def _keep_latest(_old, new):
@@ -145,6 +144,7 @@ def load_state(file_path: str) -> ImportGraphState:
 
 if __name__ == "__main__":
     from rich import print as rprint
+
     from utils.path_utils import fixture_path, snapshot_path
 
     state = create_state(

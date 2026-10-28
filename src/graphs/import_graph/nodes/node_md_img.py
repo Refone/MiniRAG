@@ -1,7 +1,7 @@
 import html
+import re
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-import re
 from typing import TypedDict
 
 from langchain.messages import HumanMessage
@@ -13,9 +13,9 @@ from common.model import VLM
 from common.model.qwen3_vl_plus import encode_image
 from common.prompt.prompt_image_summary import PromptImageSummary
 from graphs.import_graph.import_graph_state import ImportGraphState
-from utils.markdown_utils import extract_surrounding_context, find_image_position
-from utils.node_utils import trace_node, step_log
 from utils.logging_utils import logger
+from utils.markdown_utils import extract_surrounding_context, find_image_position
+from utils.node_utils import step_log, trace_node
 
 _MD_FIXED_SUFFIX = "_fixed"
 
@@ -350,6 +350,7 @@ def node_md_img(state: ImportGraphState) -> ImportGraphState:
 
 if __name__ == "__main__":
     from rich import print as rprint
+
     from graphs.import_graph.import_graph_state import load_state, save_state
     from utils.path_utils import snapshot_path
 
@@ -360,6 +361,6 @@ if __name__ == "__main__":
 
     new_state_json = snapshot_path("import_03_md_img.json")
     save_state(next_state, new_state_json)
-    logger.info(f"Markdown 内联图片处理完成")
+    logger.info("Markdown 内联图片处理完成")
     logger.info(f"状态保存路径: {new_state_json}")
     logger.info(f"修改后的 Markdown 文件路径: {next_state['markdown_file_path']}")

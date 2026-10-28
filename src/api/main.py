@@ -1,12 +1,14 @@
+import uuid
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import (
     APIRouter,
-    FastAPI,
-    Request,
     BackgroundTasks,
+    FastAPI,
     File,
     HTTPException,
+    Request,
     UploadFile,
 )
 from fastapi.middleware.cors import CORSMiddleware
@@ -14,25 +16,22 @@ from fastapi.responses import JSONResponse, StreamingResponse
 
 from api import __version__
 from api.schemas import (
+    DocsDeleteResponse,
+    DocsDetailResponse,
+    DocsListResponse,
     QueryRequest,
     UploadResponse,
-    DocsListResponse,
-    DocsDetailResponse,
-    DocsDeleteResponse,
 )
-import uuid
-from pathlib import Path
+from api.startup_checks import startup_checks
 from common.client import MINIO_CLIENT
 from common.config.env_config import ENV_CONFIG
+from common.store.chat_history import ChatMessage, chat_history_manager
 from service import docs_service
 from service.import_service import arun_import
 from service.query_service import arun_query
 from utils import task_utils
-from api.startup_checks import startup_checks
 from utils.logging_utils import logger
-from utils.path_utils import PROJECT_ROOT
 from utils.sse_utils import sse_create_queue, sse_generator
-from common.store.chat_history import ChatMessage, chat_history_manager
 
 
 @asynccontextmanager

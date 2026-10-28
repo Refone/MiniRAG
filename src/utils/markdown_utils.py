@@ -1,5 +1,5 @@
 import re
-from typing import Optional
+
 from common.config.app_config import APP_CONFIG
 
 # 一个或多个空行（允许行内只有空格/制表符）
@@ -8,9 +8,7 @@ _IMG_MD_RE = re.compile(r"!\[[^\]]*\]\([^)]*\)")
 # HTML <img> 标签（属性名不区分大小写）
 _IMG_HTML_TAG_RE = re.compile(r"<img\b[^>]*>", re.IGNORECASE)
 # <img> 标签中的 src 属性值（可带可不带引号，不跨标签边界）
-_IMG_HTML_SRC_RE = re.compile(
-    r"(?<=\s)src\s*=\s*[\"']?([^\"'>\s]*)", re.IGNORECASE
-)
+_IMG_HTML_SRC_RE = re.compile(r"(?<=\s)src\s*=\s*[\"']?([^\"'>\s]*)", re.IGNORECASE)
 _MEANINGLESS_CHARS_RE = re.compile(r"[\s\[\]()（）【】]+")
 
 
@@ -77,6 +75,7 @@ def extract_surrounding_context(
         break
 
     return prev_text, next_text
+
 
 def find_image_position(md_content: str, image_name: str) -> tuple[int, int] | None:
     """

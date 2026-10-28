@@ -1,7 +1,14 @@
 from langgraph.graph import END, StateGraph
 
+from graphs.query_graph.nodes import (
+    node_answer_output,
+    node_intent_recognize,
+    node_rrf_and_rerank,
+    node_search_embedding,
+    node_search_hyde,
+    node_search_web,
+)
 from graphs.query_graph.query_graph_state import QueryGraphState
-from graphs.query_graph.nodes import *
 
 builder = StateGraph(QueryGraphState)
 
@@ -47,9 +54,10 @@ builder.add_edge("node_answer_output", END)
 query_graph = builder.compile()
 
 if __name__ == "__main__":
-    from utils.logging_utils import logger
-    from graphs.query_graph.query_graph_state import create_state
     from rich import print as rprint
+
+    from graphs.query_graph.query_graph_state import create_state
+    from utils.logging_utils import logger
 
     logger.info("Starting query graph...")
 

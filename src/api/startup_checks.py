@@ -19,7 +19,6 @@ from pathlib import Path
 from typing import Callable
 
 from common.client import MILVUS_CLIENT, MINIO_CLIENT, MONGODB_CLIENT
-from common.config.app_config import APP_CONFIG
 from common.config.env_config import ENV_CONFIG
 from utils.logging_utils import logger
 

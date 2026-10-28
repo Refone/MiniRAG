@@ -3,13 +3,13 @@ import time
 from pathlib import Path
 
 import requests
+from pypdf import PdfReader
 
 from common.config.app_config import APP_CONFIG
 from common.config.env_config import ENV_CONFIG
 from graphs.import_graph.import_graph_state import ImportGraphState
 from utils.logging_utils import logger
 from utils.node_utils import step_log, trace_node
-from pypdf import PdfReader
 
 # PDF 文件头魔数 (前 5 字节)
 _PDF_MAGIC = b"%PDF-"
@@ -102,7 +102,6 @@ def step_2_upload_and_poll(pdf_path: Path, page_cnt: int) -> str:
 
     # PUT 上传只返回状态码, 无 body
     with requests.Session() as session:
-
         # 纯净版的请求头,不随意携带代理的参数
         session.trust_env = False
 
@@ -226,6 +225,7 @@ def node_pdf_to_md(state: ImportGraphState) -> ImportGraphState:
 
 if __name__ == "__main__":
     from rich import print as rprint
+
     from graphs.import_graph.import_graph_state import load_state, save_state
     from utils.path_utils import snapshot_path
 
@@ -236,6 +236,6 @@ if __name__ == "__main__":
     new_state_json = snapshot_path("import_02_pdf_to_md.json")
 
     save_state(next_state, new_state_json)
-    logger.info(f"PDF to Markdown 处理完成")
+    logger.info("PDF to Markdown 处理完成")
     logger.info(f"状态保存路径: {new_state_json}")
     logger.info(f"文件输出路径: {next_state['markdown_file_path']}")

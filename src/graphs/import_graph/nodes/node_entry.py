@@ -1,9 +1,9 @@
 from pathlib import Path
 
 from graphs.import_graph.import_graph_state import (
+    FileType,
     ImportGraphState,
     file_type_from_filename,
-    FileType,
 )
 from utils.logging_utils import logger
 from utils.node_utils import trace_node
@@ -27,9 +27,10 @@ def node_entry(state: ImportGraphState) -> ImportGraphState:
 
 
 if __name__ == "__main__":
+    from rich import print as rprint
+
     from graphs.import_graph.import_graph_state import create_state, save_state
     from utils.path_utils import fixture_path, snapshot_path
-    from rich import print as rprint
 
     start1 = create_state(
         task_id="test_task_start",

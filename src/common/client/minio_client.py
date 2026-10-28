@@ -1,11 +1,13 @@
 import json
 from collections.abc import Iterator
 from mimetypes import guess_type
+
 from minio import Minio
 from minio.deleteobjects import DeleteObject
+
+from common.config.env_config import ENV_CONFIG
 from utils.logging_utils import logger
 from utils.net_utils import probe_tcp
-from common.config.env_config import ENV_CONFIG
 
 # 入库的相对代理路径前缀 (upload_file 返回形态, docs_service 读回时去除)
 _PROXY_FILES_PREFIX = "/api/files/"

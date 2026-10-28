@@ -69,12 +69,12 @@ def main() -> int:
         if tracked and not full.exists():
             errors.append(f"[缺目录] 约定表标为入库, 但不存在: {path}/")
         if not tracked and not git_ignored(path):
-            errors.append(f"[漏 ignore] 约定表标为不入库, 但 .gitignore 没命中: {path}/")
+            errors.append(
+                f"[漏 ignore] 约定表标为不入库, 但 .gitignore 没命中: {path}/"
+            )
 
     top_dirs = sorted(
-        p.name
-        for p in ROOT.iterdir()
-        if p.is_dir() and not p.name.startswith(".")
+        p.name for p in ROOT.iterdir() if p.is_dir() and not p.name.startswith(".")
     )
     for name in top_dirs:
         if not any(entry == name or entry.startswith(f"{name}/") for entry in table):

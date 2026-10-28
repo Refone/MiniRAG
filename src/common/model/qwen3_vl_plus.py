@@ -5,8 +5,8 @@ from mimetypes import guess_type
 from langchain.messages import HumanMessage
 from langchain_openai import ChatOpenAI
 
-from common.config.env_config import ENV_CONFIG
 from common.config.app_config import APP_CONFIG
+from common.config.env_config import ENV_CONFIG
 from common.model.rate_limiter import SlidingWindowRateLimiter
 
 
@@ -47,8 +47,8 @@ def encode_image(image_path: str) -> str:
 
 if __name__ == "__main__":
     from langchain_core.messages import HumanMessage
+
     from utils.path_utils import fixture_path
-    from rich import print as rprint
 
     local_image_path = str(fixture_path("RAG.png"))
     remote_image_url = "https://pics3.baidu.com/feed/f31fbe096b63f624208f2298bc4e78e91b4ca372.jpeg@f_auto?token=4e343c1319d17140423146fb4bb60b6b"

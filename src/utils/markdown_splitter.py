@@ -1,18 +1,18 @@
-
 import copy
 import re
 from typing import TypedDict
 
 from chunkana import ChunkConfig, chunk_markdown
-from langchain_text_splitters import RecursiveCharacterTextSplitter
+
 
 class Chunk(TypedDict):
     content: str
     level: int
     title_stack: list[str | None]
 
+
 _TITLE_RE = re.compile(r"^(#{1,6})\s+(.*)$")
-_CODE_RE = re.compile(r'^[ \t]{0,3}(`{3,}|~{3,})')
+_CODE_RE = re.compile(r"^[ \t]{0,3}(`{3,}|~{3,})")
 
 # 行内 Markdown 语法（标题会同时进入 title_stack / 前端卡片头 / 向量化文本，
 # 原始语法标记会让 UI 直接显示 **、` 等符号，需在此剥掉）
@@ -44,15 +44,16 @@ def strip_inline_markdown(text: str) -> str:
     text = _INLINE_HTML_RE.sub("", text)
     return text.strip()
 
+
 def markdown_split_by_title(
-    md_content:str,
-    ) -> list[Chunk]:
+    md_content: str,
+) -> list[Chunk]:
     chunk_list = []
 
     md_lines = md_content.splitlines()  # 将内容按行分割
-    current_title:list[str | None] = []
+    current_title: list[str | None] = []
     current_level = 0
-    current_content_lines:list[str] = []
+    current_content_lines: list[str] = []
     is_code = False
 
     for line_num, line in enumerate(md_lines):
@@ -75,7 +76,7 @@ def markdown_split_by_title(
         # 判断当前行是正文还是标题
         title_match = _TITLE_RE.match(line)
         if title_match:
-        # 当前行是标题
+            # 当前行是标题
             if current_content_lines:
                 # 之前 content 中有内容，这是一个新块的开始
                 # 处理之前的 block
@@ -102,7 +103,7 @@ def markdown_split_by_title(
             continue
 
         else:
-        # 当前行是正文
+            # 当前行是正文
             current_content_lines.append(line)
 
     if current_content_lines:
@@ -118,17 +119,16 @@ def markdown_split_by_title(
 
     return chunk_list
 
+
 def _split_oversized_chunks(
-    chunk_list: list[Chunk],
-    max_chunk_size: int,
-    min_chunk_size: int,
-    overlap_size: int) -> list[Chunk]:
+    chunk_list: list[Chunk], max_chunk_size: int, min_chunk_size: int, overlap_size: int
+) -> list[Chunk]:
 
     result_chunks: list[Chunk] = []
 
     for chunk in chunk_list:
         if len(chunk["content"]) > max_chunk_size:
-        # 块过长，需要拆分
+            # 块过长，需要拆分
             config = ChunkConfig(
                 max_chunk_size=max_chunk_size,
                 min_chunk_size=min_chunk_size,
@@ -138,28 +138,35 @@ def _split_oversized_chunks(
             list_chunks = chunk_markdown(chunk["content"], config)
 
             for c in list_chunks:
-                result_chunks.append(Chunk(
-                    content=c.content,
-                    level=chunk["level"],
-                    title_stack=copy.deepcopy(chunk["title_stack"]),
-                ))
+                result_chunks.append(
+                    Chunk(
+                        content=c.content,
+                        level=chunk["level"],
+                        title_stack=copy.deepcopy(chunk["title_stack"]),
+                    )
+                )
         else:
             result_chunks.append(chunk)
 
     return result_chunks
 
-def split_markdown(md_content: str,
-                   max_chunk_size: int,
-                   min_chunk_size: int,
-                   overlap_size: int,
-                   ) -> list[Chunk]:
+
+def split_markdown(
+    md_content: str,
+    max_chunk_size: int,
+    min_chunk_size: int,
+    overlap_size: int,
+) -> list[Chunk]:
     # 1. 首先按照标题层级切分
     chunk_list = markdown_split_by_title(md_content)
 
     # 2. 超长块继续切分, 同时保持 chunk 顺序不变
-    chunk_list = _split_oversized_chunks(chunk_list, max_chunk_size, min_chunk_size, overlap_size)
+    chunk_list = _split_oversized_chunks(
+        chunk_list, max_chunk_size, min_chunk_size, overlap_size
+    )
 
     return chunk_list
+
 
 if __name__ == "__main__":
     import json
@@ -167,6 +174,7 @@ if __name__ == "__main__":
     from rich import print as rprint
 
     from utils.path_utils import fixture_path, runtime_tmp_dir
+
     md_content = ""
     md_path = fixture_path("hello-agent.md")
     with open(md_path, "r", encoding="utf-8") as f:
@@ -177,7 +185,7 @@ if __name__ == "__main__":
         max_chunk_size=800,
         min_chunk_size=80,
         overlap_size=50,
-        )
+    )
 
     for chunk in chunk_list:
         rprint(chunk)

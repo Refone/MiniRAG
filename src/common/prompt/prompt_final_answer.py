@@ -43,8 +43,6 @@ class PromptFinalAnswer:
 
 
 if __name__ == "__main__":
-    from common.model import LLM
-
     question = "HAK 180 一定要放平使用吗?"
     prompt_instance = PromptFinalAnswer(
         reference="这是参考内容", history="这是历史信息", question=question

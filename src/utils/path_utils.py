@@ -1,10 +1,12 @@
 import os
 from pathlib import Path
 
+
 def from_project_root(path: str | Path) -> Path:
     return get_project_root() / path
 
-def get_path_dir(ps:int = 0)->Path:
+
+def get_path_dir(ps: int = 0) -> Path:
     """
     pathlib.Path 提供了 parents 属性, 这是一个有序的路径上级目录迭代器, 直接通过索引取值就能快速获取「上 N 级目录」, 完美解决多层 .parent 繁琐的问题, 这也是官方推荐的简化写法！
     核心规则: parents[N] 索引对应「向上的层级数」
@@ -18,8 +20,10 @@ def get_path_dir(ps:int = 0)->Path:
     dir_path = Path(__file__).parents[ps]
     return dir_path
 
+
 # 项目根目录的“地标”: 命中任意一项即认为是根目录
 _PROJECT_MARKERS = ("pyproject.toml", "uv.lock", ".env")
+
 
 def _iter_ancestors(start: Path):
     """从 start 开始逐级向上产出目录, 直到文件系统根目录 (含) 。"""
@@ -27,9 +31,10 @@ def _iter_ancestors(start: Path):
     while True:
         yield current
         parent = current.parent
-        if parent == current:      # 到达根目录, 父目录等于自己
+        if parent == current:  # 到达根目录, 父目录等于自己
             return
         current = parent
+
 
 def get_project_root() -> Path:
     # 1. 环境变量优先: 生产 / 容器 / CI 显式指定
@@ -50,11 +55,13 @@ def get_project_root() -> Path:
         "且未设置环境变量 PROJECT_ROOT"
     )
 
+
 def get_src_root() -> Path:
     src = get_project_root() / "src"
     if not src.is_dir():
         raise FileNotFoundError(f"未找到 src 目录: {src}")
     return src
+
 
 PROJECT_ROOT = get_project_root()
 SRC_ROOT = get_src_root()

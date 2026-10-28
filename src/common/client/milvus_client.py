@@ -1,11 +1,13 @@
 from typing import NotRequired, TypedDict
-from common.model.qwen_embedding import HybridVector
+
+from pymilvus import AnnSearchRequest, DataType, MilvusClient, WeightedRanker
+
 from common.config.app_config import APP_CONFIG
+from common.config.env_config import ENV_CONFIG
 from common.model import EMBEDDING
+from common.model.qwen_embedding import HybridVector
 from utils.logging_utils import logger
 from utils.net_utils import probe_tcp
-from common.config.env_config import ENV_CONFIG
-from pymilvus import AnnSearchRequest, DataType, MilvusClient, WeightedRanker
 
 
 def _escape_milvus_str(value: str) -> str:

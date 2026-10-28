@@ -1,6 +1,6 @@
+import threading
 from collections import defaultdict
 from enum import StrEnum
-import threading
 from typing import Dict, List
 
 from utils.logging_utils import logger

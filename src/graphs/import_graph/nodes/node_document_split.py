@@ -2,10 +2,10 @@ import json
 from pathlib import Path
 
 from common.config.app_config import APP_CONFIG
-from utils.node_utils import trace_node, step_log
 from graphs.import_graph.import_graph_state import ImportGraphState
-from utils.markdown_splitter import split_markdown, Chunk
 from utils.logging_utils import logger
+from utils.markdown_splitter import Chunk, split_markdown
+from utils.node_utils import step_log, trace_node
 
 
 @step_log(desc="验证并获取数据")
@@ -105,6 +105,7 @@ def node_document_split(state: ImportGraphState) -> ImportGraphState:
 
 if __name__ == "__main__":
     from rich import print as rprint
+
     from graphs.import_graph.import_graph_state import load_state, save_state
     from utils.path_utils import snapshot_path
 
@@ -115,6 +116,6 @@ if __name__ == "__main__":
 
     new_state_json = snapshot_path("import_04_document_split.json")
     save_state(next_state, new_state_json)
-    logger.info(f"文档切分完成")
+    logger.info("文档切分完成")
     logger.info(f"状态保存路径: {new_state_json}")
     logger.info(f"切分后的 chunks 路径: {next_state['chunks_json_path']}")

@@ -1,8 +1,6 @@
-from typing import TypedDict
 import copy
 import json
-
-from enum import Enum
+from typing import TypedDict
 
 from common.client.milvus_client import MilvusChunksRecall
 
@@ -106,6 +104,7 @@ def load_state(file_path: str) -> QueryGraphState:
 
 if __name__ == "__main__":
     from rich import print as rprint
+
     from utils.path_utils import snapshot_path
 
     state = create_state(

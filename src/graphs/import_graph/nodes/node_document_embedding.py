@@ -4,22 +4,22 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any
 
-from common.config.app_config import APP_CONFIG
-from common.prompt.prompt_doc_keywords_abstract import (
-    PromptDocKeywordsAbstract,
-    DocKeywordsAbstractPydantic,
-)
-from common.model import LLM, EMBEDDING
 from common.client import MILVUS_CLIENT, MINIO_CLIENT
-from common.client.milvus_client import MilvusDocsItem, MilvusChunksItem
+from common.client.milvus_client import MilvusChunksItem, MilvusDocsItem
+from common.config.app_config import APP_CONFIG
 from common.config.env_config import ENV_CONFIG
-from utils.markdown_splitter import Chunk
-from utils.node_utils import trace_node, step_log
-from utils.logging_utils import logger, brief_list, brief_dict
+from common.model import EMBEDDING, LLM
+from common.prompt.prompt_doc_keywords_abstract import (
+    DocKeywordsAbstractPydantic,
+    PromptDocKeywordsAbstract,
+)
 from graphs.import_graph.import_graph_state import FileType, ImportGraphState
 
 # node_md_img 的产物命名约定: {stem}_fixed.md (原始 md 为 {stem}.md)
 from graphs.import_graph.nodes.node_md_img import _MD_FIXED_SUFFIX
+from utils.logging_utils import brief_dict, brief_list, logger
+from utils.markdown_splitter import Chunk
+from utils.node_utils import step_log, trace_node
 
 
 @step_log(desc="校验并获取数据")
@@ -161,7 +161,7 @@ def step_4_generate_keywords_abstract(
 
     keywords, abstract = "", ""
     try:
-        logger.info(f"LLM 根据整篇文档生成关键词/摘要，耗时操作...")
+        logger.info("LLM 根据整篇文档生成关键词/摘要，耗时操作...")
         response = LLM.with_structured_output(DocKeywordsAbstractPydantic).invoke(
             prompt
         )
@@ -415,17 +415,16 @@ def node_document_embedding(state: ImportGraphState) -> ImportGraphState:
 
 if __name__ == "__main__":
     from rich import print as rprint
+
     from graphs.import_graph.import_graph_state import load_state, save_state
     from utils.path_utils import snapshot_path
 
-    prev_state = load_state(
-        snapshot_path("import_04_document_split.json")
-    )
+    prev_state = load_state(snapshot_path("import_04_document_split.json"))
     next_state = node_document_embedding(prev_state)
 
     rprint(next_state)
 
     new_state_json = snapshot_path("import_05_document_embedding.json")
     save_state(next_state, new_state_json)
-    logger.info(f"文档嵌入入库完成")
+    logger.info("文档嵌入入库完成")
     logger.info(f"状态保存路径: {new_state_json}")

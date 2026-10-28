@@ -1,6 +1,6 @@
 repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.15.15
+    rev: v0.17.3
     hooks:
       # 整理 import，并删除未使用的 import
       - id: ruff

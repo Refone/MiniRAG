@@ -197,8 +197,10 @@ Markdown 图片识别（RS12）：8 张图片
 # task_id -> {run_id: node_meta}
 _tasks_node_meta: dict[str, dict[int, dict]] = defaultdict(dict)
 
+
 def set_node_meta(task_id: str, run_id: int, **fields) -> None:
     """合并写入一次节点执行的元数据（summary/metrics/status/cost_ms...）。"""
+
 
 def get_node_meta(task_id: str) -> list[dict]:
     """按 seq 升序返回节点明细副本。"""
@@ -220,16 +222,22 @@ def _task_trace(node_key: str, name: str, need_push: bool = False):
     def deco(func):
         @wraps(func)
         def wrapper(state, *args, **kwargs):
-            task_id = _resolve_trace_id(state)   # task_id 优先，否则 session_id
+            task_id = _resolve_trace_id(state)  # task_id 优先，否则 session_id
             run_id = task_utils.next_run_id(task_id)
             seq = task_utils.next_seq(task_id)
             ctx = NodeContext(task_id, run_id, node_key, name, seq)
             token = _current_node.set(ctx)
 
             task_utils.set_node_meta(
-                task_id, run_id,
-                key=node_key, name=name, status="running",
-                seq=seq, summary=None, metrics=None, cost_ms=None,
+                task_id,
+                run_id,
+                key=node_key,
+                name=name,
+                status="running",
+                seq=seq,
+                summary=None,
+                metrics=None,
+                cost_ms=None,
                 branch=_branch_of(state),
             )
             add_running_node(task_id, name, need_push=need_push)
@@ -239,8 +247,10 @@ def _task_trace(node_key: str, name: str, need_push: bool = False):
                 result = func(state, *args, **kwargs)
                 cost_ms = int((time.time() - start) * 1000)
                 task_utils.set_node_meta(
-                    task_id, run_id,
-                    status="done", cost_ms=cost_ms,
+                    task_id,
+                    run_id,
+                    status="done",
+                    cost_ms=cost_ms,
                     finished_at=int(time.time() * 1000),
                 )
                 add_done_node(task_id, name, need_push=need_push)
@@ -248,8 +258,10 @@ def _task_trace(node_key: str, name: str, need_push: bool = False):
             except Exception as e:
                 cost_ms = int((time.time() - start) * 1000)
                 task_utils.set_node_meta(
-                    task_id, run_id,
-                    status="failed", cost_ms=cost_ms,
+                    task_id,
+                    run_id,
+                    status="failed",
+                    cost_ms=cost_ms,
                     error=str(e)[:200],
                     finished_at=int(time.time() * 1000),
                 )
@@ -260,6 +272,7 @@ def _task_trace(node_key: str, name: str, need_push: bool = False):
                 _current_node.reset(token)
 
         return wrapper
+
     return deco
 ```
 
@@ -289,13 +302,15 @@ report_node_summary(
 ```python
 _current_node: ContextVar[NodeContext | None] = ContextVar("current_node", default=None)
 
+
 def report_node_summary(summary, metrics=None, artifacts=None) -> None:
     ctx = _current_node.get()
     if ctx is None:
         return
     try:
         task_utils.set_node_meta(
-            ctx.task_id, ctx.run_id,
+            ctx.task_id,
+            ctx.run_id,
             summary=_clean(summary)[:60],
             metrics=_small(metrics),
             artifacts=_small(artifacts),

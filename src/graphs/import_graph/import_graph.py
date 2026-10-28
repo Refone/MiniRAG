@@ -1,16 +1,26 @@
-from typing import TypedDict, Annotated
+from typing import Annotated, TypedDict
 
 from langgraph.config import get_config
 from langgraph.constants import END
 from langgraph.graph import StateGraph
 from langgraph.types import Send
+
 from graphs.import_graph.import_graph_state import (
     FileType,
     ImportGraphState,
     _keep_latest,
     create_state,
 )
-from graphs.import_graph.nodes import *
+from graphs.import_graph.nodes import (
+    node_document_embedding,
+    node_document_split,
+    node_entry,
+    node_md_fork,
+    node_md_img,
+    node_pdf_to_md,
+    node_process_md_zip,
+    node_process_standalone_md,
+)
 from utils import task_utils
 from utils.node_utils import trace_node
 
@@ -159,11 +169,12 @@ workflow.add_edge("node_md_tail", END)
 import_graph = workflow.compile()
 
 if __name__ == "__main__":
-    from utils import task_utils
+    from rich import print as rprint
+
     from graphs.import_graph.import_graph_state import create_state
+    from utils import task_utils
     from utils.logging_utils import logger
     from utils.path_utils import fixture_path
-    from rich import print as rprint
 
     print(import_graph.get_graph().draw_ascii())
 

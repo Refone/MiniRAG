@@ -3,10 +3,10 @@ from common.client.milvus_client import MilvusDocsRecall
 from common.config.app_config import APP_CONFIG
 from common.model import LLM
 from common.prompt.prompt_query_rewrite import PromptQueryRewrite
-from utils.logging_utils import logger
-from common.store.chat_history import chat_history_manager, MessageRole
-from utils.node_utils import step_log, trace_node
+from common.store.chat_history import MessageRole, chat_history_manager
 from graphs.query_graph.query_graph_state import QueryGraphState
+from utils.logging_utils import logger
+from utils.node_utils import step_log, trace_node
 
 
 @step_log(desc="校验并获取数据")
@@ -169,6 +169,7 @@ def node_intent_recognize(state: QueryGraphState) -> QueryGraphState:
 
 if __name__ == "__main__":
     from rich import print as rprint
+
     from graphs.query_graph.query_graph_state import create_state, save_state
     from utils.path_utils import snapshot_path
 
@@ -182,5 +183,5 @@ if __name__ == "__main__":
     new_state_json = snapshot_path("query_01_intent_recognize.json")
 
     save_state(next_state, new_state_json)
-    logger.info(f"意图识别处理完成")
+    logger.info("意图识别处理完成")
     logger.info(f"状态保存路径: {new_state_json}")

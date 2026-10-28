@@ -1,9 +1,9 @@
-from common.prompt.prompt_final_answer import PromptFinalAnswer
-from common.store.chat_history import chat_history_manager, MessageRole
-from utils.node_utils import trace_node
-from utils.logging_utils import logger
-from graphs.query_graph.query_graph_state import QueryGraphState, RerankResult
 from common.model import LLM
+from common.prompt.prompt_final_answer import PromptFinalAnswer
+from common.store.chat_history import MessageRole, chat_history_manager
+from graphs.query_graph.query_graph_state import QueryGraphState, RerankResult
+from utils.logging_utils import logger
+from utils.node_utils import trace_node
 from utils.sse_utils import SSEEvent, sse_push
 
 
@@ -98,6 +98,7 @@ def node_answer_output(state: QueryGraphState) -> QueryGraphState:
 
 if __name__ == "__main__":
     from rich import print as rprint
+
     from graphs.query_graph.query_graph_state import load_state, save_state
     from utils.path_utils import snapshot_path
 
@@ -110,5 +111,5 @@ if __name__ == "__main__":
     new_state_json = snapshot_path("query_06_answer_output.json")
 
     save_state(next_state, new_state_json)
-    logger.info(f"向量化查询处理完成")
+    logger.info("向量化查询处理完成")
     logger.info(f"状态保存路径: {new_state_json}")

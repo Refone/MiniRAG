@@ -1,6 +1,6 @@
-import queue
-import json
 import asyncio
+import json
+import queue
 from typing import Any
 
 from fastapi import Request
@@ -72,7 +72,10 @@ async def sse_generator(sse_id: str, request: Request):
 
             try:
                 msg = await loop.run_in_executor(
-                    None, stream_queue.get, True, 0.1  # 阻塞等待  # 超时时间
+                    None,
+                    stream_queue.get,
+                    True,
+                    0.1,  # 阻塞等待  # 超时时间
                 )
             except queue.Empty:
                 continue

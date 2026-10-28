@@ -7,6 +7,7 @@ Console 粘贴执行即可清除废弃的旧 key（localStorage 按 origin 隔�
 
 用法: python tools/clean_web_cache.py
 """
+
 import subprocess
 import webbrowser
 

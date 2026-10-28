@@ -1,8 +1,12 @@
-from common.client import *
-from common.config.app_config import APP_CONFIG
-from common.config.env_config import ENV_CONFIG
-import shutil
 import os
+import shutil
+
+from common.client import (
+    MILVUS_CLIENT,
+    MINIO_CLIENT,
+    MONGODB_CLIENT,
+)
+from common.config.env_config import ENV_CONFIG
 
 
 def clean_db():

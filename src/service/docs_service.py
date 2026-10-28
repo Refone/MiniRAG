@@ -27,7 +27,7 @@ class DocNotFoundError(Exception):
 def _object_name_from_proxy_url(proxy_url: str) -> str:
     """库中存的是相对代理路径, 读 MinIO 对象时去掉前缀得到 object_name。"""
     if proxy_url.startswith(_PROXY_FILES_PREFIX):
-        return proxy_url[len(_PROXY_FILES_PREFIX):]
+        return proxy_url[len(_PROXY_FILES_PREFIX) :]
     return proxy_url
 
 
@@ -121,9 +121,9 @@ def get_doc_detail(doc_id: int) -> dict:
     markdown_url = row.get(MilvusDocsField.FINAL_MARKDOWN_URL) or ""
     chunks_url = row.get(MilvusDocsField.CHUNKS_URL) or ""
 
-    markdown_text = _read_object_bytes(
-        markdown_url, "final markdown", doc_id
-    ).decode("utf-8", errors="replace")
+    markdown_text = _read_object_bytes(markdown_url, "final markdown", doc_id).decode(
+        "utf-8", errors="replace"
+    )
     chunks = _read_chunks_json(chunks_url, doc_id)
 
     return {

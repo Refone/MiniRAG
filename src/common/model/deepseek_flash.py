@@ -42,6 +42,7 @@ class DeepSeekFlash(ChatDeepSeek):
 
 if __name__ == "__main__":
     import asyncio
+
     from rich import print as rprint
 
     async def test_ainvoke():

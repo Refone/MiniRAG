@@ -1,10 +1,11 @@
 import inspect
 import os
-from pathlib import Path
 import sys
 import uuid
+from pathlib import Path
 
 from loguru import logger as _logger
+
 from common.config.env_config import ENV_CONFIG
 
 LOG_FORMAT = (

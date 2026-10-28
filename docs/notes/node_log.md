@@ -67,6 +67,7 @@ def node_log(func):
         except Exception:
             logger.opt(exception=True).error("节点异常")
             raise
+
     return wrapper
 ```
 
@@ -89,8 +90,8 @@ def node_log(func):
 ## 5. 设置为有参数的装饰器, 并在内部使用参数
 
 ```python
-def node_log(node_name: str):   # <---
-    def deco(func):   # <---
+def node_log(node_name: str):  # <---
+    def deco(func):  # <---
         def wrapper(*args, **kwargs):
             start_ts = time.time()
             logger.info(f"[{node_name}] 节点开始")
@@ -102,8 +103,10 @@ def node_log(node_name: str):   # <---
             except Exception:
                 logger.opt(exception=True).error(f"[{node_name}] 节点异常")
                 raise
+
         return wrapper
-    return deco # <---
+
+    return deco  # <---
 ```
 
 ## 6. 添加一些其他辅助信息打印
@@ -123,12 +126,18 @@ def node_log(node_name: str):
             try:
                 result = func(state, *args, **kwargs)
                 cost_ms = int((time.time() - start_ts) * 1000)
-                logger.info(f"<task_id = {task_id}> [{node_name}] 节点完成, 耗时={cost_ms}ms")
+                logger.info(
+                    f"<task_id = {task_id}> [{node_name}] 节点完成, 耗时={cost_ms}ms"
+                )
                 return result
             except Exception:
-                logger.opt(exception=True).error(f"<task_id = {task_id}> [{node_name}] 节点异常")
+                logger.opt(exception=True).error(
+                    f"<task_id = {task_id}> [{node_name}] 节点异常"
+                )
                 raise
+
         return wrapper
+
     return deco
 ```
 
@@ -140,6 +149,7 @@ def node_log(node_name: str):
       logger.info("processing...")
       state["a"] = state["a"] + 1
       return state
+
 
   start_state: NodeState = {"a": 0, "task_id": 12345}
   end_state = node_demo(state=start_state)
@@ -168,12 +178,13 @@ def fix_log_position(record):
     能正常追踪文件与函数名
     这里需要剔除 logging 模块的 frame
     """
+
     def _this_is_logging_frame(frame):
-        if ('logging_util.py' in frame.filename):
+        if "logging_util.py" in frame.filename:
             return True
-        if ('_logger.py' in frame.filename):
+        if "_logger.py" in frame.filename:
             return True
-        if ('_log' in frame.function):
+        if "_log" in frame.function:
             return True
         return False
 
@@ -183,12 +194,13 @@ def fix_log_position(record):
         record.update(
             file=frame.filename.split("/")[-1].split("\\")[-1],
             function=frame.function,
-            line=frame.lineno
+            line=frame.lineno,
         )
         break
 
 
 logger = base_logger.patch(fix_log_position)
+
 
 def node_log(node_name: str):
 
@@ -205,11 +217,17 @@ def node_log(node_name: str):
             try:
                 result = func(state, *args, **kwargs)
                 cost_ms = int((time.time() - start_ts) * 1000)
-                logger.info(f"<task_id = {task_id}> [{node_name}] 节点完成, 耗时={cost_ms}ms")
+                logger.info(
+                    f"<task_id = {task_id}> [{node_name}] 节点完成, 耗时={cost_ms}ms"
+                )
                 return result
             except Exception:
-                logger.opt(exception=True).error(f"<task_id = {task_id}> [{node_name}] 节点异常")
+                logger.opt(exception=True).error(
+                    f"<task_id = {task_id}> [{node_name}] 节点异常"
+                )
                 raise
+
         return wrapper
+
     return deco
 ```

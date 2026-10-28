@@ -4,7 +4,9 @@ from pydantic import BaseModel, Field
 
 
 class DocKeywordsAbstractPydantic(BaseModel):
-    keywords: str = Field(description="文档关键词, 3-5 个, 英文逗号分隔, 均为高区分度词")
+    keywords: str = Field(
+        description="文档关键词, 3-5 个, 英文逗号分隔, 均为高区分度词"
+    )
     abstract: str = Field(description="文档摘要, 100-200 字")
 
 

@@ -1,9 +1,5 @@
 from dataclasses import dataclass
-import os
-from pathlib import Path
 from typing import Final
-
-from utils.path_utils import PROJECT_ROOT
 
 
 @dataclass(frozen=True)

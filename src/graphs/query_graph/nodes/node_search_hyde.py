@@ -2,10 +2,10 @@ from common.client import MILVUS_CLIENT
 from common.client.milvus_client import MilvusChunksRecall
 from common.model import LLM
 from common.prompt.prompt_hypo_answer import PromptHypoAnswer
-from utils.brief_utils import brief
-from utils.node_utils import trace_node, step_log
-from utils.logging_utils import logger
 from graphs.query_graph.query_graph_state import QueryGraphState
+from utils.brief_utils import brief
+from utils.logging_utils import logger
+from utils.node_utils import step_log, trace_node
 
 
 @step_log(desc="校验并获取数据")
@@ -71,6 +71,7 @@ def node_search_hyde(state: QueryGraphState) -> QueryGraphState:
 
 if __name__ == "__main__":
     from rich import print as rprint
+
     from graphs.query_graph.query_graph_state import load_state, save_state
     from utils.path_utils import snapshot_path
 
@@ -81,5 +82,5 @@ if __name__ == "__main__":
     new_state_json = snapshot_path("query_03_search_hyde.json")
 
     save_state(next_state, new_state_json)
-    logger.info(f"HyDE 搜索处理完成")
+    logger.info("HyDE 搜索处理完成")
     logger.info(f"状态保存路径: {new_state_json}")
