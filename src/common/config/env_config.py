@@ -1,6 +1,7 @@
 from enum import StrEnum
+from pathlib import Path
 
-from pydantic import Field
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from utils.path_utils import PROJECT_ROOT
@@ -25,9 +26,22 @@ class LogLevel(StrEnum):
 class OutputDirSettings(BaseSettings):
     model_config = SettingsConfigDict(**BASE_CONFIG, env_prefix="OUTPUT_DIR_")
 
-    import_tmp_dir: str = str(PROJECT_ROOT / "output/import")
-    upload_tmp_dir: str = str(PROJECT_ROOT / "output/uploads")
-    log_dir: str = str(PROJECT_ROOT / "output/logs")
+    import_tmp_dir: str = str(PROJECT_ROOT / "var/import")
+    upload_tmp_dir: str = str(PROJECT_ROOT / "var/uploads")
+    log_dir: str = str(PROJECT_ROOT / "var/logs")
+    # 节点 __main__ 调试快照 / 脚本临时产物
+    tmp_dir: str = str(PROJECT_ROOT / "var/tmp")
+
+    @field_validator("*", mode="after")
+    @classmethod
+    def _anchor_to_project_root(cls, v: str) -> str:
+        """相对路径一律按项目根解析。
+
+        .env 里写成相对路径 (如 var/uploads) 时, 直接使用会随 CWD 漂移,
+        而上传 / 日志 / 导入目录必须与 PROJECT_ROOT 绑定。
+        """
+        p = Path(v)
+        return str(p if p.is_absolute() else PROJECT_ROOT / p)
 
 
 class LogSettings(BaseSettings):

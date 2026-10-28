@@ -14,7 +14,7 @@
       1) Item 调整：移除摘要与展开按钮；标题下方显示原始文档类型（pdf | markdown）；
          PDF / 切块文件 / 删除 三按钮放回 Item（PDF 按钮仅 pdf 文档显示）
       2) 右半区标题区精简：仅剩 文档标题 + 三档开关
-      3) 开关改为三档分段开关：原文 ｜ 切块 ｜ 特征（交互/UI 照抄 tools/markdown-splitter
+      3) 开关改为三档分段开关：原文 ｜ 切块 ｜ 特征（交互/UI 照抄 tools/markdown_chunks_viewer.html
          的 segmented 开关：滑动白 thumb + 按钮标签常显）
          · 原文 = markdown 渲染；切块 = splitter split 风格 + ChunkRail；
          · 特征 = 新子页：文档关键词 + 摘要
@@ -296,7 +296,7 @@ button { font-family: inherit; }
 }
 .ph-title.empty { color: var(--muted); font-weight: 400; }
 
-/* ---- 三档分段开关（照抄 tools/markdown-splitter 的 segmented 设计） ---- */
+/* ---- 三档分段开关（照抄 tools/markdown_chunks_viewer.html 的 segmented 设计） ---- */
 .segmented {
   flex: 0 0 auto;
   position: relative;
@@ -1342,7 +1342,7 @@ previewScroll.addEventListener("scroll", onPreviewScroll, { passive: true });
 window.addEventListener("resize", hideTip);
 
 /* ═══════════════════════════════════════════════════════════════
- * 三档分段开关（交互/UI 照抄 tools/markdown-splitter 的 segmented）
+ * 三档分段开关（交互/UI 照抄 tools/markdown_chunks_viewer.html 的 segmented）
  * ═══════════════════════════════════════════════════════════════ */
 const segThumb = modeSwitch.querySelector(".seg-thumb");
 function updateSegThumb() {

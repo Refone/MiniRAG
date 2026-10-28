@@ -170,7 +170,7 @@ def node_intent_recognize(state: QueryGraphState) -> QueryGraphState:
 if __name__ == "__main__":
     from rich import print as rprint
     from graphs.query_graph.query_graph_state import create_state, save_state
-    from utils.path_utils import PROJECT_ROOT
+    from utils.path_utils import snapshot_path
 
     init_state = create_state(
         session_id="test-flow-session-id",
@@ -179,7 +179,7 @@ if __name__ == "__main__":
     next_state = node_intent_recognize(init_state)
     rprint(next_state)
 
-    new_state_json = str(PROJECT_ROOT / "output/tmp/query_01_intent_recognize.json")
+    new_state_json = snapshot_path("query_01_intent_recognize.json")
 
     save_state(next_state, new_state_json)
     logger.info(f"意图识别处理完成")

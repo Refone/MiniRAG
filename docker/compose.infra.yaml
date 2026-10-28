@@ -1,8 +1,10 @@
 # 数据 / 监控服务编排: Milvus (etcd + MinIO) + Attu + MongoDB。
-# 应用服务 (web-backend.yaml / web-frontend.yaml) 依赖本文件先拉起,
+# 应用服务 (compose.backend.yaml / compose.frontend.yaml) 依赖本文件先拉起,
 # 全部落在名为 milvus 的默认网络里, 应用侧用服务名即可互通。
 #
-# 启动: docker compose -f docker/data-services.yaml up -d
+# 项目名在此固定, 不再需要 `-p mini-rag`:
+#   docker compose -f docker/compose.infra.yaml up -d
+name: mini-rag
 
 x-milvus-image: &milvus-image milvusdb/milvus:v3.0.2
 
@@ -66,8 +68,8 @@ services:
       timeout: 20s
       retries: 3
 
-  standalone:
-    container_name: milvus-standalone
+  milvus:
+    container_name: milvus
     image: *milvus-image
     command: ["milvus", "run", "standalone"]
     security_opt:
@@ -100,14 +102,14 @@ services:
     container_name: attu
     image: zilliz/attu:v2.5.10
     environment:
-      - MILVUS_URL=standalone:19530
+      - MILVUS_URL=milvus:19530
       - ATTU_LOG_LEVEL=info
       - SERVER_PORT=7000
     ports:
       - "7001:7000"
     restart: always
     depends_on:
-      - standalone
+      - milvus
 
   # ==================== MongoDB ====================
   mongodb:
@@ -130,5 +132,8 @@ networks:
     name: milvus
 
 volumes:
+  # 卷名显式钉死: 项目名 (name:) 或 `-p` 变化都不会换掉数据卷
   mongodb_data:
+    name: mini-rag_mongodb_data
   mongodb_config:
+    name: mini-rag_mongodb_config

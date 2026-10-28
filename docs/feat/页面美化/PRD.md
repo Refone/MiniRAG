@@ -12,7 +12,7 @@
 
 - 配色优化
   - Dark 模式配色参考: [DeepSeek Harness Develope Guide](https://deepseek-harness.github.io/deepseek-harness/develop/basic/publish)
-  - Light 模式配色参考: [Markdown Splitter (本地页面)](tools/markdown-splitter/index.html)
+  - Light 模式配色参考: [Markdown Chunks Viewer (本地页面)](../../../tools/markdown_chunks_viewer.html)
 
     | Dark                                      | Light                                        |
     | ----------------------------------------- | -------------------------------------------- |

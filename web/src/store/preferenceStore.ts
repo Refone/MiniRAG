@@ -2,7 +2,7 @@
  * 偏好持久层 Store（按存储方式分层：localStorage · zustand persist）
  *
  * - 汇聚全部跨刷新保留的用户偏好：theme / enableWebSearch / enableHyde / previewMode；
- * - 全新 key 起步、不读旧数据（反馈第 3 条：旧缓存不迁移，由 web/dev/clean_cache.py 清理）；
+ * - 全新 key 起步、不读旧数据（反馈第 3 条：旧缓存不迁移，由 tools/clean_web_cache.py 清理）；
  * - localStorage 同步读写 → persist 同步水合，首帧主题无闪烁（原 ThemeContext 语义）。
  */
 import { create } from "zustand";

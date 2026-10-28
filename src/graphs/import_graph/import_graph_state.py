@@ -2,7 +2,6 @@ import json
 import copy
 from typing import Annotated, TypedDict
 
-from utils.path_utils import PROJECT_ROOT
 
 
 def _keep_latest(_old, new):
@@ -146,11 +145,12 @@ def load_state(file_path: str) -> ImportGraphState:
 
 if __name__ == "__main__":
     from rich import print as rprint
+    from utils.path_utils import fixture_path, snapshot_path
 
     state = create_state(
         task_id="test-task-001",
-        origin_file_path=str(PROJECT_ROOT / "test/fixture/万用表RS-12的使用.pdf"),
+        origin_file_path=str(fixture_path("万用表RS-12的使用.pdf")),
     )
 
     rprint(state)
-    save_state(state, str(PROJECT_ROOT / "output/tmp/state_test.json"))
+    save_state(state, snapshot_path("state_test.json"))

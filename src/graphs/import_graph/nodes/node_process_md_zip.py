@@ -364,15 +364,15 @@ def node_process_md_zip(state: ImportGraphState) -> ImportGraphState:
 if __name__ == "__main__":
     from rich import print as rprint
     from graphs.import_graph.import_graph_state import create_state, save_state
-    from utils.path_utils import PROJECT_ROOT
+    from utils.path_utils import fixture_path, snapshot_path
 
     start_state = create_state(
         task_id="test_task_start",
-        origin_file_path=str(PROJECT_ROOT / "test/fixture/LangGraph 学习笔记.zip"),
+        origin_file_path=str(fixture_path("LangGraph 学习笔记.zip")),
     )
     end_state = node_process_md_zip(start_state)
     rprint(end_state)
 
-    json_path = PROJECT_ROOT / "output/tmp/import_02_process_md_zip.json"
-    save_state(end_state, str(json_path))
+    json_path = snapshot_path("import_02_process_md_zip.json")
+    save_state(end_state, json_path)
     logger.info(f"状态已保存: {json_path}")

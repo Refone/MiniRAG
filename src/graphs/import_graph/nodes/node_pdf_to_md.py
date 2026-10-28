@@ -227,13 +227,13 @@ def node_pdf_to_md(state: ImportGraphState) -> ImportGraphState:
 if __name__ == "__main__":
     from rich import print as rprint
     from graphs.import_graph.import_graph_state import load_state, save_state
-    from utils.path_utils import PROJECT_ROOT
+    from utils.path_utils import snapshot_path
 
-    prev_state = load_state(str(PROJECT_ROOT / "output/tmp/import_01_entry.json"))
+    prev_state = load_state(snapshot_path("import_01_entry.json"))
     next_state = node_pdf_to_md(prev_state)
     rprint(next_state)
 
-    new_state_json = str(PROJECT_ROOT / "output/tmp/import_02_pdf_to_md.json")
+    new_state_json = snapshot_path("import_02_pdf_to_md.json")
 
     save_state(next_state, new_state_json)
     logger.info(f"PDF to Markdown 处理完成")

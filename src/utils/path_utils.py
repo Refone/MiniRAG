@@ -59,6 +59,31 @@ def get_src_root() -> Path:
 PROJECT_ROOT = get_project_root()
 SRC_ROOT = get_src_root()
 
+# 调试 / 测试样例输入 (各节点 __main__ 与将来 pytest 共用)
+FIXTURES_DIR = PROJECT_ROOT / "tests" / "fixtures"
+
+
+def fixture_path(name: str) -> Path:
+    """tests/fixtures/ 下的样例文件, 避免各处硬编码目录名。"""
+    return FIXTURES_DIR / name
+
+
+def runtime_tmp_dir() -> Path:
+    """运行时临时目录 (默认 var/tmp)。
+
+    延迟导入 env_config: 它在模块级 import 本模块的 PROJECT_ROOT,
+    这里若在模块级反向 import 会形成循环。
+    """
+    from common.config.env_config import ENV_CONFIG
+
+    return Path(ENV_CONFIG.output_dir.tmp_dir)
+
+
+def snapshot_path(name: str) -> str:
+    """节点 __main__ 调试快照的默认落点 (var/tmp/<name>)。"""
+    return str(runtime_tmp_dir() / name)
+
+
 if __name__ == "__main__":
     print(get_project_root())
     print(get_src_root())

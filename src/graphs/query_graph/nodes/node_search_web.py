@@ -90,14 +90,14 @@ def node_search_web(state: QueryGraphState) -> QueryGraphState:
 if __name__ == "__main__":
     from rich import print as rprint
     from graphs.query_graph.query_graph_state import load_state, save_state
-    from utils.path_utils import PROJECT_ROOT
+    from utils.path_utils import snapshot_path
 
-    prev_state = load_state(PROJECT_ROOT / "output/tmp/query_01_intent_recognize.json")
+    prev_state = load_state(snapshot_path("query_01_intent_recognize.json"))
     prev_state["enable_web_search"] = True
     next_state = node_search_web(prev_state)
     rprint(next_state)
 
-    new_state_json = str(PROJECT_ROOT / "output/tmp/query_04_search_web.json")
+    new_state_json = snapshot_path("query_04_search_web.json")
 
     save_state(next_state, new_state_json)
     logger.info(f"互联网搜索处理完成")

@@ -1,0 +1,21 @@
+# 前端服务 (Vite -> nginx) 编排。
+# 通过外部共享网络 milvus 反代 /api 到后端服务 backend (见 frontend.Dockerfile)。
+#
+# 项目名在此固定, 不再需要 `-p mini-rag`。
+# 部署顺序: 先 `compose.infra.yaml` + `compose.backend.yaml`, 再本文件。
+name: mini-rag
+
+services:
+  web:
+    build:
+      context: ..
+      dockerfile: docker/frontend.Dockerfile
+    container_name: mini-rag-frontend
+    ports:
+      - "8080:80"
+
+networks:
+  default:
+    # 复用 compose.infra.yaml 创建的 milvus 网络, 需先启动基础设施与后端
+    name: milvus
+    external: true

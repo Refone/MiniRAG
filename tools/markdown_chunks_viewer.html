@@ -1,15 +1,832 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" href="data:," />
+    <!--
+      Markdown Chunks Viewer —— 单文件工具, 双击打开即可 (file:// 也能用), 无后端、无网络请求。
+
+      生成数据:  python src/utils/markdown_splitter.py     # -> var/tmp/chunks.json
+      载入数据:  把 var/tmp/chunks.json 拖进窗口, 或点右上角「打开 JSON」
+
+      三种视图:  merge = 按 level / title_stack 把 chunks 拼回全文
+                split = 每个 chunk 一张卡片 + 切分边界
+                meta  = 原始 JSON 逐条查看
+      左侧长度条随滚动高亮当前 chunk; 重新生成数据后再拖一次文件即可刷新。
+    -->
+    <title>Markdown Chunks Viewer · chunks.json 查看器</title>
+
+    <!--
+    marked (Markdown 渲染)。用 async 加载: 即使 CDN 不可用/很慢也不会阻塞页面,
+    页面会先用纯文本渲染, marked 到位后再自动重渲染一次。
+  -->
+    <script
+      src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"
+      async
+      onload="window.__onMarkedReady && window.__onMarkedReady()"
+    ></script>
+
+    <style>
+:root {
+  --bg: #f4f5f7;
+  --panel: #ffffff;
+  --panel-2: #fafbfc;
+  --border: #e4e6eb;
+  --border-strong: #d3d7dd;
+  --text: #1f2328;
+  --muted: #6b7280;
+  --accent: #4f46e5;
+  --accent-weak: #eef2ff;
+  --danger: #dc2626;
+  --ok: #16a34a;
+  --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --topbar-h: 56px;
+  --radius: 12px;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+  font-family: var(--sans);
+  color: var(--text);
+  background: var(--bg);
+  overflow: hidden;
+}
+
+/* ===================== TOP BAR ===================== */
+.topbar {
+  flex: 0 0 auto;
+  /* 窄窗口时换行, 保证 Reload 按钮不会被挤出可视区 */
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 16px;
+  min-height: var(--topbar-h);
+  padding: 8px 18px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+  position: relative;
+  z-index: 10;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 650;
+  font-size: 15px;
+  letter-spacing: -0.01em;
+}
+
+.brand-mark {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  color: #fff;
+  font-size: 15px;
+}
+
+/* data source readout */
+.source-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-right: auto;
+  min-width: 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.src-label {
+  font-size: 10.5px;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #a3a8b0;
+}
+
+.source-info code {
+  font-family: var(--mono);
+  font-size: 12px;
+  background: var(--accent-weak);
+  color: var(--accent);
+  padding: 2px 7px;
+  border-radius: 6px;
+}
+
+.src-meta {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+/* ===================== 内容宽度控制 ===================== */
+.width-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 8px 3px 10px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.width-label {
+  font-size: 10.5px;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #a3a8b0;
+}
+
+#widthRange {
+  width: 108px;
+  height: 16px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.width-value {
+  min-width: 42px;
+  padding: 3px 6px;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  font-weight: 650;
+  color: var(--accent);
+  background: var(--accent-weak);
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background .15s;
+}
+
+.width-value:hover { background: #e0e7ff; }
+
+/* ===================== SEGMENTED SWITCH ===================== */
+.segmented {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  background: #eceef1;
+  border-radius: 10px;
+  padding: 3px;
+  gap: 2px;
+  transition: opacity .2s;
+}
+
+.seg-thumb {
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  left: 0;
+  width: 0;
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.18), 0 0 0 1px rgba(15, 23, 42, 0.04);
+  transition: transform .22s cubic-bezier(.4, 0, .2, 1), width .22s cubic-bezier(.4, 0, .2, 1);
+}
+
+.seg-btn {
+  position: relative;
+  z-index: 1;
+  border: none;
+  background: transparent;
+  padding: 6px 14px;
+  font-family: var(--sans);
+  font-size: 13px;
+  font-weight: 550;
+  color: var(--muted);
+  cursor: pointer;
+  white-space: nowrap;
+  border-radius: 8px;
+  transition: color .18s;
+}
+
+.seg-btn:hover { color: var(--text); }
+.seg-btn.active { color: var(--text); }
+
+/* ===================== BUTTONS ===================== */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  padding: 7px 14px;
+  font-family: var(--sans);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background .15s, transform .05s, opacity .15s;
+}
+.btn:active { transform: translateY(1px); }
+.btn:disabled { opacity: 0.55; cursor: default; }
+
+.btn.primary {
+  background: var(--accent);
+  color: #fff;
+}
+.btn.primary:hover:not(:disabled) { background: #4338ca; }
+
+/* ===================== MAIN ===================== */
+main {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+}
+
+.pane {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+}
+
+.preview-pane { background: var(--bg); }
+
+.preview-scroll {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: 22px 28px 60px;
+}
+
+/* ===================== 左侧 chunk 长度条 ===================== */
+.chunk-rail {
+  flex: 0 0 auto;
+  width: 118px;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 20px 12px 40px 14px;
+  background: var(--panel-2);
+  border-right: 1px solid var(--border);
+  scrollbar-width: thin;
+}
+
+/* 用 class 控制显示, 否则 display:flex 会盖掉 [hidden] 的 UA 样式 */
+.chunk-rail[hidden] { display: none; }
+
+.rail-caption {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding-bottom: 6px;
+  font-size: 10px;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #a3a8b0;
+  background: var(--panel-2);
+}
+
+.rail-bars {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;   /* 所有 bar 左对齐 */
+  gap: 4px;
+}
+
+/* 单根 bar: 宽度由 JS 按 chunk 长度写成百分比, 向右延长 */
+.rail-bar {
+  display: block;
+  height: 9px;
+  min-width: 4px;
+  padding: 0;
+  border: none;
+  border-radius: 3px;
+  background: #d3d7dd;
+  cursor: pointer;
+  transition: background .15s;
+}
+
+.rail-bar:hover { background: #9aa0a8; }
+
+/* 当前滚动到的 chunk */
+.rail-bar.active {
+  background: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-weak);
+}
+
+.rail-bar:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* 悬停时显示的 chunk size 气泡 (fixed, 不会被 rail 的滚动裁掉) */
+.rail-tip {
+  position: fixed;
+  z-index: 60;
+  padding: 5px 9px;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  line-height: 1.3;
+  color: #fff;
+  background: rgba(31, 35, 40, 0.92);
+  border-radius: 7px;
+  white-space: nowrap;
+  pointer-events: none;      /* 别挡住鼠标, 否则会闪 */
+  transform: translateY(-50%);
+}
+
+.rail-tip[hidden] { display: none; }
+
+/* 所有视图都渲染在这条按 --content-width 限宽并居中的列里 */
+.content-column {
+  width: var(--content-width, 50%);
+  /* 窄到 20% 时也不至于挤成一列文字, 同时不会撑出横向滚动 */
+  min-width: min(320px, 100%);
+  max-width: 100%;
+  margin: 0 auto;
+}
+
+/* ===================== CHUNK CARDS (split view) ===================== */
+.chunk-card {
+  border: 1.5px solid var(--border-strong);
+  border-radius: var(--radius);
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  overflow: hidden;
+}
+
+.chunk-card-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 14px;
+  background: var(--panel-2);
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.chunk-badge {
+  background: var(--accent-weak);
+  color: var(--accent);
+  font-weight: 650;
+  font-size: 11px;
+  padding: 2px 9px;
+  border-radius: 999px;
+  letter-spacing: 0.01em;
+}
+
+.chunk-title-stack {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  color: var(--text);
+  font-weight: 550;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chunk-level {
+  flex: 0 0 auto;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  font-weight: 650;
+  color: #7c3aed;
+  background: #f3e8ff;
+  padding: 2px 7px;
+  border-radius: 6px;
+}
+
+.chunk-size-note {
+  margin-left: auto;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: #9aa0a8;
+}
+
+.chunk-card-body {
+  padding: 14px 20px;
+}
+
+/* split boundary marker between chunks */
+.split-marker {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 10px 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+  letter-spacing: 0.02em;
+}
+.split-marker::before,
+.split-marker::after {
+  content: "";
+  flex: 1;
+  border-top: 1.5px dashed #cfd4db;
+}
+.split-marker .scissors { color: var(--accent); }
+
+/* ===================== DROP ZONE ===================== */
+.dropzone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  max-width: 620px;
+  margin: 7vh auto 0;
+  padding: 46px 28px;
+  font-family: var(--sans);
+  color: var(--muted);
+  text-align: center;
+  background: var(--panel);
+  border: 2px dashed var(--border-strong);
+  border-radius: 16px;
+  cursor: pointer;
+  transition: border-color .15s, background .15s, transform .08s;
+}
+
+.dropzone:hover {
+  border-color: var(--accent);
+  background: #fff;
+}
+
+.dropzone:active { transform: translateY(1px); }
+
+.drop-icon,
+.dropzone-icon {
+  font-size: 30px;
+  line-height: 1;
+  color: var(--accent);
+}
+
+.dropzone-title {
+  font-size: 16px;
+  font-weight: 650;
+  color: var(--text);
+}
+
+.dropzone-sub { font-size: 13px; }
+
+.dropzone-hint {
+  margin-top: 10px;
+  font-size: 12px;
+  color: #9aa0a8;
+}
+
+.dropzone-hint code,
+.empty-state code,
+.drop-overlay code {
+  font-family: var(--mono);
+  font-size: 12px;
+  background: var(--accent-weak);
+  color: var(--accent);
+  padding: 1px 5px;
+  border-radius: 5px;
+}
+
+/* 拖拽悬停整窗口时的提示层 */
+.drop-overlay {
+  position: fixed;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: rgba(79, 70, 229, 0.10);
+  backdrop-filter: blur(1.5px);
+  z-index: 50;
+  pointer-events: none;   /* 让 drop 事件仍落在 window 上 */
+}
+
+body.dragging .drop-overlay { display: flex; }
+
+.drop-overlay-inner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 20px 30px;
+  font-size: 16px;
+  font-weight: 650;
+  color: var(--accent);
+  background: #fff;
+  border: 2px dashed var(--accent);
+  border-radius: 14px;
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.14);
+}
+
+/* ===================== EMPTY / ERROR STATE ===================== */
+.empty-state {
+  margin: 8vh auto 0;
+  max-width: 760px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 14px;
+  padding: 24px;
+  line-height: 1.7;
+}
+
+/* ===================== META (JSON) VIEW ===================== */
+.meta-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.meta-bar .btn.primary { margin-left: auto; }
+
+.meta-count {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.meta-card {
+  border: 1.5px solid var(--border-strong);
+  border-radius: var(--radius);
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  overflow: hidden;          /* 让代码块的底色贴合圆角 */
+  margin-bottom: 12px;
+}
+
+.meta-card:last-child { margin-bottom: 0; }
+
+.meta-card-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px 6px 14px;
+  background: var(--panel-2);
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.meta-card-head .chunk-title-stack { min-width: 0; }
+
+/* head 里的 size 提示: 承接 .chunk-size-note 的 margin-left:auto, 把按钮一起推到右边 */
+.meta-card-head .chunk-size-note { flex: 0 0 auto; }
+
+/* 每个元素一个「复制这个元素」按钮 */
+.meta-copy {
+  margin-left: 0;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  line-height: 1.4;
+  color: var(--muted);
+  background: #fff;
+  border: 1px solid var(--border-strong);
+  border-radius: 7px;
+  cursor: pointer;
+  transition: color .15s, border-color .15s, background .15s;
+}
+
+.meta-copy:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: var(--accent-weak);
+}
+
+.meta-json {
+  margin: 0;
+  padding: 14px 16px;
+  background: #0d1117;
+  color: #e6edf3;
+  font-family: var(--mono);
+  font-size: 12.5px;
+  line-height: 1.55;
+  /* 超出显示宽度时自动换行, 不再出现横向滚动条 */
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  tab-size: 2;
+}
+
+/* ===================== MARKDOWN BODY TYPOGRAPHY ===================== */
+.markdown-body { line-height: 1.65; font-size: 14.5px; word-wrap: break-word; }
+.markdown-body > :first-child { margin-top: 0; }
+.markdown-body > :last-child { margin-bottom: 0; }
+.markdown-body h1, .markdown-body h2, .markdown-body h3,
+.markdown-body h4, .markdown-body h5, .markdown-body h6 {
+  line-height: 1.3;
+  margin: 1.2em 0 0.5em;
+  font-weight: 650;
+}
+.markdown-body h1 { font-size: 1.7em; border-bottom: 1px solid var(--border); padding-bottom: .3em; }
+.markdown-body h2 { font-size: 1.4em; border-bottom: 1px solid var(--border); padding-bottom: .25em; }
+.markdown-body h3 { font-size: 1.2em; }
+.markdown-body p { margin: 0.6em 0; }
+.markdown-body a { color: var(--accent); }
+.markdown-body code {
+  font-family: var(--mono);
+  font-size: 0.88em;
+  background: #f0f1f4;
+  padding: 0.15em 0.4em;
+  border-radius: 5px;
+}
+.markdown-body pre {
+  background: #0d1117;
+  color: #e6edf3;
+  padding: 14px 16px;
+  border-radius: 9px;
+  overflow-x: auto;
+  line-height: 1.5;
+}
+.markdown-body pre code { background: none; padding: 0; color: inherit; font-size: 13px; }
+.markdown-body ul, .markdown-body ol { padding-left: 1.6em; margin: 0.6em 0; }
+.markdown-body li { margin: 0.25em 0; }
+.markdown-body blockquote {
+  margin: 0.8em 0;
+  padding: 0.2em 1em;
+  border-left: 4px solid var(--accent);
+  color: var(--muted);
+  background: var(--accent-weak);
+  border-radius: 0 8px 8px 0;
+}
+.markdown-body table { border-collapse: collapse; margin: 0.8em 0; width: 100%; }
+.markdown-body th, .markdown-body td {
+  border: 1px solid var(--border-strong);
+  padding: 6px 12px;
+  text-align: left;
+}
+.markdown-body th { background: var(--panel-2); font-weight: 600; }
+.markdown-body hr { border: none; border-top: 1px solid var(--border-strong); margin: 1.2em 0; }
+
+/* marked 不可用时的纯文本兜底 */
+.md-plain {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 12.5px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--text);
+}
+
+/* ===================== RESPONSIVE ===================== */
+@media (max-width: 720px) {
+  .brand-name { display: none; }
+  .width-label { display: none; }
+  #widthRange { width: 74px; }
+  .preview-scroll { padding: 16px 14px 48px; }
+  .chunk-card-body { padding: 12px 14px; }
+  /* 窄屏优先保证正文可读, 长度条让位 */
+  .chunk-rail { display: none; }
+  .rail-tip { display: none; }
+}
+    </style>
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-mark">◫</span>
+        <span class="brand-name">Markdown&nbsp;Chunks&nbsp;Viewer</span>
+      </div>
+
+      <div class="source-info">
+        <span class="src-label">file</span>
+        <code id="srcPath">未载入</code>
+        <span id="srcMeta" class="src-meta">拖入 chunks.json</span>
+      </div>
+
+      <div class="controls">
+        <!-- 内容显示宽度: 相对窗口宽度的百分比, 默认 50% -->
+        <div
+          class="width-control"
+          title="内容显示宽度 (相对窗口宽度), 默认 50%"
+        >
+          <span class="width-label">width</span>
+          <input
+            id="widthRange"
+            type="range"
+            min="20"
+            max="100"
+            step="1"
+            value="50"
+            aria-label="内容显示宽度百分比"
+          />
+          <button
+            id="widthValue"
+            class="width-value"
+            type="button"
+            title="点击恢复默认 50%"
+          >
+            50%
+          </button>
+        </div>
+
+        <!-- Display mode: merge / split / meta -->
+        <div
+          class="segmented"
+          id="modeSwitch"
+          role="group"
+          aria-label="Display mode"
+        >
+          <div class="seg-thumb"></div>
+          <button
+            class="seg-btn active"
+            data-value="merge"
+            type="button"
+            title="按标题把 chunks 拼回整篇文档"
+          >
+            merge
+          </button>
+          <button
+            class="seg-btn"
+            data-value="split"
+            type="button"
+            title="每个 chunk 一张卡片, 含长度与切分标记"
+          >
+            split
+          </button>
+          <button
+            class="seg-btn"
+            data-value="meta"
+            type="button"
+            title="原始 JSON, 逐条代码卡片"
+          >
+            meta
+          </button>
+        </div>
+
+        <button
+          id="openBtn"
+          class="btn primary"
+          type="button"
+          title="选择 chunks.json"
+        >
+          <span class="btn-icon">⤓</span> 打开 JSON
+        </button>
+        <input
+          id="fileInput"
+          type="file"
+          accept=".json,application/json"
+          hidden
+        />
+      </div>
+    </header>
+
+    <main>
+      <!-- 左侧 chunk 长度条: 每个 chunk 一根, 左对齐向右延长 -->
+      <aside
+        id="chunkRail"
+        class="chunk-rail"
+        aria-label="Chunk 长度分布"
+        hidden
+      ></aside>
+
+      <div class="pane preview-pane">
+        <div id="preview" class="preview-scroll"></div>
+      </div>
+    </main>
+
+    <!-- 悬停 bar 时跟随显示的 chunk size 提示 -->
+    <div id="railTip" class="rail-tip" role="tooltip" hidden></div>
+
+    <!-- 把文件拖到窗口任意位置时出现 -->
+    <div id="dropOverlay" class="drop-overlay" aria-hidden="true">
+      <div class="drop-overlay-inner">
+        <span class="drop-icon">⤓</span>
+        <span>松开鼠标载入 JSON</span>
+      </div>
+    </div>
+
+    <script>
 'use strict';
 
 /*
- * Markdown Splitter · 纯静态查看器
+ * Markdown Chunks Viewer · 单文件查看器
  *
  * 不发任何网络请求, 也不执行 Python。数据完全来自你拖进来的 JSON 文件:
  *
  *   1) 命令行生成数据:
- *        python src/utils/markdown_splitter.py     # -> tmp/chunks.json
+ *        python src/utils/markdown_splitter.py     # -> var/tmp/chunks.json
  *
- *   2) 打开本页面 (直接双击 index.html 即可, file:// 也能用),
- *      把 tmp/chunks.json 拖进窗口 —— 或者点右上角「打开 JSON」选择文件。
+ *   2) 直接双击 tools/markdown_chunks_viewer.html (file:// 也能用),
+ *      把 var/tmp/chunks.json 拖进窗口 —— 或者点右上角「打开 JSON」选择文件。
  *
  * 三种视图 (数据都来自这份 JSON):
  *   merge  — 按 level / title_stack 把 chunks 重新拼回完整文档
@@ -37,7 +854,7 @@ const widthRange = $('#widthRange');
 const widthValue = $('#widthValue');
 
 /* 内容显示宽度: 相对窗口宽度的百分比 */
-const WIDTH_KEY = 'markdown-splitter:content-width';
+const WIDTH_KEY = 'markdown-chunks-viewer:content-width';
 const WIDTH_MIN = 20;
 const WIDTH_MAX = 100;
 const WIDTH_DEFAULT = 50;
@@ -580,7 +1397,7 @@ function renderDropzone() {
       <span class="dropzone-title">把 chunks.json 拖到这里</span>
       <span class="dropzone-sub">或点右上角「打开 JSON」选择文件</span>
       <span class="dropzone-hint">
-        文件由 <code>python src/utils/markdown_splitter.py</code> 生成到 <code>tmp/chunks.json</code>
+        文件由 <code>python src/utils/markdown_splitter.py</code> 生成到 <code>var/tmp/chunks.json</code>
       </span>
     </button>`);
 }
@@ -660,3 +1477,6 @@ window.addEventListener('drop', (e) => {
 /* ======================= Init ======================= */
 applyWidth(initialWidth(), { persist: false });   // 默认 50% 窗口宽度
 render();
+    </script>
+  </body>
+</html>

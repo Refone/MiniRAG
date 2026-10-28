@@ -5,7 +5,7 @@ kb-preferences key 起步，本脚本输出一段 JS，在应用页面的 DevToo
 Console 粘贴执行即可清除废弃的旧 key（localStorage 按 origin 隔离，
 只能在该页面上下文内执行）。
 
-用法: cd web/dev && python clean_cache.py
+用法: python tools/clean_web_cache.py
 """
 import subprocess
 import webbrowser

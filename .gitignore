@@ -1,14 +1,9 @@
 .venv/
 docker/volumes/
 .env
-logs/
 .vscode/
 .idea/
 .claude/settings.local.json
 __pycache__/
 */__pycache__/
-output/
-reports/
-tmp/
-model/*
-!model/README.md
+var/

@@ -5,7 +5,6 @@ import json
 from enum import Enum
 
 from common.client.milvus_client import MilvusChunksRecall
-from utils.path_utils import PROJECT_ROOT
 
 
 class WebSearchResult(TypedDict):
@@ -107,9 +106,10 @@ def load_state(file_path: str) -> QueryGraphState:
 
 if __name__ == "__main__":
     from rich import print as rprint
+    from utils.path_utils import snapshot_path
 
     state = create_state(
         session_id="12345", original_query="What is the capital of France?"
     )
     rprint(state)
-    save_state(state, str(PROJECT_ROOT / "output/tmp/query_state_test.json"))
+    save_state(state, snapshot_path("query_state_test.json"))

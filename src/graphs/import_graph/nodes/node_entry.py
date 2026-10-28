@@ -28,12 +28,12 @@ def node_entry(state: ImportGraphState) -> ImportGraphState:
 
 if __name__ == "__main__":
     from graphs.import_graph.import_graph_state import create_state, save_state
-    from utils.path_utils import PROJECT_ROOT
+    from utils.path_utils import fixture_path, snapshot_path
     from rich import print as rprint
 
     start1 = create_state(
         task_id="test_task_start",
-        origin_file_path=str(PROJECT_ROOT / "test/fixture/hello-agent.md"),
+        origin_file_path=str(fixture_path("hello-agent.md")),
     )
     end1 = node_entry(start1)
     rprint(end1)
@@ -41,7 +41,7 @@ if __name__ == "__main__":
     try:
         start2 = create_state(
             task_id="test_task_start",
-            origin_file_path=str(PROJECT_ROOT / "test/fixture/test.txt"),
+            origin_file_path=str(fixture_path("test.txt")),
         )
         end2 = node_entry(start2)
         rprint(end2)
@@ -50,10 +50,10 @@ if __name__ == "__main__":
 
     start_state = create_state(
         task_id="test_task_start",
-        origin_file_path=str(PROJECT_ROOT / "test/fixture/万用表RS-12的使用.pdf"),
+        origin_file_path=str(fixture_path("万用表RS-12的使用.pdf")),
     )
     end_state = node_entry(start_state)
     rprint(end_state)
 
-    save_state(end_state, str(PROJECT_ROOT / "output/tmp/import_01_entry.json"))
-    logger.info(f"状态已保存: {PROJECT_ROOT / 'output/tmp/import_01_entry.json'}")
+    save_state(end_state, snapshot_path("import_01_entry.json"))
+    logger.info(f"状态已保存: {snapshot_path('import_01_entry.json')}")

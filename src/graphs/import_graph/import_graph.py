@@ -162,14 +162,14 @@ if __name__ == "__main__":
     from utils import task_utils
     from graphs.import_graph.import_graph_state import create_state
     from utils.logging_utils import logger
-    from utils.path_utils import PROJECT_ROOT
+    from utils.path_utils import fixture_path
     from rich import print as rprint
 
     print(import_graph.get_graph().draw_ascii())
 
     task_id = "import-pdf-test"
-    # origin_file_path = PROJECT_ROOT / "test/fixture/hak180产品安全手册.pdf"
-    origin_file_path = PROJECT_ROOT / "test/fixture/万用表RS-12的使用.pdf"
+    # origin_file_path = fixture_path("hak180产品安全手册.pdf")
+    origin_file_path = fixture_path("万用表RS-12的使用.pdf")
 
     task_utils.clear_task(task_id)
     initial_state = create_state(

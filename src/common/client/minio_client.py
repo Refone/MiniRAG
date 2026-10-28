@@ -42,7 +42,7 @@ class MiniRagMinioClient:
         """准备 bucket: 不存在则创建, 并设置匿名只读策略。
 
         不放在 __init__ 里 (构造必须无网络副作用), 由启动自检
-        (api/startup_checks.py) 与 scripts/reset_db.py 在需要时显式调用。
+        (api/startup_checks.py) 与 tools/reset_db.py 在需要时显式调用。
         """
         if self._minio.bucket_exists(self.bucket_name):
             logger.info(f"MinIO bucket '{self.bucket_name}' 已存在")

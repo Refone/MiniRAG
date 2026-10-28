@@ -79,7 +79,7 @@ web/
 ## 附录：反馈与决策记录（重构轮次内新增）
 
 1. 新增 `web/dev` 目录存放开发工具/临时文件；`web/src` 只放业务代码。
-2. `web/dev/clean_cache.py`：本轮不做旧缓存迁移，直接清理废弃的 localStorage 旧 key（`kb_theme`/`kb-chat-store`/`kb-docs-store`）。
+2. `tools/clean_web_cache.py`：本轮不做旧缓存迁移，直接清理废弃的 localStorage 旧 key（`kb_theme`/`kb-chat-store`/`kb-docs-store`）。
 3. Session-MVVM 的 BUG-003 无需看护：滚动行为维持现状（切 Tab 恢复偏移；切换文档/预览模式 resetKey 归零），`useScrollRestore` 原样平移。
 4. **components-gallery 子需求取消**：组件展示与调试改由 Storybook 承接（后续轮次引入）。
 5. 实现总结见《重构总结.md》；设计细节见《重构方案.md》《重构方案-反馈.md》。

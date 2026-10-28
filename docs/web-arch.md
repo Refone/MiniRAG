@@ -9,7 +9,7 @@
 - `src/api/` 早期只有一个占位模块（返回字符串），**还没有真正的 FastAPI app**
 - LangGraph 图已经写在 `src/graphs/{import_graph, query_graph}/{import_graph, query_graph}.py`，编译成了 `import_graph` / `query_graph` 等图实例
 - `pyproject.toml` 用 `uv` 管理依赖，但**没有 `[build-system]`/包配置**，包不是「安装」出来的，import 依赖 `src` 在 path 上
-- `docker/data-services.yaml` 目前**只有基础设施**（Milvus / MinIO / MongoDB / Attu），还没有应用容器
+- `docker/compose.infra.yaml` 目前**只有基础设施**（Milvus / MinIO / MongoDB / Attu），还没有应用容器
 
 ## 推荐的三层结构（依赖方向单向）
 
@@ -65,14 +65,18 @@ mini-rag/
 │   ├── vite.config.ts                #    dev proxy: /api → http://localhost:8000
 │   └── nginx.conf                    #    静态文件 + /api 反代到 backend:8000
 ├── docker/
-│   ├── data-services.yaml            #    数据/监控服务 (Milvus/MinIO/Mongo/Attu)
-│   ├── web-backend.Dockerfile        #    后端镜像
-│   ├── web-frontend.Dockerfile       #    前端镜像 (node build → nginx)
-│   ├── web-backend.yaml              #    后端编排 (backend)
-│   └── web-frontend.yaml             #    前端编排 (web)
+│   ├── compose.infra.yaml            #    数据/监控服务 (Milvus/MinIO/Mongo/Attu)
+│   ├── backend.Dockerfile            #    后端镜像
+│   ├── frontend.Dockerfile           #    前端镜像 (node build → nginx)
+│   ├── compose.backend.yaml          #    后端编排 (backend)
+│   └── compose.frontend.yaml         #    前端编排 (web)
 ├── pyproject.toml
 └── uv.lock
 ```
+
+> ⚠️ 上面这张图是 **2026-10 的设计稿（规划态）**：`api/deps.py`、`api/routers/`、
+> `api/schemas/`、`service/chat_service.py` 等尚未实现，`tests/`、`tools/`、`var/` 也未列出。
+> **当前实际结构以仓库根 `README.md` 的「基本架构 + 目录约定」为准**（`tools/check_layout.py` 会校验）。
 
 ## 四个问题的直接回答
 
@@ -113,7 +117,7 @@ uvicorn --app-dir src api.main:app --reload --port 8000
 PYTHONPATH=src uvicorn api.main:app --reload
 ```
 
-Docker 里在 `web-backend.Dockerfile` 固定住：
+Docker 里在 `backend.Dockerfile` 固定住：
 
 ```dockerfile
 WORKDIR /app
@@ -130,9 +134,9 @@ CMD ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000"]
 
 ## Docker 封装建议
 
-- `docker/web-frontend.Dockerfile`：多阶段 —— `node:22` build → `nginx:alpine` 托管 `dist/` + `/api` 反代到 `backend:8000`
-- `docker/web-backend.Dockerfile`：`python:3.12-slim` + `uv`，COPY `pyproject.toml`、`uv.lock`、`src/`，`uv sync` 后起 uvicorn
-- `docker/web-backend.yaml` + `docker/web-frontend.yaml`：`backend` 与 `web` 两个应用容器，通过外部共享网络 `milvus` 与 `docker/data-services.yaml` 的基础设施（Milvus 等）互通
+- `docker/frontend.Dockerfile`：多阶段 —— `node:22` build → `nginx:alpine` 托管 `dist/` + `/api` 反代到 `backend:8000`
+- `docker/backend.Dockerfile`：`python:3.12-slim` + `uv`，COPY `pyproject.toml`、`uv.lock`、`src/`，`uv sync` 后起 uvicorn
+- `docker/compose.backend.yaml` + `docker/compose.frontend.yaml`：`backend` 与 `web` 两个应用容器，通过外部共享网络 `milvus` 与 `docker/compose.infra.yaml` 的基础设施（Milvus 等）互通
 - 后端依赖重（torch/transformers/mineru 等），镜像会很大，建议考虑 `--no-cache` 分层缓存依赖层
 
 ---
@@ -155,11 +159,13 @@ web/src/
 ├── types/        # 全局类型契约：app / chat / docs
 ├── utils/        # 纯函数：text / markdown / time / id
 └── styles/       # 全局样式入口：index.css @import tokens→base→layout→ui→chat→docs（顺序即层叠）
-web/dev/          # 开发工具（与业务代码隔离）：clean_cache.py（旧缓存清理）
 ```
+
+`web/` 内只有业务代码；开发期工具统一放仓库根的 `tools/`
+（旧缓存清理：`tools/clean_web_cache.py`）。
 
 要点：
 
 - 无 react-router：`App.tsx` 内 `PageKey` 状态切换 + `<Activity>` 双保活（Session-MVVM 核心机制）。
-- 偏好持久化统一走 `preferenceStore`（`kb-preferences`，同步水合首帧无闪烁）；旧 key 不迁移，用 `web/dev/clean_cache.py` 清理。
+- 偏好持久化统一走 `preferenceStore`（`kb-preferences`，同步水合首帧无闪烁）；旧 key 不迁移，用 `tools/clean_web_cache.py` 清理。
 - 组件展示与调试将由 Storybook 承接（后续引入）。

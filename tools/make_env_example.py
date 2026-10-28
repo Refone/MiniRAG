@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
-"""把 .env 复制为 .env.sample，敏感值等长替换为 *（保留 sk- 之类前缀）"""
+"""把 .env 复制为 .env.example，敏感值等长替换为 *（保留 sk- 之类前缀）"""
 
 import re
 from pathlib import Path
 
-SRC, DST = Path(".env"), Path(".env.sample")
+# 与 CWD 无关：脚本放在 <root>/tools/ 下
+ROOT = Path(__file__).resolve().parents[1]
+SRC, DST = ROOT / ".env", ROOT / ".env.example"
 
 # 变量名以这些词结尾（前缀用 _ 或 . 分隔）则视为敏感
 SENSITIVE = re.compile(

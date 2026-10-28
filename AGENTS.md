@@ -5,4 +5,4 @@
 ## 代码验证
 
 - 直接运行目标脚本，或启动服务观察日志（loguru）。
-- 临时验证脚本请放 `tmp/`（已 gitignore）或用 `uv run python -c '...'`。
+- 临时验证脚本请放 `var/tmp/`（已 gitignore）或用 `uv run python -c '...'`。

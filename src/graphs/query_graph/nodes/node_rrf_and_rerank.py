@@ -249,12 +249,12 @@ def node_rrf_and_rerank(state: QueryGraphState) -> QueryGraphState:
 if __name__ == "__main__":
     from rich import print as rprint
     from graphs.query_graph.query_graph_state import load_state, save_state
-    from utils.path_utils import PROJECT_ROOT
+    from utils.path_utils import snapshot_path
 
-    prev_state1 = load_state(PROJECT_ROOT / "output/tmp/query_01_intent_recognize.json")
-    prev_state2 = load_state(PROJECT_ROOT / "output/tmp/query_02_search_embedding.json")
-    prev_state3 = load_state(PROJECT_ROOT / "output/tmp/query_03_search_hyde.json")
-    prev_state4 = load_state(PROJECT_ROOT / "output/tmp/query_04_search_web.json")
+    prev_state1 = load_state(snapshot_path("query_01_intent_recognize.json"))
+    prev_state2 = load_state(snapshot_path("query_02_search_embedding.json"))
+    prev_state3 = load_state(snapshot_path("query_03_search_hyde.json"))
+    prev_state4 = load_state(snapshot_path("query_04_search_web.json"))
     fused_state = {
         **prev_state1,
         **prev_state2,
@@ -264,7 +264,7 @@ if __name__ == "__main__":
     next_state = node_rrf_and_rerank(fused_state)
     rprint(next_state)
 
-    new_state_json = str(PROJECT_ROOT / "output/tmp/query_05_rrf_and_rerank.json")
+    new_state_json = snapshot_path("query_05_rrf_and_rerank.json")
 
     save_state(next_state, new_state_json)
     logger.info(f"RRF融合排序处理完成")

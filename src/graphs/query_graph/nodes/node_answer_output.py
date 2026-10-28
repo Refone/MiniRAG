@@ -99,15 +99,15 @@ def node_answer_output(state: QueryGraphState) -> QueryGraphState:
 if __name__ == "__main__":
     from rich import print as rprint
     from graphs.query_graph.query_graph_state import load_state, save_state
-    from utils.path_utils import PROJECT_ROOT
+    from utils.path_utils import snapshot_path
 
-    prev_state1 = load_state(PROJECT_ROOT / "output/tmp/query_01_intent_recognize.json")
-    prev_state2 = load_state(PROJECT_ROOT / "output/tmp/query_05_rrf_and_rerank.json")
+    prev_state1 = load_state(snapshot_path("query_01_intent_recognize.json"))
+    prev_state2 = load_state(snapshot_path("query_05_rrf_and_rerank.json"))
     prev_state = {**prev_state1, **prev_state2}
     next_state = node_answer_output(prev_state)
     rprint(next_state)
 
-    new_state_json = str(PROJECT_ROOT / "output/tmp/query_06_answer_output.json")
+    new_state_json = snapshot_path("query_06_answer_output.json")
 
     save_state(next_state, new_state_json)
     logger.info(f"向量化查询处理完成")

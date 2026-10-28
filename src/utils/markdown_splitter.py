@@ -163,12 +163,13 @@ def split_markdown(md_content: str,
 
 if __name__ == "__main__":
     import json
-    import os
 
     from rich import print as rprint
+
+    from utils.path_utils import fixture_path, runtime_tmp_dir
     md_content = ""
-    md_path = "test/fixture/hello-agent.md"
-    with open(md_path, "r") as f:
+    md_path = fixture_path("hello-agent.md")
+    with open(md_path, "r", encoding="utf-8") as f:
         md_content = f.read()
 
     chunk_list = split_markdown(
@@ -181,8 +182,9 @@ if __name__ == "__main__":
     for chunk in chunk_list:
         rprint(chunk)
 
-    output_path = os.path.join("tmp", "chunks.json")
-    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    tmp_dir = runtime_tmp_dir()
+    tmp_dir.mkdir(parents=True, exist_ok=True)
+    output_path = tmp_dir / "chunks.json"
     with open(output_path, "w", encoding="utf-8") as f:
         json.dump(chunk_list, f, ensure_ascii=False, indent=2)
     rprint(f"[green]已写入 {len(chunk_list)} 个 chunk 到 {output_path}[/green]")

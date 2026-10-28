@@ -9,22 +9,18 @@
 .venv
 **/__pycache__
 *.pyc
-reports
 
 # 前端: 前后端镜像共用仓库根作为构建上下文,
-# 仅排除依赖与构建产物 (web 源码需保留, 供 web-frontend.Dockerfile 使用)
+# 仅排除依赖与构建产物 (web 源码需保留, 供 frontend.Dockerfile 使用)
 web/node_modules
 web/dist
 
 # 数据 / 运行时产物 / 密钥
 .env
-.env.sample
-model
-output
-logs
-tmp
+.env.example
+var
 docs
 docker/volumes
 
 # 测试资源 (大体积样例文件, 运行镜像不需要)
-test
+tests

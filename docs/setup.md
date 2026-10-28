@@ -11,7 +11,8 @@
 wget https://github.com/milvus-io/milvus/raw/refs/heads/master/deployments/docker/standalone/docker-compose.yml
 ```
 
-稍加调整, 加上 attn、mangodb 服务, 调配成本项目的 [docker compose file](../docker/data-services.yaml)
+稍加调整, 加上 attu、mongodb 服务, 调配成本项目的 [compose.infra.yaml](../docker/compose.infra.yaml)
+(项目名已在 yaml 内固定为 `mini-rag`, 启动用 `docker compose -f docker/compose.infra.yaml up -d`)
 
 用以启动相关服务
 
@@ -26,7 +27,7 @@ wget https://github.com/milvus-io/milvus/raw/refs/heads/master/deployments/docke
 | Milvus | TCP 连通性 + `minirag_docs` / `minirag_chunks` 集合初始化 |
 | MinIO | TCP 连通性 + `minirag` bucket 初始化 (含匿名只读策略) |
 | MongoDB | TCP 连通性 + `ping` |
-| 运行时目录 | `output/uploads` / `output/import` / `logs` 存在且可写 |
+| 运行时目录 | `var/uploads` / `var/import` / `var/logs` 存在且可写 |
 
 **软依赖** (缺失仅告警, 不阻止启动): `MINERU_API_KEY` / `VLM_API_KEY` /
 `QWEN_API_KEY` / `LLM_API_KEY` / `DASHSCOPE_API_KEY` 是否已在 `.env` 中配置。
