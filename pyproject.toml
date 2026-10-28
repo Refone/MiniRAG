@@ -41,3 +41,22 @@ dependencies = [
     "tiktoken>=0.7.0",
     "uvicorn>=0.53.0",
 ]
+
+[dependency-groups]
+dev = [
+    "pre-commit>=4.7.0",
+    "ruff>=0.17.3",
+]
+
+[tool.ruff]
+line-length = 88
+target-version = "py312"
+
+[tool.ruff.lint]
+select = [
+    "E4",   # import 相关错误
+    "E7",   # 语句错误
+    "E9",   # 运行错误
+    "F",    # Pyflakes：包括未使用的 import
+    "I",    # isort：import 排序
+]
