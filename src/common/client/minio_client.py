@@ -215,6 +215,9 @@ class MiniRagMinioClient:
         return stat.content_type or "application/octet-stream", _iter_chunks()
 
 
+MINIO_CLIENT = MiniRagMinioClient()
+
+
 if __name__ == "__main__":
     from rich import print as rprint
 

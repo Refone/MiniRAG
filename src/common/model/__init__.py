@@ -1,9 +1,9 @@
-from .deepseek_flash import DeepSeekFlash
-from .qwen3_vl_plus import Qwen3_VL_Plus
-from .qwen_embedding import QwenEmbedding
-from .qwen_reranker import QwenReranker
+"""模型设施（tier 2）：LLM / VLM / Embedding / Reranker。
 
-EMBEDDING = QwenEmbedding()
-RERANKER = QwenReranker()
-LLM = DeepSeekFlash()
-VLM = Qwen3_VL_Plus()
+角色与供应商实现的绑定集中在 `registry`，这里只 re-export，
+业务侧一律 `from common.model import XXX`。
+"""
+
+from .registry import EMBEDDING, LLM, RERANKER, VLM
+
+__all__ = ["LLM", "VLM", "EMBEDDING", "RERANKER"]

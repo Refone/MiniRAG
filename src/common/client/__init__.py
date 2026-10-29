@@ -1,7 +1,11 @@
-from .milvus_client import MiniRagMilvusClient
-from .minio_client import MiniRagMinioClient
-from .mongodb_client import MiniRagMongoClient
+"""资源客户端（tier 3）：Milvus / MinIO / MongoDB。
 
-MILVUS_CLIENT = MiniRagMilvusClient()
-MINIO_CLIENT = MiniRagMinioClient()
-MONGODB_CLIENT = MiniRagMongoClient()
+单例定义在各客户端文件底部，这里只 re-export，
+业务侧一律 `from common.client import XXX`。
+"""
+
+from .milvus_client import MILVUS_CLIENT
+from .minio_client import MINIO_CLIENT
+from .mongodb_client import MONGODB_CLIENT
+
+__all__ = ["MILVUS_CLIENT", "MINIO_CLIENT", "MONGODB_CLIENT"]

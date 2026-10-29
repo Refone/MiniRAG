@@ -24,6 +24,9 @@ class MiniRagMongoClient(MongoClient):
         logger.success(f"MongoDB 连接成功 ({self.uri}), 数据库: {self.db_name}")
 
 
+MONGODB_CLIENT = MiniRagMongoClient()
+
+
 if __name__ == "__main__":
     client = MiniRagMongoClient()
     db = client.db

@@ -681,6 +681,9 @@ class MiniRagMilvusClient(MilvusClient):
         )
 
 
+MILVUS_CLIENT = MiniRagMilvusClient()
+
+
 if __name__ == "__main__":
     milvus_client = MiniRagMilvusClient()
     milvus_client.prepare_docs_collection()

@@ -68,6 +68,7 @@ api → service → graphs → common
 - `common/utils/` 下不带 `_utils` 后缀（`brief.py` 而非 `brief_utils.py`）。
 - 避免与标准库同名：不新建 `token.py` / `tokenize.py`（用 `tokenizer.py`）；`common/logging.py` 是包内子模块，Python 3 绝对导入下不与标准库冲突。
 - 一个文件一个主题；超过 400 行考虑拆分。
+- 包内 `__init__.py` 只做 re-export（契约 docstring + `__all__`），不实例化、不产生副作用；有状态单例定义在模块文件内而非 `__init__.py`，业务侧一律包级导入（`from common.client import MILVUS_CLIENT`）；角色型单例（`LLM` / `VLM` 等）与供应商实现解耦，绑定集中声明在 `model/registry.py`；`utils/`、`config/` 这类纯函数 / 配置包不 re-export，走深路径导入。
 
 ### 状态词表
 
