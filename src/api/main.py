@@ -75,6 +75,7 @@ async def import_document(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
 ) -> UploadResponse:
+    """导入文档接口, 异步处理上传文件。"""
 
     logger.info(f"[{str(request.url)}], file={file.filename}")
 
@@ -88,8 +89,6 @@ async def import_document(
     dest.unlink(missing_ok=True)
     dest.write_bytes(await file.read())
 
-    # 先建 SSE 队列再挂后台任务, 保证任务执行期间的进度推送有处可去
-    # (前端上传成功后即连 /api/upload/sse/{task_id} 消费)
     sse_create_queue(task_id)
 
     background_tasks.add_task(arun_import, task_id=task_id, origin_file_path=str(dest))
@@ -105,7 +104,8 @@ async def upload_sse(
     request: Request,
     task_id: str,
 ):
-    """导入任务进度 SSE 推流 (对齐 /query/sse/{session_id} 的机制)。"""
+    """导入任务订阅 SSE 推流。"""
+
     logger.info(f"[{str(request.url)}], task_id={task_id}")
 
     return StreamingResponse(
@@ -123,6 +123,8 @@ def query(
     background_tasks: BackgroundTasks,
     payload: QueryRequest,
 ):
+    """查询接口, 异步处理用户查询。"""
+
     logger.info(
         f"[{str(request.url)}], session_id={payload.session_id}, "
         f"query={payload.query}, enable_web_search={payload.enable_web_search}, "
@@ -150,7 +152,9 @@ def query(
 async def query_sse(
     request: Request,
     session_id: str,
-):
+) -> StreamingResponse:
+    """查询任务订阅 SSE 推流。"""
+
     logger.info(f"[{str(request.url)}], session_id={session_id}")
 
     return StreamingResponse(
@@ -167,6 +171,8 @@ def history(
     request: Request,
     session_id: str,
 ):
+    """获取指定会话的历史聊天记录。"""
+
     logger.info(f"[{str(request.url)}], session_id={session_id}")
 
     message_list: list[ChatMessage] = chat_history_manager.get_latest_messages(
@@ -184,6 +190,8 @@ def delete_history(
     request: Request,
     session_id: str,
 ):
+    """删除指定会话的历史聊天记录。"""
+
     logger.info(f"[{str(request.url)}], session_id={session_id}")
 
     deleted_count = chat_history_manager.clear_history(session_id)
@@ -204,11 +212,12 @@ def list_docs(
     offset: int = 0,
     limit: int = 20,
 ) -> DocsListResponse:
+    """获取文档列表。"""
+
     logger.info(f"[{str(request.url)}], offset={offset}, limit={limit}")
 
-    # limit 校验范围 1~100 (越界 clamp); offset 为负时 Milvus 直接报错, 一并 clamp 到 0
     offset = max(0, offset)
-    limit = max(1, min(limit, 100))
+    limit = max(1, min(limit, 100))  # 设置 100 安全上限
 
     return docs_service.list_docs(offset=offset, limit=limit)
 
@@ -218,6 +227,8 @@ def get_doc_detail(
     request: Request,
     doc_id: str,
 ) -> DocsDetailResponse:
+    """获取文档详情。"""
+
     logger.info(f"[{str(request.url)}], doc_id={doc_id}")
 
     try:
@@ -236,6 +247,8 @@ def delete_doc(
     request: Request,
     doc_id: str,
 ) -> DocsDeleteResponse:
+    """删除指定文档。"""
+
     logger.info(f"[{str(request.url)}], doc_id={doc_id}")
 
     try:
@@ -263,6 +276,8 @@ def get_file(
     request: Request,
     object_name: str,
 ):
+    """代理文件请求, 避免 CORS 问题, 使外网能跨域访问 MinIO 获取对象内容"""
+
     logger.info(f"[{str(request.url)}], object_name={object_name}")
 
     # 安全加固: 仅允许四个业务目录前缀, 其余一律 404 (默认开启)
@@ -281,12 +296,13 @@ def get_file(
         raise HTTPException(status_code=404, detail=f"对象不存在: {object_name}")
 
     # media_type 为 stat 出的 content_type (PDF inline 预览 / 图片渲染 / JSON)
-    # Session-MVVM V0: MinIO 对象以唯一 object_name 存放、无覆盖写, 可安全长缓存,
-    # 浏览器 HTTP 缓存兜底跨刷新场景 (docs/feat/Session-MVVM/方案设计-V0.md §4.5.2)
     return StreamingResponse(
         chunk_iter,
         media_type=content_type,
-        headers={"Cache-Control": "public, max-age=86400, immutable"},
+        headers={
+            "Cache-Control": "public, max-age=86400, immutable",
+            # 缓存控制：public 表示可被任何缓存区缓存, max-age=86400 表示缓存一天, immutable 表示内容不会改变
+        },
     )
 
 

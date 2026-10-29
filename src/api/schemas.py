@@ -1,4 +1,6 @@
-from pydantic import BaseModel
+from typing import Literal
+
+from pydantic import BaseModel, Field
 
 
 class UploadResponse(BaseModel):
@@ -18,11 +20,13 @@ class QueryRequest(BaseModel):
 
 
 class DocsListItem(BaseModel):
-    """GET /api/docs 列表单条 (doc_id 为 string, 见后端方案 §1.2)。"""
+    """GET /api/docs 文档列表单条。"""
 
     doc_id: str
     title: str
-    type: str
+    type: Literal["pdf", "markdown"] = Field(
+        description='文档类型："pdf" 或 "markdown"；非 PDF 文档统一为 "markdown"。'
+    )
     pdf_link: str | None
     chunks_link: str
 

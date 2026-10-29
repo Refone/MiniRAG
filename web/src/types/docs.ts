@@ -77,8 +77,8 @@ export interface DocsListItem {
   /** Milvus auto_id, string 传输避免 JS 精度丢失 */
   doc_id: string;
   title: string;
-  /** "pdf" | "markdown" */
-  type: string;
+  /** "pdf" 或 "markdown"；非 PDF 文档统一为 "markdown" */
+  type: "pdf" | "markdown";
   /** 相对代理路径, 仅 type=pdf 时非空 */
   pdf_link: string | null;
   /** 相对代理路径 */
