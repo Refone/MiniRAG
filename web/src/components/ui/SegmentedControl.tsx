@@ -16,6 +16,9 @@ export function SegmentedControl<T extends string>({
   ariaLabel,
 }: SegmentedControlProps<T>) {
   const index = Math.max(options.findIndex((o) => o.value === value), 0);
+  /** thumb 宽 = 容器宽 - 左右 padding 3px×2 - 按钮间距 2px×(n-1)，再均分给 n 个选项 */
+  const count = Math.max(options.length, 1);
+  const thumbWidth = `calc((100% - ${(count - 1) * 2 + 6}px) / ${count})`;
   return (
     <div
       className={`segmented${disabled ? " disabled" : ""}`}
@@ -24,7 +27,10 @@ export function SegmentedControl<T extends string>({
     >
       <div
         className="seg-thumb"
-        style={{ transform: `translateX(calc(${index} * (100% + 2px)))` }}
+        style={{
+          width: thumbWidth,
+          transform: `translateX(calc(${index} * (100% + 2px)))`,
+        }}
       />
       {options.map((o) => (
         <button

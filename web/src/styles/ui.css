@@ -9,11 +9,13 @@
   color: var(--text-2);
 }
 
-/* ---- 三档分段开关 ---- */
+/* ---- 分段开关（选项数自适应：等宽列 + 内联 thumb 宽度） ---- */
 .segmented {
   flex: 0 0 auto;
   position: relative;
-  display: inline-flex;
+  display: inline-grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
   align-items: center;
   background: var(--surface-inset);
   border-radius: var(--r-lg);
@@ -26,7 +28,7 @@
   top: 3px;
   bottom: 3px;
   left: 3px;
-  width: calc((100% - 10px) / 3);
+  /* 宽度按选项数由组件内联写入（thumb 数量自适应，不做 /3 硬编码） */
   background: var(--seg-thumb);
   border-radius: var(--r-md);
   box-shadow: var(--shadow-seg);

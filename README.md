@@ -86,6 +86,7 @@ web     # 前端 (Vite + React)
 # 本地开发
 uvicorn --app-dir src api.main:app --reload        # 后端 :8000
 cd web && npm run dev                              # 前端 :5173 (代理 /api → :8000)
+cd web && npm run storybook                        # 组件工作台 :6006 (无后端也能看)
 
 # 一键容器化 (按顺序拉起)
 # 后端配置 (密钥/模型等) 由仓库根目录 .env 经 env_file 注入容器,

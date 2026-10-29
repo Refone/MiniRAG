@@ -4,6 +4,7 @@ node_modules/
 # ---- 构建产物 ----
 dist/
 dist-ssr/
+storybook-static/
 *.tsbuildinfo
 
 # ---- 缓存 ----

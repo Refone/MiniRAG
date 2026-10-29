@@ -13,6 +13,7 @@
 # 仅排除依赖与构建产物 (web 源码需保留, 供 frontend.Dockerfile 使用)
 web/node_modules
 web/dist
+web/storybook-static
 
 # 数据 / 运行时产物 / 密钥
 .env
