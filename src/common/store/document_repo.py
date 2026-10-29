@@ -23,6 +23,8 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 
+from pydantic import ValidationError
+
 from common.client import MILVUS_CLIENT, MINIO_CLIENT
 from common.client.milvus_client import (
     MilvusChunksItem,
@@ -32,6 +34,7 @@ from common.client.milvus_client import (
 from common.config.app_config import APP_CONFIG
 from common.config.env_config import ENV_CONFIG
 from common.logging import logger
+from common.schema import DocChunk, DocDetail
 
 
 class DocumentNotFoundError(Exception):
@@ -55,17 +58,6 @@ class DeleteResult:
     minio_objects: int
 
 
-@dataclass(frozen=True)
-class DocumentDetail:
-    """文档详情（列表页需要的元数据 + 原文 + 切块）。"""
-
-    title: str
-    markdown_text: str
-    chunks: list[dict]
-    keywords: str
-    abstract: str
-
-
 def _object_name_from_proxy_url(proxy_url: str) -> str:
     """库里存的是相对代理路径，读 MinIO 对象时去掉前缀得到 object_name。"""
     prefix = APP_CONFIG.files_proxy_prefix
@@ -87,8 +79,8 @@ def _read_object_bytes(proxy_url: str, label: str, doc_id: int) -> bytes:
         )
 
 
-def _read_chunks_json(proxy_url: str, doc_id: int) -> list[dict]:
-    """读回 chunks.json 并解析为 [{content, level, title_stack}]。"""
+def _read_chunks_json(proxy_url: str, doc_id: int) -> list[DocChunk]:
+    """读回 chunks.json 并校验为领域模型（shape 见 `common.schema.DocChunk`）。"""
     data = _read_object_bytes(proxy_url, "chunks.json", doc_id)
     try:
         chunks = json.loads(data.decode("utf-8"))
@@ -101,16 +93,10 @@ def _read_chunks_json(proxy_url: str, doc_id: int) -> list[dict]:
             f"got={type(chunks).__name__}"
         )
 
-    return [
-        {
-            "content": chunk.get("content", "") if isinstance(chunk, dict) else "",
-            "level": chunk.get("level", 0) if isinstance(chunk, dict) else 0,
-            "title_stack": chunk.get("title_stack", [])
-            if isinstance(chunk, dict)
-            else [],
-        }
-        for chunk in chunks
-    ]
+    try:
+        return [DocChunk(**chunk) for chunk in chunks]
+    except (TypeError, ValidationError) as e:
+        raise DocumentNotFoundError(f"chunks.json 字段非法: doc_id={doc_id}, error={e}")
 
 
 class DocumentRepo:
@@ -129,7 +115,7 @@ class DocumentRepo:
         """按主键取单行标量列；不存在返回 None。"""
         return MILVUS_CLIENT.query_doc_by_id(doc_id)
 
-    def get_detail(self, doc_id: int) -> DocumentDetail | None:
+    def get_detail(self, doc_id: int) -> DocDetail | None:
         """详情 = 行元数据 + final markdown 原文 + chunks.json；行缺失返回 None。"""
         row = MILVUS_CLIENT.query_doc_by_id(doc_id)
         if row is None:
@@ -140,7 +126,7 @@ class DocumentRepo:
         ).decode("utf-8", errors="replace")
         chunks = _read_chunks_json(row.get(MilvusDocsField.CHUNKS_URL) or "", doc_id)
 
-        return DocumentDetail(
+        return DocDetail(
             title=row.get(MilvusDocsField.FILE_TITLE) or "",
             markdown_text=markdown_text,
             chunks=chunks,

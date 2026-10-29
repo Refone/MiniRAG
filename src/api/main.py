@@ -18,7 +18,6 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from api import __version__
 from api.schemas import (
     DocsDeleteResponse,
-    DocsDetailResponse,
     DocsListResponse,
     QueryRequest,
     UploadResponse,
@@ -31,6 +30,7 @@ from common.config.env_config import ENV_CONFIG
 from common.config.path_config import UPLOAD_TMP_DIR
 from common.events import EVENT_BUS, TASK_MANAGER, TaskStatus
 from common.logging import logger
+from common.schema import DocDetail
 from common.store import CHAT_HISTORY_MANAGER
 from common.store.chat_history import ChatMessage
 from service import docs_service
@@ -143,7 +143,7 @@ async def import_document(
 
     return UploadResponse(
         task_id=task_id,
-        status=TaskStatus.PENDING.value,
+        status=TaskStatus.PENDING,
     )
 
 
@@ -267,14 +267,17 @@ def list_docs(
     offset = max(0, offset)
     limit = max(1, min(limit, 100))  # 设置 100 安全上限
 
-    return docs_service.list_docs(offset=offset, limit=limit)
+    return DocsListResponse(
+        total=docs_service.count_docs(),
+        list=docs_service.list_docs(offset=offset, limit=limit),
+    )
 
 
-@router.get("/docs/{doc_id}", response_model=DocsDetailResponse)
+@router.get("/docs/{doc_id}", response_model=DocDetail)
 def get_doc_detail(
     request: Request,
     doc_id: str,
-) -> DocsDetailResponse:
+) -> DocDetail:
     """获取文档详情。"""
 
     logger.info(f"[{str(request.url)}], doc_id={doc_id}")

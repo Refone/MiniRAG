@@ -10,7 +10,7 @@ api → service → graphs → common
 
 | tier | 模块 | 允许 import |
 | --- | --- | --- |
-| 0 基础 | `utils/`、`prompt/` | 仅标准库 / 第三方 |
+| 0 基础 | `utils/`、`prompt/`、`schema/` | 仅标准库 / 第三方 |
 | 1 配置 | `config/` | tier 0 |
 | 2 设施 | `logging.py`、`model/` | tier 0–1 |
 | 3 资源 | `client/`、`events/` | tier 0–2 |

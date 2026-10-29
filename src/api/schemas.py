@@ -1,13 +1,20 @@
-from typing import Literal
+"""HTTP 运输契约：只放 api 层自己的请求 / 响应信封。
 
-from pydantic import BaseModel, Field
+领域形状（文档条目、切块、详情）在 `common.schema`，这里不重复定义，
+信封只负责组合。`response_model` 可直接指向 common 模型，FastAPI 不关心定义位置。
+"""
+
+from pydantic import BaseModel
+
+from common.events import TaskStatus
+from common.schema import DocItem
 
 
 class UploadResponse(BaseModel):
     """POST /upload 的响应: 提交成功后立即返回任务 ID。"""
 
     task_id: str
-    status: str
+    status: TaskStatus
 
 
 class QueryRequest(BaseModel):
@@ -19,41 +26,11 @@ class QueryRequest(BaseModel):
     enable_hyde: bool = True
 
 
-class DocsListItem(BaseModel):
-    """GET /api/docs 文档列表单条。"""
-
-    doc_id: str
-    title: str
-    type: Literal["pdf", "markdown"] = Field(
-        description='文档类型："pdf" 或 "markdown"；非 PDF 文档统一为 "markdown"。'
-    )
-    pdf_link: str | None
-    chunks_link: str
-
-
 class DocsListResponse(BaseModel):
-    """GET /api/docs 响应。"""
+    """GET /api/docs 响应 (分页信封)。"""
 
     total: int
-    list: list[DocsListItem]
-
-
-class DocsChunkItem(BaseModel):
-    """GET /api/docs/{doc_id} 详情中的单个切块 (与 chunks.json 结构一致)。"""
-
-    content: str
-    level: int
-    title_stack: list[str | None]
-
-
-class DocsDetailResponse(BaseModel):
-    """GET /api/docs/{doc_id} 响应。"""
-
-    title: str
-    markdown_text: str
-    chunks: list[DocsChunkItem]
-    keywords: str
-    abstract: str
+    list: list[DocItem]
 
 
 class DocsDeleteResponse(BaseModel):

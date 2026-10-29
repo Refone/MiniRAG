@@ -42,6 +42,7 @@ WEB_MODULES = {"fastapi", "starlette"}
 COMMON_TIERS = {
     "utils": 0,
     "prompt": 0,
+    "schema": 0,
     "config": 1,
     "logging": 2,
     "model": 2,
