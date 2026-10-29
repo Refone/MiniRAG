@@ -12,7 +12,8 @@ import time
 from functools import wraps
 from typing import Any, Callable
 
-from common.events import TASK_REGISTRY
+from common.events import TASK_MANAGER
+from common.events.event_bus import EVENT_BUS, SSEEvent
 from common.logging import logger
 
 
@@ -93,28 +94,50 @@ def _trace_id(state) -> str:
     )
 
 
+def _publish_progress(trace_id: str) -> None:
+    """进度推送的组合点：先从 `TASK_MANAGER` 取信息，再经 `EVENT_BUS` 推送。
+
+    - 普通任务：`progress`，通道 = trace_id；
+    - md 子任务：`child-progress`，通道 = 父 task_id；
+    - 无条目 / 父任务已终态：不推（`snapshot()` 返回 None）。
+    """
+    snapshot = TASK_MANAGER.snapshot(trace_id)
+    if snapshot is None:
+        return
+    parent_id = TASK_MANAGER.parent_id(trace_id)
+    if parent_id is None:
+        EVENT_BUS.push(trace_id, SSEEvent.PROGRESS, snapshot)
+    else:
+        EVENT_BUS.push(parent_id, SSEEvent.CHILD_PROGRESS, snapshot)
+
+
 def _task_trace(node_name: str, *, need_push: bool = False) -> Callable[..., Any]:
     """任务追踪包装: 开始时记 running, 成功结束时记 done, 失败时记 failed。
 
     - 有 `child_task_id` 时记录到子任务命名空间, 与父任务 done/running 隔离;
-    - 失败节点不再误记为 done, 由 task_utils 记录 failed/error;
+    - 失败节点不再误记为 done, 失败/错误信息由 add_failed 记录;
     - 失败快照不在这里推送, 交给子任务包装节点 / import_service 统一收口。
 
-    need_push 原样透传给 `TASK_REGISTRY.add_running` / `add_done`:
-    是否在状态变化后立刻触发 SSE 推送。这里不做任何写死, 由装饰器使用方决定。
+    need_push=True 时, 在 add_running / add_done 之后经 `_publish_progress`
+    推一帧快照: 状态查询（task_manager）与事件推送（event_bus）在本装饰器
+    组合, task_manager 本身不负责推送。
     """
 
     def deco(func):
         @wraps(func)
         def wrapper(state, *args, **kwargs):
             trace_id = _trace_id(state)
-            TASK_REGISTRY.add_running(trace_id, node_name, publish=need_push)
+            TASK_MANAGER.add_running(trace_id, node_name)
+            if need_push:
+                _publish_progress(trace_id)
             try:
                 result = func(state, *args, **kwargs)
             except Exception as e:
-                TASK_REGISTRY.add_failed(trace_id, node_name, str(e))
+                TASK_MANAGER.add_failed(trace_id, node_name, str(e))
                 raise
-            TASK_REGISTRY.add_done(trace_id, node_name, publish=need_push)
+            TASK_MANAGER.add_done(trace_id, node_name)
+            if need_push:
+                _publish_progress(trace_id)
             return result
 
         return wrapper
@@ -136,10 +159,10 @@ def trace_node(
                    默认取被修饰函数的函数名 `func.__name__`。
         log_trace  是否记录执行日志 (复用 `node_log`), 默认 True。
         task_trace 是否记录任务追踪; 为 True 时在节点开始时自动调用
-                   `TASK_REGISTRY.add_running`, 成功结束时调用 `TASK_REGISTRY.add_done`, 失败时
-                   调用 `TASK_REGISTRY.add_failed` (不推送, 由上层收口), 默认 True。
-        need_push  任务状态变化后是否立刻触发 SSE 推送 (透传给
-                   `TASK_REGISTRY.add_running` / `add_done`), 默认 False。
+                   `TASK_MANAGER.add_running`, 成功结束时调用 `TASK_MANAGER.add_done`, 失败时
+                   调用 `TASK_MANAGER.add_failed` (不推送, 由上层收口), 默认 True。
+        need_push  任务状态变化后是否立刻推送 SSE 快照 (在 `add_running` /
+                   `add_done` 之后取快照并经 `EVENT_BUS` 推送), 默认 False。
                    仅在 `task_trace=True` 时有效; 需要实时进度的节点自行开启,
                    其余节点保持默认, 避免无谓推送。
 
@@ -186,13 +209,13 @@ if __name__ == "__main__":
     logger.info(step_test(2, 3))
 
     # trace_node: 日志 + 任务追踪
-    from common.events import TASK_REGISTRY
+    from common.events import TASK_MANAGER
 
     @trace_node(desc="演示节点")
     def demo_node(state: dict):
         return state
 
-    TASK_REGISTRY.clear("demo")
+    TASK_MANAGER.clear("demo")
     demo_node({"task_id": "demo"})
-    done, running, _ = TASK_REGISTRY.get_nodes("demo")
+    done, running, _ = TASK_MANAGER.get_nodes("demo")
     logger.info(f"running={running} done={done}")

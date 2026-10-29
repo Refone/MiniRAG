@@ -4,7 +4,7 @@
 export type PageKey = "chat" | "docs";
 
 /**
- * 任务状态（与后端 `common.events.registry.TaskStatus` 1:1，禁止自造同义词）。
+ * 任务状态（与后端 `common.events.task_manager.TaskStatus` 1:1，禁止自造同义词）。
  * 前端本地态另见 `ImportStatus` 的 uploading 与 `ImportChildStatus` 的 interrupted。
  */
 export type TaskStatus = "pending" | "processing" | "complete" | "failed";

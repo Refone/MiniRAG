@@ -28,7 +28,7 @@ from api.startup_checks import startup_checks
 from common.client import MINIO_CLIENT
 from common.config.app_config import APP_CONFIG
 from common.config.env_config import ENV_CONFIG
-from common.events import EVENT_BUS, TASK_REGISTRY, TaskStatus
+from common.events import EVENT_BUS, TASK_MANAGER, TaskStatus
 from common.logging import logger
 from common.store import CHAT_HISTORY_MANAGER
 from common.store.chat_history import ChatMessage
@@ -42,7 +42,7 @@ async def _sweep_loop() -> None:
     while True:
         await asyncio.sleep(APP_CONFIG.sse_sweep_interval_seconds)
         try:
-            gone_tasks = TASK_REGISTRY.sweep(APP_CONFIG.task_ttl_seconds)
+            gone_tasks = TASK_MANAGER.sweep(APP_CONFIG.task_ttl_seconds)
             gone_channels = EVENT_BUS.sweep(APP_CONFIG.sse_channel_ttl_seconds)
             if gone_tasks or gone_channels:
                 logger.info(

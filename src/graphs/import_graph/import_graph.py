@@ -5,7 +5,7 @@ from langgraph.constants import END
 from langgraph.graph import StateGraph
 from langgraph.types import Send
 
-from common.events import TASK_REGISTRY
+from common.events import EVENT_BUS, TASK_MANAGER, SSEEvent
 from common.events.tracing import trace_node
 from graphs.import_graph.import_graph_state import (
     FileType,
@@ -59,6 +59,8 @@ md_tail_graph = md_tail_workflow.compile()
 
 # --------------------------------------------------------------------------- #
 # 分支包装节点: 调用 md_tail 子图, 并统一收口子任务的 complete / failed。
+# 收口后从 task_manager 取快照, 经 event_bus 推一帧 child-progress
+# (组合点在调用侧, task_manager 本身不推送)。
 #
 # 为什么不直接把编译好的子图挂成节点:
 # - 子图正常返回后需要知道「是哪个 child」才能置 complete;
@@ -69,16 +71,21 @@ md_tail_graph = md_tail_workflow.compile()
 @trace_node(desc="处理 Markdown 尾巴", task_trace=False)
 def node_md_tail_branch(state: ImportGraphState):
     child_id = state.get("child_task_id") or ""
+    parent_id = state.get("task_id", "")
     try:
         # 透传当前 LangGraph config, 保留 callbacks / tracing / recursion limit
         result = md_tail_graph.invoke(state, get_config())
     except Exception as e:
         if child_id:
-            TASK_REGISTRY.fail_child(child_id, str(e))
+            snapshot = TASK_MANAGER.fail_child(child_id, str(e))
+            if snapshot is not None:
+                EVENT_BUS.push(parent_id, SSEEvent.CHILD_PROGRESS, snapshot)
         raise
 
     if child_id:
-        TASK_REGISTRY.complete_child(child_id)
+        snapshot = TASK_MANAGER.complete_child(child_id)
+        if snapshot is not None:
+            EVENT_BUS.push(parent_id, SSEEvent.CHILD_PROGRESS, snapshot)
 
     return {
         "markdown_file_path": result.get("markdown_file_path", ""),
@@ -171,7 +178,7 @@ import_graph = workflow.compile()
 if __name__ == "__main__":
     from rich import print as rprint
 
-    from common.events import TASK_REGISTRY
+    from common.events import TASK_MANAGER
     from common.logging import logger
     from common.utils.paths import fixture_path
     from graphs.import_graph.import_graph_state import create_state
@@ -182,7 +189,7 @@ if __name__ == "__main__":
     # origin_file_path = fixture_path("hak180产品安全手册.pdf")
     origin_file_path = fixture_path("万用表RS-12的使用.pdf")
 
-    TASK_REGISTRY.clear(task_id)
+    TASK_MANAGER.clear(task_id)
     initial_state = create_state(
         task_id=task_id,
         origin_file_path=str(origin_file_path),
@@ -192,5 +199,5 @@ if __name__ == "__main__":
 
     logger.complete()
 
-    rprint(TASK_REGISTRY.get_nodes(task_id)[0])
+    rprint(TASK_MANAGER.get_nodes(task_id)[0])
     rprint(end_state)

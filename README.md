@@ -72,13 +72,13 @@ web     # 前端 (Vite + React)
 
 ## 运行限制
 
-**当前只支持单 worker**：任务进度（`TaskRegistry`）与 SSE 通道（`EventBus`）都是
+**当前只支持单 worker**：任务进度（`TASK_MANAGER`）与 SSE 通道（`EVENT_BUS`）都是
 **进程内**状态，多 worker 下各进程独立，进度推送会落到没有订阅者的进程里。
 后端启动时会检测 `WEB_CONCURRENCY` / `UVICORN_WORKERS` 并 WARN。
 
 进程内状态有 TTL 兜底：任务 30 分钟无更新、SSE 通道 30 分钟无读写会被清扫
 （`APP_CONFIG.task_ttl_seconds` / `sse_channel_ttl_seconds`）。
-横向扩展需把两者换成 Redis 等外部存储，接口（`TASK_REGISTRY` / `EVENT_BUS`）已按可替换设计。
+横向扩展需把两者换成 Redis 等外部存储，接口（`TASK_MANAGER` / `EVENT_BUS`）已按可替换设计。
 
 ## Web 应用部署
 

@@ -1,4 +1,4 @@
-from common.events import EVENT_BUS, TASK_REGISTRY, SSEEvent, TaskStatus
+from common.events import EVENT_BUS, TASK_MANAGER, SSEEvent, TaskStatus
 from common.logging import logger
 from graphs.query_graph.query_graph import query_graph
 from graphs.query_graph.query_graph_state import create_state
@@ -11,8 +11,8 @@ async def arun_query(
     enable_hyde: bool = True,
 ) -> dict:
     try:
-        TASK_REGISTRY.clear(session_id)
-        TASK_REGISTRY.set_status(session_id, TaskStatus.PROCESSING)
+        TASK_MANAGER.clear(session_id)
+        TASK_MANAGER.set_status(session_id, TaskStatus.PROCESSING)
 
         start_state = create_state(
             session_id=session_id,
@@ -24,12 +24,12 @@ async def arun_query(
 
         EVENT_BUS.push(session_id, SSEEvent.CLOSE, {})
 
-        TASK_REGISTRY.set_status(session_id, TaskStatus.COMPLETE)
+        TASK_MANAGER.set_status(session_id, TaskStatus.COMPLETE)
 
         return end_state
     except Exception as e:
         # 处理异常, 例如记录日志
-        TASK_REGISTRY.set_status(session_id, TaskStatus.FAILED)
+        TASK_MANAGER.set_status(session_id, TaskStatus.FAILED)
         try:
             EVENT_BUS.push(session_id, SSEEvent.ERROR, {"error": str(e)})
         finally:

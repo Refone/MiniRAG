@@ -1,23 +1,3 @@
-"""SSE 事件总线（**不 import fastapi**）。
-
-线程模型
---------
-生产者是 LangGraph 的同步节点（跑在线程池里），消费者是 FastAPI 的异步流。
-`push()` 只做两件事：把事件追加到该通道的 `list` 缓冲、通过
-`loop.call_soon_threadsafe(wake.set)` 唤醒等待者——**不占线程、不轮询**。
-
-（旧实现是 `queue.Queue` + 每个连接一个线程池线程 `run_in_executor(get, 0.1s)`，
-连接数一多就把默认线程池顶穿。）
-
-生命周期
---------
-- `create()` 在 POST 受理任务时调用（此时还没有订阅者，先缓冲）；
-- `take()` / `wait_for_event()` 由 `api/sse.py` 的流循环调用；
-- 客户端从不连 SSE 时通道会残留，由 `sweep(ttl)` 兜底回收（lifespan 里定时跑）。
-
-缓冲上限：单通道超过 `sse_channel_max_events` 时丢最旧并告警，避免异常任务撑爆内存。
-"""
-
 from __future__ import annotations
 
 import asyncio
@@ -66,14 +46,14 @@ class _Channel:
 
 
 class InMemoryEventBus:
-    """进程内单机事件总线（可替换为 Redis 实现，接口保持）。"""
+    """进程内单机事件总线。"""
 
     def __init__(self, max_events: int | None = None) -> None:
         self._max_events = max_events or APP_CONFIG.sse_channel_max_events
         self._channels: dict[str, _Channel] = {}
         self._lock = threading.RLock()
 
-    # ------------------------------------------------------------- 生命周期
+    # 生命周期
     def create(self, channel_id: str) -> None:
         with self._lock:
             if channel_id not in self._channels:
@@ -104,7 +84,7 @@ class InMemoryEventBus:
                 self._channels.pop(cid, None)
         return len(stale)
 
-    # ----------------------------------------------------------------- 生产
+    # 生产侧
     def push(self, channel_id: str, event: str, data: dict[str, Any]) -> None:
         with self._lock:
             ch = self._channels.get(channel_id)
@@ -128,7 +108,7 @@ class InMemoryEventBus:
         if wake is not None and loop is not None and not loop.is_closed():
             loop.call_soon_threadsafe(wake.set)
 
-    # ----------------------------------------------------------------- 消费
+    # 消费侧
     def take(self, channel_id: str) -> list[tuple[str, dict]]:
         """取走当前缓冲的全部事件（非阻塞）。"""
         with self._lock:

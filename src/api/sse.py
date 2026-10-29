@@ -18,7 +18,7 @@ from collections.abc import AsyncIterator
 from fastapi import Request
 
 from common.events import EVENT_BUS, SSEEvent
-from common.events.bus import sse_pack
+from common.events.event_bus import sse_pack
 from common.logging import logger
 
 _POLL_INTERVAL = 1.0

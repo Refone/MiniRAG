@@ -1,25 +1,7 @@
 """进程内任务状态（任务 / md 子任务的进度聚合）。
 
-替代原先的 7 张模块级 dict：
-
-| 旧 | 新 |
-| --- | --- |
-| `_tasks_running_nodes` / `_tasks_done_nodes` / `_tasks_failed_nodes` | `TaskEntry.running / done / failed` |
-| `_tasks_status` / `_tasks_error` / `_tasks_result` | `TaskEntry.status / error / result` |
-| `_child_parent` | `TaskEntry.parent_id` |
-
-约束与现状一致：
-
-- `trace_id` 对普通任务等于 `task_id`/`session_id`；对 md 压缩包子任务等于
-  `child_task_id`，其进度仍从**父任务**的通道推送，事件类型为 `child-progress`
-  且载荷带 `child_id`。
-- LangGraph 的 Send 分支在多线程执行 → 所有读改写由 `_lock` 保护；
-  事件推送放在锁外，避免持锁调总线。
-- 父任务进入终态后，迟到的子任务进度不再推送（`P2 引入 cancelled 后在此追加`）。
-
-局限：进程内状态，多 uvicorn worker 各持一份；当前按「单 worker」使用
-（README 已写明，`startup_checks` 会告警）。要横向扩展需换成 Redis 等外部存储，
-接口保持不变即可替换。
+只保存与查询状态，**不 import / 不调用事件总线**：快照与 fork 载荷由本模块返回，
+事件经 `EVENT_BUS` 推送是调用侧（tracing / service / graphs）的职责。
 """
 
 from __future__ import annotations
@@ -30,7 +12,6 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import TypedDict
 
-from common.events.bus import EVENT_BUS, SSEEvent
 from common.logging import logger
 
 
@@ -56,6 +37,39 @@ class ChildSpec(TypedDict):
 
 @dataclass
 class TaskEntry:
+    """单个任务 / md 子任务的状态记录。
+
+    示例:
+    # 父任务：入口与解压已完成，等待各 md 分支收口
+    TaskEntry(
+        task_id="6f1c2b9e4a7d4c1e8f3a0b5d9c2e7f41",
+        parent_id=None,
+        status=TaskStatus.PROCESSING,
+        running=[],
+        done=["识别文档类别", "处理 Markdown 压缩包"],
+        failed=[],
+        error="",
+        result={},
+        created_at=1761820000.123456,
+        updated_at=1761820042.789012,
+    )
+
+    # md 子任务：图片识别、切分成功，嵌入入库失败
+    TaskEntry(
+        task_id="6f1c2b9e4a7d4c1e8f3a0b5d9c2e7f41:md:0",
+        parent_id="6f1c2b9e4a7d4c1e8f3a0b5d9c2e7f41",
+        status=TaskStatus.FAILED,
+        running=[],
+        done=["Markdown 图片识别", "文档切分"],
+        failed=["文档嵌入入库"],
+        error="Milvus insert failed: connection reset",
+        result={},
+        created_at=1761820010.001234,
+        updated_at=1761820035.678901,
+    )
+
+    """
+
     task_id: str
     parent_id: str | None = None
     status: TaskStatus = TaskStatus.PENDING
@@ -68,14 +82,16 @@ class TaskEntry:
     updated_at: float = field(default_factory=time.time)
 
 
-class TaskRegistry:
-    """任务状态机的唯一入口（单例 `TASK_REGISTRY`）。"""
+class TaskManager:
+    """任务状态的唯一入口（单例 `TASK_MANAGER`）。
+
+    只负责状态读写；需要推送进度时由调用侧取 `snapshot()` / `fork()` 的
+    """
 
     def __init__(self) -> None:
         self._tasks: dict[str, TaskEntry] = {}
         self._lock = threading.RLock()
 
-    # ------------------------------------------------------------- 内部工具
     def _ensure(self, task_id: str) -> TaskEntry:
         entry = self._tasks.get(task_id)
         if entry is None:
@@ -107,9 +123,8 @@ class TaskRegistry:
             payload["error"] = entry.error
         return payload
 
-    # --------------------------------------------------------------- 节点进度
-    def add_running(self, task_id: str, node: str, *, publish: bool = False) -> None:
-        """节点开始：加入 running（去重），可选推送一次快照。"""
+    def add_running(self, task_id: str, node: str) -> None:
+        """节点开始：加入 running（去重）。不推送，推送由调用侧决定。"""
         with self._lock:
             if self._parent_is_terminal(task_id):
                 return
@@ -121,11 +136,8 @@ class TaskRegistry:
                 entry.status = TaskStatus.PROCESSING
             self._touch(entry)
 
-        if publish:
-            self.publish(task_id)
-
-    def add_done(self, task_id: str, node: str, *, publish: bool = False) -> None:
-        """节点成功：加入 done（去重）并从 running 出队。"""
+    def add_done(self, task_id: str, node: str) -> None:
+        """节点成功：加入 done（去重）并从 running 出队。不推送。"""
         with self._lock:
             if self._parent_is_terminal(task_id):
                 return
@@ -136,13 +148,10 @@ class TaskRegistry:
                 entry.running.remove(node)
             self._touch(entry)
 
-        if publish:
-            self.publish(task_id)
-
     def add_failed(self, task_id: str, node: str, error: str = "") -> None:
         """节点失败：记 failed 并出队。
 
-        不主动改状态、不推送：子任务由 `fail_child`、父任务由 service 统一收口，
+        不主动改状态：子任务由 `fail_child`、父任务由 service 统一收口，
         避免一次失败推两帧（先 processing 后 failed）。
         """
         with self._lock:
@@ -158,67 +167,73 @@ class TaskRegistry:
                 entry.error = entry.error or error
             self._touch(entry)
 
-    # ------------------------------------------------------------------ 子任务
-    def fork(self, parent_id: str, children: list[ChildSpec]) -> None:
-        """登记 md 子任务并下发 fork 事件（发生在 Send 扇出之前）。"""
+    def fork(self, parent_id: str, children: list[ChildSpec]) -> dict | None:
+        """登记 md 子任务并返回 fork 事件载荷（发生在 Send 扇出之前）。
+
+        只改状态、不推送：事件下发由调用侧经 `EVENT_BUS.push` 完成，
+        载荷即本方法返回值；空清单返回 `None`（调用侧无需下发）。
+        """
+        if not children:
+            return None
+
         with self._lock:
             for child in children:
                 entry = self._ensure(child["child_task_id"])
                 entry.parent_id = parent_id
                 self._touch(entry)
 
-            payload = {
-                "parent_task_id": parent_id,
-                "total": len(children),
-                "children": [
-                    {
-                        "child_id": c["child_task_id"],
-                        "title": c["title"],
-                        "path": c.get("path", ""),
-                        "index": c["index"],
-                    }
-                    for c in children
-                ],
-            }
+        return {
+            "parent_task_id": parent_id,
+            "total": len(children),
+            "children": [
+                {
+                    "child_id": c["child_task_id"],
+                    "title": c["title"],
+                    "path": c.get("path", ""),
+                    "index": c["index"],
+                }
+                for c in children
+            ],
+        }
 
-        try:
-            EVENT_BUS.push(parent_id, SSEEvent.FORK, payload)
-        except Exception:
-            logger.warning("fork 事件推送失败: parent_id={}", parent_id, exc_info=True)
+    def complete_child(self, child_id: str) -> dict | None:
+        """子任务成功收口：置 complete、清空 running，返回进度快照载荷。
 
-    def complete_child(self, child_id: str) -> None:
-        """子任务成功收口：置 complete、清空 running、推送一次 child-progress。"""
+        未注册 / 无父 / 已终态 / 父任务已终态时返回 `None`（调用侧据此不推送）。
+        """
         with self._lock:
             entry = self._tasks.get(child_id)
             if entry is None or entry.parent_id is None:
                 logger.warning("complete_child 收到未注册的子任务: {}", child_id)
-                return
+                return None
             if entry.status in TERMINAL_STATUS:
-                return
+                return None
             entry.status = TaskStatus.COMPLETE
             entry.running.clear()
             self._touch(entry)
 
-        self.publish(child_id)
+        return self.snapshot(child_id)
 
-    def fail_child(self, child_id: str, error: str = "") -> None:
-        """子任务失败收口：置 failed、清空 running、推送一次 child-progress。"""
+    def fail_child(self, child_id: str, error: str = "") -> dict | None:
+        """子任务失败收口：置 failed、清空 running，返回进度快照载荷。
+
+        未注册 / 无父 / 已终态 / 父任务已终态时返回 `None`（调用侧据此不推送）。
+        """
         with self._lock:
             entry = self._tasks.get(child_id)
             if entry is None or entry.parent_id is None:
                 logger.warning("fail_child 收到未注册的子任务: {}", child_id)
-                return
+                return None
             if entry.status in TERMINAL_STATUS:
-                return
+                return None
             entry.status = TaskStatus.FAILED
             entry.running.clear()
             if error:
                 entry.error = entry.error or error
             self._touch(entry)
 
-        self.publish(child_id)
+        return self.snapshot(child_id)
 
-    # ------------------------------------------------------------------ 状态
     def set_status(self, task_id: str, status: TaskStatus | str) -> None:
         """设置任务状态；非法值抛 ValueError（沿用原校验）。"""
         value = status if isinstance(status, TaskStatus) else TaskStatus(str(status))
@@ -257,35 +272,33 @@ class TaskRegistry:
                 return [], [], []
             return list(entry.done), list(entry.running), list(entry.failed)
 
-    # ------------------------------------------------------------------ 推送
-    def publish(self, task_id: str) -> None:
-        """推送任务快照。
+    def parent_id(self, task_id: str) -> str | None:
+        """父任务 id：普通任务 / 未登记任务返回 `None`。"""
+        with self._lock:
+            entry = self._tasks.get(task_id)
+            return entry.parent_id if entry else None
 
-        - 普通任务：`progress`，通道 = task_id / session_id；
-        - md 子任务：`child-progress`，通道 = 父 task_id，载荷带 `child_id`；
-        - 父任务已终态时，迟到的子任务推送直接丢弃。
+    def snapshot(self, task_id: str) -> dict | None:
+        """进度快照载荷：普通任务为 `{status, done_list, running_list, ...}`，
+        子任务额外带 `child_id`。
+
+        无条目或父任务已终态时返回 `None`，调用侧据此跳过推送。
         """
         with self._lock:
             entry = self._tasks.get(task_id)
             if entry is None:
-                return
+                return None
             parent_id = entry.parent_id
             if parent_id is not None:
                 parent = self._tasks.get(parent_id)
                 if parent is not None and parent.status in TERMINAL_STATUS:
-                    return
+                    return None
                 payload = self._snapshot(entry)
                 payload["child_id"] = task_id
-                channel_id = parent_id
-                event = SSEEvent.CHILD_PROGRESS
             else:
                 payload = self._snapshot(entry)
-                channel_id = task_id
-                event = SSEEvent.PROGRESS
+            return payload
 
-        EVENT_BUS.push(channel_id, event, payload)
-
-    # ---------------------------------------------------------------- 生命周期
     def clear(self, task_id: str) -> None:
         """清空任务及其全部子任务（幂等）。"""
         with self._lock:
@@ -308,4 +321,4 @@ class TaskRegistry:
         return len(stale)
 
 
-TASK_REGISTRY = TaskRegistry()
+TASK_MANAGER = TaskManager()

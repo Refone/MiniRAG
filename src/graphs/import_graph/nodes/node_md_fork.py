@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from common.config.env_config import ENV_CONFIG
-from common.events import TASK_REGISTRY
+from common.events import EVENT_BUS, TASK_MANAGER, SSEEvent
 from common.events.tracing import trace_node
 from common.logging import logger
 from graphs.import_graph.import_graph_state import ImportGraphState, MdChild
@@ -9,7 +9,7 @@ from graphs.import_graph.import_graph_state import ImportGraphState, MdChild
 
 @trace_node(desc="拆分 md 子任务", task_trace=False)
 def node_md_fork(state: ImportGraphState) -> ImportGraphState:
-    """解压校验后、扇出前，把 md 列表物化为子任务并下发 fork 事件。
+    """解压校验后、扇出前，把 md 列表物化为子任务并经 EVENT_BUS 下发 fork 事件。
 
     时机 (不可提前 / 不可延后):
     - `node_process_md_zip` 已完成解压、图片完整性校验、路径越界检查与
@@ -56,9 +56,17 @@ def node_md_fork(state: ImportGraphState) -> ImportGraphState:
         )
 
     if children:
-        TASK_REGISTRY.fork(task_id, children)
+        # 组合点: 先登记子任务并取 fork 载荷 (task_manager), 再推帧 (event_bus)
+        fork_payload = TASK_MANAGER.fork(task_id, children)
+        if fork_payload is not None:
+            try:
+                EVENT_BUS.push(task_id, SSEEvent.FORK, fork_payload)
+            except Exception:
+                logger.warning(
+                    "fork 事件推送失败: parent_id={}", task_id, exc_info=True
+                )
         logger.info("md 任务分叉: task_id={}, count={}", task_id, len(children))
 
-    # 放在 fork_task 之后: 注册/推送成功才落 state, 节点重试时不会跳过 fork
+    # 放在 fork 之后: 注册与推送成功才落 state, 节点重试时不会跳过 fork
     state["md_children"] = children
     return state
