@@ -15,3 +15,7 @@
 - **不要做任何改变状态的操作**，包括但不限于 `git add`、`git commit`、`git push`、
   `git checkout --`、`git restore`、`git reset`。
 - 改动留在工作区，由人审阅后自行提交。
+
+## 关于需求开发 SOP
+
+需求开发 AI 与 人类基于文档进行协作，需求中的关键文档，以及文档中需要输出的内容，见 `docs/notes/RD-SOP-draft.md`。
