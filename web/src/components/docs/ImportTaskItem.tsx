@@ -3,7 +3,7 @@ import { ForkIcon } from "@/components/icons/AppIcons";
 import { ImportChildItem } from "@/components/docs/ImportChildItem";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { StatusLog, type StatusLogLine } from "@/components/ui/StatusLog";
-import { IMPORT_STATUS } from "@/lib/constants";
+import { IMPORT_STATUS_META } from "@/lib/constants";
 import type { ImportFile } from "@/types/docs";
 
 interface ImportTaskItemProps {
@@ -14,9 +14,7 @@ interface ImportTaskItemProps {
 export const ImportTaskItem = memo(function ImportTaskItem({
   file,
 }: ImportTaskItemProps) {
-  const statusMeta =
-    IMPORT_STATUS.find((s) => s.value === file.status) ??
-    IMPORT_STATUS[IMPORT_STATUS.length - 1];
+  const statusMeta = IMPORT_STATUS_META[file.status];
 
   const lines: StatusLogLine[] = [
     ...file.done.map((n) => ({ kind: "done" as const, text: n })),
@@ -37,7 +35,7 @@ export const ImportTaskItem = memo(function ImportTaskItem({
 
   /* 父卡日志手动开合；fork 时只自动收起一次，后续子任务更新不再强制改状态 */
   const [parentOpen, setParentOpen] = useState(
-    () => file.status !== "completed",
+    () => file.status !== "complete",
   );
   const autoClosedRef = useRef(false);
   useEffect(() => {
@@ -50,7 +48,7 @@ export const ImportTaskItem = memo(function ImportTaskItem({
   /* 保留原有「父任务完成自动收起一次」；之后用户手动开合不再被覆盖 */
   const prevStatusRef = useRef(file.status);
   useEffect(() => {
-    if (file.status === "completed" && prevStatusRef.current !== "completed") {
+    if (file.status === "complete" && prevStatusRef.current !== "complete") {
       setParentOpen(false);
     }
     prevStatusRef.current = file.status;
@@ -60,8 +58,8 @@ export const ImportTaskItem = memo(function ImportTaskItem({
     const result = {
       pending: 0,
       processing: 0,
-      completed: 0,
-      error: 0,
+      complete: 0,
+      failed: 0,
       interrupted: 0,
     };
     file.children.forEach((c) => {
@@ -72,10 +70,10 @@ export const ImportTaskItem = memo(function ImportTaskItem({
 
   const aggregateText = useMemo(() => {
     const total = file.children.length;
-    const parts = [`${counts.completed} / ${total} 完成`];
+    const parts = [`${counts.complete} / ${total} 完成`];
     if (counts.processing) parts.push(`${counts.processing} 进行中`);
     if (counts.pending) parts.push(`${counts.pending} 等待`);
-    if (counts.error) parts.push(`${counts.error} 失败`);
+    if (counts.failed) parts.push(`${counts.failed} 失败`);
     if (counts.interrupted) parts.push(`${counts.interrupted} 未完成`);
     return parts.join(" · ");
   }, [counts, file.children.length]);
@@ -118,7 +116,7 @@ export const ImportTaskItem = memo(function ImportTaskItem({
             aria-label="md 子任务进度"
             aria-valuemin={0}
             aria-valuemax={file.children.length}
-            aria-valuenow={counts.completed}
+            aria-valuenow={counts.complete}
             aria-valuetext={aggregateText}
           >
             {file.children.map((child) => (

@@ -17,13 +17,12 @@ from __future__ import annotations
 import base64
 import unicodedata
 from functools import lru_cache
+from pathlib import Path
 
 import tiktoken
 
-from utils.path_utils import PROJECT_ROOT
-
-# 固定项目资源: 词表文件与 src/common/model 包同目录
-_VOCAB_PATH = PROJECT_ROOT / "src" / "common" / "model" / "qwen.tiktoken"
+# 固定项目资源: 词表文件在 src/common/model/ 下（数据文件依赖, 不是模块依赖）
+_VOCAB_PATH = Path(__file__).parents[1] / "model" / "qwen.tiktoken"
 
 # --------------------------------------------------------------------------- #
 # Qwen tokenizer 的 tiktoken 配置 (与 dashscope 内置 QwenTokenizer 一致)

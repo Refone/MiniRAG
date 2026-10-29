@@ -1,8 +1,7 @@
+from common.events import EVENT_BUS, TASK_REGISTRY, SSEEvent, TaskStatus
+from common.logging import logger
 from graphs.query_graph.query_graph import query_graph
 from graphs.query_graph.query_graph_state import create_state
-from utils.logging_utils import logger
-from utils.sse_utils import SSEEvent, sse_push
-from utils.task_utils import TaskStatus, clear_task, set_task_status
 
 
 async def arun_query(
@@ -12,8 +11,8 @@ async def arun_query(
     enable_hyde: bool = True,
 ) -> dict:
     try:
-        clear_task(session_id)
-        set_task_status(session_id, TaskStatus.PROCESSING.value)
+        TASK_REGISTRY.clear(session_id)
+        TASK_REGISTRY.set_status(session_id, TaskStatus.PROCESSING)
 
         start_state = create_state(
             session_id=session_id,
@@ -23,25 +22,18 @@ async def arun_query(
         )
         end_state = await query_graph.ainvoke(start_state)
 
-        sse_push(
-            sse_id=session_id,
-            event=SSEEvent.CLOSE,
-            data={},
-        )
+        EVENT_BUS.push(session_id, SSEEvent.CLOSE, {})
 
-        set_task_status(session_id, TaskStatus.COMPLETE.value)
+        TASK_REGISTRY.set_status(session_id, TaskStatus.COMPLETE)
 
         return end_state
     except Exception as e:
         # 处理异常, 例如记录日志
-        set_task_status(session_id, TaskStatus.FAILED.value)
+        TASK_REGISTRY.set_status(session_id, TaskStatus.FAILED)
         try:
-            sse_push(
-                sse_id=session_id,
-                event=SSEEvent.ERROR,
-                data={"error": str(e)},
-            )
-        except Exception:
-            pass
+            EVENT_BUS.push(session_id, SSEEvent.ERROR, {"error": str(e)})
+        finally:
+            # 失败路径也要关流: 与导入流对齐, 前端不需要再靠"error 后关流"的隐含约定
+            EVENT_BUS.push(session_id, SSEEvent.CLOSE, {})
         logger.error(f"查询处理失败: {str(e)}")
         return {"reply": f"查询处理失败: {str(e)}"}

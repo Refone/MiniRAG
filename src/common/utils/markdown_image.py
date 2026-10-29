@@ -1,7 +1,5 @@
 import re
 
-from common.config.app_config import APP_CONFIG
-
 # 一个或多个空行（允许行内只有空格/制表符）
 _BLANK_LINE_RE = re.compile(r"\n[ \t]*\n")
 _IMG_MD_RE = re.compile(r"!\[[^\]]*\]\([^)]*\)")
@@ -34,7 +32,7 @@ def extract_surrounding_context(
     md_content: str,
     start: int,
     end: int,
-    max_chars: int = APP_CONFIG.md_image_surrounding_context_max_chars,
+    max_chars: int,
 ) -> tuple[str, str]:
     """
     提取图片标记 ![alt](url) 的前一段和后一段文本。

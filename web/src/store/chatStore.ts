@@ -187,8 +187,8 @@ export const useChatStore = create<ChatStoreState>()((set, get) => ({
         return { queryTask: { ...s.queryTask, progress } };
       });
 
-    /** 终态归一：completed / failed，供卡片自动收起；任务本身保留 */
-    const finishTask = (status: "completed" | "failed") =>
+    /** 终态归一：complete / failed，供卡片自动收起；任务本身保留 */
+    const finishTask = (status: "complete" | "failed") =>
       set((s) => {
         if (s.queryTask?.id !== taskId) return s;
         return {
@@ -248,7 +248,7 @@ export const useChatStore = create<ChatStoreState>()((set, get) => ({
             console.log(`[chat] SSE 收到 __close__，关闭连接`);
             if (activeTaskId === taskId) {
               patchBot({ streaming: false });
-              finishTask("completed");
+              finishTask("complete");
               // final 缺失时也释放请求级状态，避免发送按钮永久禁用
               set({ sending: false });
             }
@@ -265,7 +265,7 @@ export const useChatStore = create<ChatStoreState>()((set, get) => ({
                 text: rawAnswerText,
               });
               set({ sending: false });
-              finishTask(finalReceived ? "completed" : "failed");
+              finishTask(finalReceived ? "complete" : "failed");
             }
             if (esRef === handle.es) esRef = null;
           },
@@ -303,7 +303,7 @@ export const useChatStore = create<ChatStoreState>()((set, get) => ({
   dismissTask: () =>
     set((s) => {
       const progressStatus = s.queryTask?.progress.status;
-      if (progressStatus !== "completed" && progressStatus !== "failed") {
+      if (progressStatus !== "complete" && progressStatus !== "failed") {
         return s;
       }
       console.log("[chat] 关闭终态任务卡片");

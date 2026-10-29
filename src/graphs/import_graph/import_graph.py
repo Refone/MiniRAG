@@ -5,6 +5,8 @@ from langgraph.constants import END
 from langgraph.graph import StateGraph
 from langgraph.types import Send
 
+from common.events import TASK_REGISTRY
+from common.events.tracing import trace_node
 from graphs.import_graph.import_graph_state import (
     FileType,
     ImportGraphState,
@@ -21,8 +23,6 @@ from graphs.import_graph.nodes import (
     node_process_md_zip,
     node_process_standalone_md,
 )
-from utils import task_utils
-from utils.node_utils import trace_node
 
 
 # --------------------------------------------------------------------------- #
@@ -74,11 +74,11 @@ def node_md_tail_branch(state: ImportGraphState):
         result = md_tail_graph.invoke(state, get_config())
     except Exception as e:
         if child_id:
-            task_utils.fail_child(child_id, str(e))
+            TASK_REGISTRY.fail_child(child_id, str(e))
         raise
 
     if child_id:
-        task_utils.complete_child(child_id)
+        TASK_REGISTRY.complete_child(child_id)
 
     return {
         "markdown_file_path": result.get("markdown_file_path", ""),
@@ -171,10 +171,10 @@ import_graph = workflow.compile()
 if __name__ == "__main__":
     from rich import print as rprint
 
+    from common.events import TASK_REGISTRY
+    from common.logging import logger
+    from common.utils.paths import fixture_path
     from graphs.import_graph.import_graph_state import create_state
-    from utils import task_utils
-    from utils.logging_utils import logger
-    from utils.path_utils import fixture_path
 
     print(import_graph.get_graph().draw_ascii())
 
@@ -182,7 +182,7 @@ if __name__ == "__main__":
     # origin_file_path = fixture_path("hak180产品安全手册.pdf")
     origin_file_path = fixture_path("万用表RS-12的使用.pdf")
 
-    task_utils.clear_task(task_id)
+    TASK_REGISTRY.clear(task_id)
     initial_state = create_state(
         task_id=task_id,
         origin_file_path=str(origin_file_path),
@@ -192,5 +192,5 @@ if __name__ == "__main__":
 
     logger.complete()
 
-    rprint(task_utils.get_task_done_nodes(task_id))
+    rprint(TASK_REGISTRY.get_nodes(task_id)[0])
     rprint(end_state)

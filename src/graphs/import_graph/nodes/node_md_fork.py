@@ -1,10 +1,10 @@
 from pathlib import Path
 
 from common.config.env_config import ENV_CONFIG
+from common.events import TASK_REGISTRY
+from common.events.tracing import trace_node
+from common.logging import logger
 from graphs.import_graph.import_graph_state import ImportGraphState, MdChild
-from utils import task_utils
-from utils.logging_utils import logger
-from utils.node_utils import trace_node
 
 
 @trace_node(desc="拆分 md 子任务", task_trace=False)
@@ -56,7 +56,7 @@ def node_md_fork(state: ImportGraphState) -> ImportGraphState:
         )
 
     if children:
-        task_utils.fork_task(task_id, children)
+        TASK_REGISTRY.fork(task_id, children)
         logger.info("md 任务分叉: task_id={}, count={}", task_id, len(children))
 
     # 放在 fork_task 之后: 注册/推送成功才落 state, 节点重试时不会跳过 fork

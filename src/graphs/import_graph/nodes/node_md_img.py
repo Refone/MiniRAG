@@ -9,13 +9,13 @@ from langchain.messages import HumanMessage
 from common.client import MINIO_CLIENT
 from common.config.app_config import APP_CONFIG
 from common.config.env_config import ENV_CONFIG
+from common.events.tracing import step_log, trace_node
+from common.logging import logger
 from common.model import VLM
 from common.model.qwen3_vl_plus import encode_image
 from common.prompt.prompt_image_summary import PromptImageSummary
+from common.utils.markdown_image import extract_surrounding_context, find_image_position
 from graphs.import_graph.import_graph_state import ImportGraphState
-from utils.logging_utils import logger
-from utils.markdown_utils import extract_surrounding_context, find_image_position
-from utils.node_utils import step_log, trace_node
 
 _MD_FIXED_SUFFIX = "_fixed"
 
@@ -124,7 +124,12 @@ def step_2_scan_images(
             continue
         start, end = pos
 
-        pre_text, post_text = extract_surrounding_context(md_content, start, end)
+        pre_text, post_text = extract_surrounding_context(
+            md_content,
+            start,
+            end,
+            APP_CONFIG.md_image_surrounding_context_max_chars,
+        )
 
         logger.debug(
             f"{image_name} 内联图片描述位置: [{start}, {end}],\n"
@@ -266,6 +271,11 @@ def step_5_md_content_image_replace(
 
     for image_name, summary in image_summary_dict.items():
         url = image_url_dict.get(image_name)
+        if not url:
+            # step_4 上传失败只 WARN 跳过, 这里必须同样跳过:
+            # 否则会把 "None" 当成图片地址写进 markdown, 且被计入替换数
+            logger.warning(f"图片未成功上传, 跳过 markdown 替换: {image_name}")
+            continue
 
         # 1. Markdown 内联语法 ![](本地路径) -> ![摘要](网络地址)
         md_reg = re.compile(r"\!\[.*?\]\(.*?" + re.escape(image_name) + r".*?\)")
@@ -351,8 +361,8 @@ def node_md_img(state: ImportGraphState) -> ImportGraphState:
 if __name__ == "__main__":
     from rich import print as rprint
 
+    from common.config.runtime_paths import snapshot_path
     from graphs.import_graph.import_graph_state import load_state, save_state
-    from utils.path_utils import snapshot_path
 
     prev_state = load_state(snapshot_path("import_02_pdf_to_md.json"))
     next_state = node_md_img(prev_state)

@@ -1,12 +1,12 @@
 from pathlib import Path
 
+from common.events.tracing import trace_node
+from common.logging import logger
 from graphs.import_graph.import_graph_state import (
     FileType,
     ImportGraphState,
     file_type_from_filename,
 )
-from utils.logging_utils import logger
-from utils.node_utils import trace_node
 
 
 @trace_node(desc="识别文档类别", need_push=True)
@@ -29,8 +29,9 @@ def node_entry(state: ImportGraphState) -> ImportGraphState:
 if __name__ == "__main__":
     from rich import print as rprint
 
+    from common.config.runtime_paths import snapshot_path
+    from common.utils.paths import fixture_path
     from graphs.import_graph.import_graph_state import create_state, save_state
-    from utils.path_utils import fixture_path, snapshot_path
 
     start1 = create_state(
         task_id="test_task_start",

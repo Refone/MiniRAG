@@ -1,14 +1,6 @@
 import { StatusLog, type StatusLogLine } from "@/components/ui/StatusLog";
-import { PROGRESS_STATUS_LABELS } from "@/lib/constants";
+import { TASK_STATUS_LABELS } from "@/lib/constants";
 import type { ProgressView } from "@/types/app";
-
-/** 摘要里的状态词（运行中列出具体步骤，不再显示完成/进行中的数量） */
-const SUMMARY_STATUS_LABELS: Record<string, string> = {
-  pending: "等待中",
-  processing: "进行中",
-  completed: "已完成",
-  failed: "失败",
-};
 
 /**
  * 查询任务进度（输入框上方唯一卡片的内容）。
@@ -32,10 +24,7 @@ export function QueryProgress({
   const hasRunningSteps = runningSteps.length > 0;
   const statusText = hasRunningSteps
     ? `进行中：${runningSteps.join("，")}...`
-    : SUMMARY_STATUS_LABELS[progress.status] ||
-      PROGRESS_STATUS_LABELS[progress.status] ||
-      progress.status ||
-      "未知";
+    : TASK_STATUS_LABELS[progress.status] || progress.status || "未知";
 
   return (
     <StatusLog

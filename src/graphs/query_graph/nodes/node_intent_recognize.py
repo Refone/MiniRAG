@@ -1,12 +1,13 @@
 from common.client import MILVUS_CLIENT
 from common.client.milvus_client import MilvusDocsRecall
 from common.config.app_config import APP_CONFIG
+from common.events.tracing import step_log, trace_node
+from common.logging import logger
 from common.model import LLM
 from common.prompt.prompt_query_rewrite import PromptQueryRewrite
-from common.store.chat_history import MessageRole, chat_history_manager
+from common.store import CHAT_HISTORY_MANAGER
+from common.store.chat_history import MessageRole
 from graphs.query_graph.query_graph_state import QueryGraphState
-from utils.logging_utils import logger
-from utils.node_utils import step_log, trace_node
 
 
 @step_log(desc="校验并获取数据")
@@ -26,7 +27,7 @@ def step_1_validate_and_get_data(state: QueryGraphState) -> tuple[str, str]:
 
 @step_log(desc="根据会话 ID 获取聊天记录")
 def step_2_summary_history(session_id: str) -> str:
-    return chat_history_manager.summary_history(session_id=session_id)
+    return CHAT_HISTORY_MANAGER.summary_history(session_id=session_id)
 
 
 @step_log(desc="重写查询")
@@ -113,7 +114,7 @@ def step_6_save_chat_message(
     original_query: str,
     session_id: str,
 ) -> None:
-    chat_history_manager.save_message(
+    CHAT_HISTORY_MANAGER.save_message(
         text=original_query,
         session_id=session_id,
         role=MessageRole.USER,
@@ -170,8 +171,8 @@ def node_intent_recognize(state: QueryGraphState) -> QueryGraphState:
 if __name__ == "__main__":
     from rich import print as rprint
 
+    from common.config.runtime_paths import snapshot_path
     from graphs.query_graph.query_graph_state import create_state, save_state
-    from utils.path_utils import snapshot_path
 
     init_state = create_state(
         session_id="test-flow-session-id",

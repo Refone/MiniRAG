@@ -75,6 +75,25 @@ class _AppConfig:
     # chunks RRF 融合后最终保留的 top-k 条数
     chunks_recall_topk: int = 5
 
+    # ==== 进程内任务状态 / SSE 通道生命周期 ====
+    # 任务状态过期时间 (秒): 超过该时长无状态更新即被清扫
+    task_ttl_seconds: float = 1800.0
+    # SSE 通道过期时间 (秒): 超过该时长无读写即被回收（客户端从不连接时兜底）
+    sse_channel_ttl_seconds: float = 1800.0
+    # 清扫间隔 (秒)
+    sse_sweep_interval_seconds: float = 60.0
+    # 单通道事件缓冲上限: 超限丢最旧并告警
+    sse_channel_max_events: int = 2000
+
+    # 上传文件体积上限（字节）：10 MiB。
+    # 仓库自带最大夹具 LangGraph 学习笔记.zip ≈ 9.2MB，占上限 ~92%；
+    # 超过即返回 413，避免 await file.read() 把整个文件读进内存。
+    max_upload_bytes: int = 10 * 1024 * 1024
+
+    # 站内文件代理前缀：MinIO 对象入库为 /api/files/<object_name>,
+    # 浏览器经前端同源入口访问。minio_client 拼写入库、docs_service 读回时去除。
+    files_proxy_prefix: str = "/api/files/"
+
     # mcp web search 配置
     mcp_web_search_count: int = 4
     # MCP 超时 (秒)

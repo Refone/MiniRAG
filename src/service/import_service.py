@@ -1,8 +1,7 @@
+from common.events import EVENT_BUS, TASK_REGISTRY, SSEEvent, TaskStatus
+from common.logging import logger
 from graphs.import_graph.import_graph import import_graph
 from graphs.import_graph.import_graph_state import ImportGraphState, create_state
-from utils import task_utils
-from utils.logging_utils import logger
-from utils.sse_utils import SSEEvent, sse_push
 
 
 async def arun_import(task_id: str, origin_file_path: str) -> ImportGraphState:
@@ -17,8 +16,8 @@ async def arun_import(task_id: str, origin_file_path: str) -> ImportGraphState:
     - ZIP 分叉后 node_md_fork 推送 fork, 各 md 分支推送 child-progress;
     - 本函数在任务结束时推送父任务终态与关闭信号。
     """
-    task_utils.clear_task(task_id)
-    task_utils.set_task_status(task_id, task_utils.TaskStatus.PROCESSING.value)
+    TASK_REGISTRY.clear(task_id)
+    TASK_REGISTRY.set_status(task_id, TaskStatus.PROCESSING)
 
     initial_state = create_state(
         task_id=task_id,
@@ -29,17 +28,17 @@ async def arun_import(task_id: str, origin_file_path: str) -> ImportGraphState:
     try:
         end_state = await import_graph.ainvoke(initial_state)
     except Exception as e:
-        task_utils.set_task_status(task_id, task_utils.TaskStatus.FAILED.value)
-        task_utils.set_task_error(task_id, str(e))
-        task_utils.task_push_sse(task_id)
-        sse_push(sse_id=task_id, event=SSEEvent.ERROR, data={"error": str(e)})
-        sse_push(sse_id=task_id, event=SSEEvent.CLOSE, data={})
+        TASK_REGISTRY.set_status(task_id, TaskStatus.FAILED)
+        TASK_REGISTRY.set_error(task_id, str(e))
+        TASK_REGISTRY.publish(task_id)
+        EVENT_BUS.push(task_id, SSEEvent.ERROR, {"error": str(e)})
+        EVENT_BUS.push(task_id, SSEEvent.CLOSE, {})
         logger.exception("导入任务失败: task_id={}", task_id)
         raise
 
-    task_utils.set_task_status(task_id, task_utils.TaskStatus.COMPLETE.value)
-    task_utils.set_task_result(task_id, "result", "ok")
-    task_utils.task_push_sse(task_id)
-    sse_push(sse_id=task_id, event=SSEEvent.CLOSE, data={})
+    TASK_REGISTRY.set_status(task_id, TaskStatus.COMPLETE)
+    TASK_REGISTRY.set_result(task_id, "result", "ok")
+    TASK_REGISTRY.publish(task_id)
+    EVENT_BUS.push(task_id, SSEEvent.CLOSE, {})
     logger.info("导入任务完成: task_id={}", task_id)
     return end_state

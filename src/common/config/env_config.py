@@ -4,7 +4,7 @@ from pathlib import Path
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from utils.path_utils import PROJECT_ROOT
+from common.utils.paths import PROJECT_ROOT
 
 """
     该文件从 PROJECT_ROOT/.env 文件中读取配置信息
@@ -99,24 +99,20 @@ class DashscopeSettings(BaseSettings):
     # LLM
     llm_model: str = "deepseek-v4.1-flash"
     llm_rpm: int = 500
-    llm_tpm: int = 1000000
 
     # VLM
     vlm_model: str = "qwen3-vl-plus"
     vlm_rpm: int = 3000
-    vlm_tpm: int = 5000000
 
     # Embedding
     embedding_model: str = "text-embedding-v4"
     embedding_rpm: int = 1000
-    embedding_tpm: int = 1000000
     embedding_dense_dimension: int = 1024
     embedding_batch_size: int = 10
 
     # Reranker
     rerank_model: str = "qwen3.7-text-rerank"
     rerank_rpm: int = 3000
-    rerank_tpm: int = 9000000
     rerank_max_text_length: int = 30000
 
     # Web Search MCP

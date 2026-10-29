@@ -120,3 +120,25 @@ def _assemble(items: list, indent: int, open_b: str, close_b: str) -> str:
     outer_pad = " " * (indent * INDENT)
     body = inner_pad + (",\n" + inner_pad).join(items)
     return open_b + "\n" + body + "\n" + outer_pad + close_b
+
+
+def brief_list(lst: list, head: int = 3, tail: int = 3) -> str:
+    if not lst:
+        return "[]"
+    if len(lst) <= head + tail:
+        return str(lst)
+    return (
+        f"[{', '.join(map(str, lst[:head]))}, ..., {', '.join(map(str, lst[-tail:]))}]"
+    )
+
+
+def brief_dict(d: dict, head: int = 3, tail: int = 3) -> str:
+    if not d:
+        return "{}"
+    items = list(d.items())
+    if len(items) <= head + tail:
+        return str(d)
+    return (
+        f"{{{', '.join(f'{k}: {v}' for k, v in items[:head])}, ..., "
+        f"{', '.join(f'{k}: {v}' for k, v in items[-tail:])}}}"
+    )

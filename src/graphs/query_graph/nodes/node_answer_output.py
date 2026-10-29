@@ -1,10 +1,11 @@
+from common.events import EVENT_BUS, SSEEvent
+from common.events.tracing import trace_node
+from common.logging import logger
 from common.model import LLM
 from common.prompt.prompt_final_answer import PromptFinalAnswer
-from common.store.chat_history import MessageRole, chat_history_manager
+from common.store import CHAT_HISTORY_MANAGER
+from common.store.chat_history import MessageRole
 from graphs.query_graph.query_graph_state import QueryGraphState, RerankResult
-from utils.logging_utils import logger
-from utils.node_utils import trace_node
-from utils.sse_utils import SSEEvent, sse_push
 
 
 def step_1_validate_and_get_data(state: QueryGraphState):
@@ -20,7 +21,7 @@ def step_2_format_prompt(
     rewritten_query: str, session_id: str, rerank_results: list[RerankResult]
 ) -> str:
 
-    history_summary = chat_history_manager.summary_history(session_id=session_id)
+    history_summary = CHAT_HISTORY_MANAGER.summary_history(session_id=session_id)
 
     reference = ""
     for docs in rerank_results:
@@ -41,10 +42,10 @@ def step_3_call_llm_generate_answer(session_id: str, answer_prompt: str) -> str:
 
     for chunk in LLM.stream(answer_prompt):
         chunk_str = chunk.content
-        sse_push(
-            sse_id=session_id,
-            event=SSEEvent.DELTA,
-            data={
+        EVENT_BUS.push(
+            session_id,
+            SSEEvent.DELTA,
+            {
                 "delta": chunk_str,
             },
         )
@@ -55,16 +56,16 @@ def step_3_call_llm_generate_answer(session_id: str, answer_prompt: str) -> str:
 
 def step_4_save_message_and_push_final(session_id: str, answer: str) -> None:
     # 图片完全由 LLM 在回答正文中以 Markdown 语法内嵌, 不再走独立的 image_urls 通道
-    chat_history_manager.save_message(
+    CHAT_HISTORY_MANAGER.save_message(
         session_id=session_id,
         role=MessageRole.ASSISTANT,
         text=answer,
     )
 
-    sse_push(
-        sse_id=session_id,
-        event=SSEEvent.FINAL,
-        data={
+    EVENT_BUS.push(
+        session_id,
+        SSEEvent.FINAL,
+        {
             "answer": answer,
         },
     )
@@ -99,8 +100,8 @@ def node_answer_output(state: QueryGraphState) -> QueryGraphState:
 if __name__ == "__main__":
     from rich import print as rprint
 
+    from common.config.runtime_paths import snapshot_path
     from graphs.query_graph.query_graph_state import load_state, save_state
-    from utils.path_utils import snapshot_path
 
     prev_state1 = load_state(snapshot_path("query_01_intent_recognize.json"))
     prev_state2 = load_state(snapshot_path("query_05_rrf_and_rerank.json"))

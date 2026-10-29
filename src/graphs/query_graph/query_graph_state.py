@@ -87,10 +87,6 @@ def create_state(**state_dict) -> QueryGraphState:
     return state
 
 
-def get_default_state() -> QueryGraphState:
-    return copy.deepcopy(_DEFAULT_STATE)
-
-
 def save_state(state: QueryGraphState, file_path: str) -> None:
     with open(file_path, "w", encoding="utf-8") as f:
         json.dump(state, f, ensure_ascii=False, indent=4)
@@ -105,7 +101,7 @@ def load_state(file_path: str) -> QueryGraphState:
 if __name__ == "__main__":
     from rich import print as rprint
 
-    from utils.path_utils import snapshot_path
+    from common.config.runtime_paths import snapshot_path
 
     state = create_state(
         session_id="12345", original_query="What is the capital of France?"

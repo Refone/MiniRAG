@@ -5,12 +5,10 @@ from mimetypes import guess_type
 from minio import Minio
 from minio.deleteobjects import DeleteObject
 
+from common.config.app_config import APP_CONFIG
 from common.config.env_config import ENV_CONFIG
-from utils.logging_utils import logger
-from utils.net_utils import probe_tcp
-
-# 入库的相对代理路径前缀 (upload_file 返回形态, docs_service 读回时去除)
-_PROXY_FILES_PREFIX = "/api/files/"
+from common.logging import logger
+from common.utils.net import probe_tcp
 
 
 class MiniRagMinioClient:
@@ -178,18 +176,14 @@ class MiniRagMinioClient:
         # 归一化尾斜杠: 调用侧前缀带尾斜杠 (如 {dir}/{file_title}/) 时不产生双斜杠
         object_name = f"{prefix.rstrip('/')}/{as_name}"
 
-        res = self._minio.fput_object(
+        self._minio.fput_object(
             bucket_name=self.bucket_name,
             object_name=object_name,
             file_path=file_path,
             content_type=guess_type(file_path)[0],
         )
 
-        from rich import print as rprint
-
-        rprint(res)
-
-        return f"{_PROXY_FILES_PREFIX}{object_name}"
+        return f"{APP_CONFIG.files_proxy_prefix}{object_name}"
 
     def get_object_stream(self, object_name: str) -> tuple[str, Iterator[bytes]]:
         """流式读取一个对象, 供 FastAPI StreamingResponse 使用。

@@ -1,6 +1,6 @@
 /** 集中常量（跨模块共享；模块私有常量就近保留） */
 
-import type { PageKey } from "@/types/app";
+import type { PageKey, TaskStatus } from "@/types/app";
 import type { ImportChildStatus, ImportStatus, PreviewMode } from "@/types/docs";
 
 /* ==================== storage key ==================== */
@@ -22,11 +22,12 @@ export const PAGE_TABS: { key: PageKey; label: string }[] = [
 export const WELCOME_TEXT =
   "你好，我是智能知识库小助手。你可以直接提问，我会在“阶段进度”里展示处理过程。";
 export const WELCOME_HINT = "提示：可以问“如何使用万用表测量电压？”";
-export const PROGRESS_STATUS_LABELS: Record<string, string> = {
-  processing: "处理中",
-  completed: "已完成",
-  failed: "失败",
+/** 任务状态文案（与后端 TaskStatus 1:1；查询卡片与导入卡片共用） */
+export const TASK_STATUS_LABELS: Record<TaskStatus, string> = {
   pending: "等待中",
+  processing: "处理中",
+  complete: "已完成",
+  failed: "失败",
 };
 /** 查询服务健康检查轮询间隔（ms） */
 export const HEALTH_INTERVAL = 60_000;
@@ -40,30 +41,29 @@ export const PREVIEW_MODES: { value: PreviewMode; label: string }[] = [
   { value: "features", label: "特征" },
 ];
 
-/** 导入任务状态展示（取代原 STATUS_LABELS + STATUS_CLASSES 两份映射） */
-export const IMPORT_STATUS: {
-  value: ImportStatus;
+export interface StatusMeta {
   label: string;
+  /** 仅样式用；className 里的 completed / error 是历史 CSS 名，与状态值无关 */
   className: string;
-}[] = [
-  { value: "uploading", label: "上传中...", className: "status-uploading" },
-  { value: "processing", label: "处理中...", className: "status-processing" },
-  { value: "completed", label: "已完成", className: "status-completed" },
-  { value: "error", label: "失败", className: "status-error" },
-];
+}
+
+/** 导入任务状态展示（Record 覆盖全部取值，不再需要 find + 兜底） */
+export const IMPORT_STATUS_META: Record<ImportStatus, StatusMeta> = {
+  uploading: { label: "上传中...", className: "status-uploading" },
+  pending: { label: "等待中", className: "status-pending" },
+  processing: { label: "处理中...", className: "status-processing" },
+  complete: { label: "已完成", className: "status-completed" },
+  failed: { label: "失败", className: "status-error" },
+};
 
 /** ZIP 子任务状态展示（interrupted 为前端派生态） */
-export const IMPORT_CHILD_STATUS: {
-  value: ImportChildStatus;
-  label: string;
-  className: string;
-}[] = [
-  { value: "pending", label: "等待中", className: "status-pending" },
-  { value: "processing", label: "处理中...", className: "status-processing" },
-  { value: "completed", label: "已完成", className: "status-completed" },
-  { value: "error", label: "失败", className: "status-error" },
-  { value: "interrupted", label: "未完成", className: "status-interrupted" },
-];
+export const IMPORT_CHILD_STATUS_META: Record<ImportChildStatus, StatusMeta> = {
+  pending: { label: "等待中", className: "status-pending" },
+  processing: { label: "处理中...", className: "status-processing" },
+  complete: { label: "已完成", className: "status-completed" },
+  failed: { label: "失败", className: "status-error" },
+  interrupted: { label: "未完成", className: "status-interrupted" },
+};
 
 /** 上传区文件类型约束 */
 export const UPLOAD_ACCEPT = ".pdf,.md,.markdown,.zip";

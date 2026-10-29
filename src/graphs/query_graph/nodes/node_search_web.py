@@ -8,9 +8,9 @@ from mcp_types import CallToolResult
 
 from common.config.app_config import APP_CONFIG
 from common.config.env_config import ENV_CONFIG
+from common.events.tracing import step_log, trace_node
+from common.logging import logger
 from graphs.query_graph.query_graph_state import QueryGraphState, WebSearchResult
-from utils.logging_utils import logger
-from utils.node_utils import step_log, trace_node
 
 
 @step_log(desc="校验并获取数据")
@@ -89,8 +89,8 @@ def node_search_web(state: QueryGraphState) -> QueryGraphState:
 if __name__ == "__main__":
     from rich import print as rprint
 
+    from common.config.runtime_paths import snapshot_path
     from graphs.query_graph.query_graph_state import load_state, save_state
-    from utils.path_utils import snapshot_path
 
     prev_state = load_state(snapshot_path("query_01_intent_recognize.json"))
     prev_state["enable_web_search"] = True

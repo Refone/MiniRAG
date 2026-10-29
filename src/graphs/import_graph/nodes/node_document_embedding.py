@@ -1,25 +1,24 @@
 import json
-import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any
 
-from common.client import MILVUS_CLIENT, MINIO_CLIENT
-from common.client.milvus_client import MilvusChunksItem, MilvusDocsItem
 from common.config.app_config import APP_CONFIG
 from common.config.env_config import ENV_CONFIG
+from common.events.tracing import step_log, trace_node
+from common.logging import logger
 from common.model import EMBEDDING, LLM
 from common.prompt.prompt_doc_keywords_abstract import (
     DocKeywordsAbstractPydantic,
     PromptDocKeywordsAbstract,
 )
+from common.store import DOCUMENT_REPO
+from common.store.document_repo import DocumentArtifacts
+from common.utils.markdown_splitter import Chunk
 from graphs.import_graph.import_graph_state import FileType, ImportGraphState
 
 # node_md_img 的产物命名约定: {stem}_fixed.md (原始 md 为 {stem}.md)
 from graphs.import_graph.nodes.node_md_img import _MD_FIXED_SUFFIX
-from utils.logging_utils import brief_dict, brief_list, logger
-from utils.markdown_splitter import Chunk
-from utils.node_utils import step_log, trace_node
 
 
 @step_log(desc="校验并获取数据")
@@ -50,35 +49,20 @@ def step_1_validate_and_get_data(
 
 @step_log(desc="同名覆盖: 完整删除旧文档数据")
 def step_2_delete_old_doc(file_title: str) -> None:
-    """按 file_title 找到旧 docs 行, 完整删除旧 chunks / docs / MinIO 制品。
+    """同名覆盖：清三制品 + 该标题的全部 chunks/docs（**不动图片目录**）。
 
-    顺序与方案文档 (docs/feat/数据库重构/Milvus DB Refactor.md §4.3) 一致:
-    删除全部完成前不做任何新写入, 避免新旧行并存导致检索双份命中。
-    V1-7 起 MinIO 对象路径不含 task_id 层级, 单一前缀即覆盖该标题的
-    全部历史制品 (三份制品目录), 同名覆盖语义不变。
+    删除顺序由 `DOCUMENT_REPO.delete_by_title` 统一维护（与删除文档接口共用
+    一份实现）；本节点只传参与记录。
 
     注意: 图片目录 (markdown-images/<file_title>/) **不能**在这里清理——
-    本节点运行于 node_md_img 之后, 图片已由 node_md_img 重新上传,
-    此处再清理会把本次导入刚上传的图片删掉 (图片的覆盖清理由
-    node_md_img.step_4 的 clear_dir_if_exist + 重传完成; 文档删除接口
-    的图片清理在 docs_service.delete_doc 中, 与导入链路无关)。
+    本节点运行于 node_md_img 之后, 图片已重新上传, 再清理会把本次导入的图片
+    删掉 (图片覆盖清理由 node_md_img.step_4 负责; 删除文档接口的图片清理在
+    DOCUMENT_REPO.delete_by_id 中, 与导入链路无关)。
     """
-    # 1. 按 file_title 查回旧 docs 行 (同名覆盖判定键)
-    old_rows = MILVUS_CLIENT.query_doc_rows_by_file_title(file_title)
-    old_ids = [row["id"] for row in old_rows]
-
-    # 2. 清理 MinIO 旧制品: 仅三份制品目录 (origin / markdown / chunks)
-    del_cnt = MINIO_CLIENT.clear_doc_artifacts(file_title)
-
-    # 3. 删旧 chunks: 按 doc_id 精确删除; 按 file_title 兜底清理历史遗留行
-    MILVUS_CLIENT.delete_chunks_by_doc_ids(old_ids)
-    MILVUS_CLIENT.delete_chunks_by_file_title(file_title)
-
-    # 4. 删旧 docs
-    MILVUS_CLIENT.delete_docs_by_file_title(file_title)
-
+    result = DOCUMENT_REPO.delete_by_title(file_title)
     logger.info(
-        f"旧文档完整删除完成: 旧 docs 行数 {len(old_ids)}, MinIO 制品 {del_cnt} 个"
+        f"旧文档完整删除完成: 旧 docs 行数 {result.docs_rows}, "
+        f"MinIO 制品 {result.minio_objects} 个"
     )
 
 
@@ -94,56 +78,32 @@ def _derive_origin_md_path(fixed_md_path: Path) -> Path:
 
 @step_log(desc="上传三份制品至 MinIO")
 def step_3_upload_artifacts(
-    task_id: str,
     file_title: str,
     md_path: Path,
     chunks_path: Path,
     origin_file_path: Path,
     origin_file_type: str,
-) -> tuple[str, str, str]:
-    """上传原始文件 / 最终 markdown / chunks.json, 返回三个 URL。
+) -> DocumentArtifacts:
+    """选择 origin 制品并上传三份制品（上传细节在 DOCUMENT_REPO）。
 
     origin 制品: zip 分支取修复前的原始 md (zip 本身不属于某个分支文档),
     其余类型取原始上传文件。
     """
     if origin_file_type == FileType.MARKDOWN_ZIP:
-        origin_path = _derive_origin_md_path(md_path)
+        origin_path: Path | None = _derive_origin_md_path(md_path)
     else:
         origin_path = origin_file_path
 
-    origin_url = ""
-    if origin_path.is_file():
-        origin_url = MINIO_CLIENT.upload_file(
-            prefix=MINIO_CLIENT.doc_artifact_prefix(
-                ENV_CONFIG.minio.origin_dir, file_title
-            ),
-            as_name=origin_path.name,
-            file_path=str(origin_path),
-        )
-
-    markdown_url = MINIO_CLIENT.upload_file(
-        prefix=MINIO_CLIENT.doc_artifact_prefix(
-            ENV_CONFIG.minio.markdown_dir, file_title
-        ),
-        as_name=md_path.name,
-        file_path=str(md_path),
+    artifacts = DOCUMENT_REPO.upload_artifacts(
+        file_title, origin=origin_path, markdown=md_path, chunks=chunks_path
     )
-
-    chunks_url = MINIO_CLIENT.upload_file(
-        prefix=MINIO_CLIENT.doc_artifact_prefix(
-            ENV_CONFIG.minio.chunks_dir, file_title
-        ),
-        as_name=chunks_path.name,
-        file_path=str(chunks_path),
-    )
-
     logger.info(
         f"三份制品上传完成:\n"
-        f"origin: {origin_url or '(空)'}\n"
-        f"markdown: {markdown_url}\n"
-        f"chunks: {chunks_url}"
+        f"origin: {artifacts.origin_file_url or '(空)'}\n"
+        f"markdown: {artifacts.final_markdown_url}\n"
+        f"chunks: {artifacts.chunks_url}"
     )
-    return origin_url, markdown_url, chunks_url
+    return artifacts
 
 
 @step_log(desc="LLM 生成文档关键词与摘要")
@@ -262,61 +222,26 @@ def step_5_vectorize(
 def step_6_insert_docs_and_query_id(
     task_id: str,
     file_title: str,
-    origin_file_url: str,
-    final_markdown_url: str,
-    chunks_url: str,
+    artifacts: DocumentArtifacts,
     keywords: str,
     abstract: str,
     keywords_sparse: dict[int, float],
     abstract_dense: list[float],
 ) -> int:
-    """插入 docs 行并取得自增主键 id。
-
-    pymilvus 3.x 的 insert 会返回 auto_id 生成的主键 (ids), 优先直接使用;
-    若返回缺失 (兼容旧版 pymilvus), 按 task_id + file_title 查回兜底。
-    """
-    ret = MILVUS_CLIENT.insert(
-        collection_name=ENV_CONFIG.milvus.collection_docs,
-        data=[
-            MilvusDocsItem(
-                task_id=task_id,
-                file_title=file_title,
-                origin_file_url=origin_file_url,
-                final_markdown_url=final_markdown_url,
-                chunks_url=chunks_url,
-                created_at=int(time.time() * 1000),
-                docs_keywords=keywords,
-                docs_abstract=abstract,
-                keywords_sparse_vector=keywords_sparse,
-                abstract_dense_vector=abstract_dense,
-            )
-        ],
+    """写入 docs 行并返回 auto_id 主键（pymilvus 版本兼容在 repo 内处理）。"""
+    doc_id = DOCUMENT_REPO.save_meta(
+        task_id=task_id,
+        file_title=file_title,
+        artifacts=artifacts,
+        keywords=keywords,
+        abstract=abstract,
+        keywords_sparse=keywords_sparse,
+        abstract_dense=abstract_dense,
     )
-
-    insert_count = ret.get("insert_count", 0)
-    if insert_count != 1:
-        raise RuntimeError(f"写入 minirag_docs 条数不一致: 预期=1, 实际={insert_count}")
-
-    doc_id = None
-    ret_ids = ret.get("ids")
-    if isinstance(ret_ids, list) and ret_ids:
-        doc_id = int(ret_ids[0])
-    elif isinstance(ret_ids, int):
-        doc_id = ret_ids
-    if doc_id is None:
-        doc_id = MILVUS_CLIENT.query_doc_id(task_id, file_title)
-    if doc_id is None:
-        raise RuntimeError(
-            f"docs 写入后查回 doc_id 失败: task_id={task_id}, file_title={file_title}"
-        )
-
-    logger.success(
-        f"文档写入 minirag_docs 完成\n"
-        f"doc_id:[{doc_id}] task_id:[{task_id}] file_title:[{file_title}]\n"
-        f"keywords:[{keywords}]\n"
-        f"abstract:[{abstract}]\n"
-        f"keywords_sparse:[{brief_dict(keywords_sparse)}](len={len(keywords_sparse)})\n"
-        f"abstract_dense:[{brief_list(abstract_dense)}](len={len(abstract_dense)})"
+    logger.info(
+        f"文档元数据写入: doc_id=[{doc_id}] keywords=[{keywords}] "
+        f"abstract=[{abstract}] 关键词稀疏维度={len(keywords_sparse)} "
+        f"摘要稠密维度={len(abstract_dense)}"
     )
     return doc_id
 
@@ -325,43 +250,15 @@ def step_6_insert_docs_and_query_id(
 def step_7_insert_chunks(
     doc_id: int, file_title: str, embedded: list[dict[str, Any]]
 ) -> None:
-    """将已向量化的切片写入 minirag_chunks (携带 doc_id 与 chunk_index)。"""
-    if not embedded:
-        logger.warning("切片向量列表为空, 直接跳过此步骤")
-        return
-
-    ret = MILVUS_CLIENT.insert(
-        collection_name=ENV_CONFIG.milvus.collection_chunks,
-        data=[
-            MilvusChunksItem(
-                doc_id=doc_id,
-                file_title=file_title,
-                chunk_index=index,
-                chunk_content=chunk["content"],
-                content_dense_vector=chunk["dense"],
-                content_sparse_vector=chunk["sparse"],
-            )
-            for index, chunk in enumerate(embedded)
-        ],
-    )
-
-    insert_count = ret.get("insert_count", 0)
-    if insert_count != len(embedded):
-        raise RuntimeError(
-            f"写入 minirag_chunks 条数不一致: 预期={len(embedded)}, 实际={insert_count}"
-        )
-
-    logger.success(
-        f"切片写入 minirag_chunks 完成: doc_id:[{doc_id}] "
-        f"file_title:[{file_title}] 切片数:[{insert_count}]"
-    )
+    """将已向量化的切片写入 minirag_chunks（条数校验在 repo 内处理）。"""
+    DOCUMENT_REPO.save_chunks(doc_id=doc_id, file_title=file_title, embedded=embedded)
 
 
 @trace_node(desc="文档嵌入入库", need_push=True)
 def node_document_embedding(state: ImportGraphState) -> ImportGraphState:
     """合并节点: 同名覆盖先完整删除旧文档, 再上传制品 + 生成元数据 + 写入两表。
 
-    取代原 node_item_name_vect + node_chunks_vect (见 docs/feat/数据库重构/Milvus DB Refactor.md §4)。
+    取代原 node_item_name_vect + node_chunks_vect (见 docs/feat/数据库重构/Milvs DB Refactor.md §4)。
     """
     # 1. 校验并获取数据
     task_id, file_title, md_path, chunks_path, origin_file_path, origin_file_type = (
@@ -372,8 +269,8 @@ def node_document_embedding(state: ImportGraphState) -> ImportGraphState:
     step_2_delete_old_doc(file_title)
 
     # 3. 上传新三份制品至 MinIO
-    origin_file_url, final_markdown_url, chunks_url = step_3_upload_artifacts(
-        task_id, file_title, md_path, chunks_path, origin_file_path, origin_file_type
+    artifacts = step_3_upload_artifacts(
+        file_title, md_path, chunks_path, origin_file_path, origin_file_type
     )
 
     # 4. LLM 生成文档关键词与摘要
@@ -395,9 +292,7 @@ def node_document_embedding(state: ImportGraphState) -> ImportGraphState:
     doc_id = step_6_insert_docs_and_query_id(
         task_id=task_id,
         file_title=file_title,
-        origin_file_url=origin_file_url,
-        final_markdown_url=final_markdown_url,
-        chunks_url=chunks_url,
+        artifacts=artifacts,
         keywords=keywords,
         abstract=abstract,
         keywords_sparse=keywords_sparse,
@@ -416,8 +311,8 @@ def node_document_embedding(state: ImportGraphState) -> ImportGraphState:
 if __name__ == "__main__":
     from rich import print as rprint
 
+    from common.config.runtime_paths import snapshot_path
     from graphs.import_graph.import_graph_state import load_state, save_state
-    from utils.path_utils import snapshot_path
 
     prev_state = load_state(snapshot_path("import_04_document_split.json"))
     next_state = node_document_embedding(prev_state)

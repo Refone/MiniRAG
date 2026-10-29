@@ -27,12 +27,6 @@ export interface SseHandlers {
   onError?: (message: string) => void;
   /** 收到服务端 __close__ 信号 */
   onServerClose?: () => void;
-  /**
-   * 收到服务端 `event: error` 时是否立即关流。
-   * 默认 true (查询流错误后不保证再发 __close__);
-   * 导入流会补发 __close__, 传 false 可等正常关流, 避免 EventSource 被 abort。
-   */
-  closeOnServerError?: boolean;
 }
 
 export interface SseHandle {
@@ -104,8 +98,9 @@ export function openStatusSse(url: string, handlers: SseHandlers): SseHandle {
       /* ignore */
     }
     handlers.onError?.(msg);
-    // 服务端业务错误 (带 data) 后通常还会发 __close__; 只有原生连接错误才必须立即关
-    if (!serverError || handlers.closeOnServerError !== false) close();
+    // 服务端业务错误 (带 data) 后一定会再发 __close__（查询流与导入流已对齐）；
+    // 只有原生连接错误（无 data）才立即关流
+    if (!serverError) close();
   });
 
   return { es, close };

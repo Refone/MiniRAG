@@ -4,6 +4,8 @@ from pathlib import Path, PurePosixPath
 from urllib.parse import unquote
 
 from common.config.env_config import ENV_CONFIG
+from common.events.tracing import step_log, trace_node
+from common.logging import logger
 from graphs.import_graph.import_graph_state import ImportGraphState
 
 # 复用 node_process_standalone_md 的图片处理工具 (图片语法正则 / 在线图片下载 /
@@ -17,8 +19,6 @@ from graphs.import_graph.nodes.node_process_standalone_md import (
     _normalize_url,
     _replace_image_urls,
 )
-from utils.logging_utils import logger
-from utils.node_utils import step_log, trace_node
 
 # macOS 打包产生的垃圾目录 / 元数据文件前缀
 _MACOSX_DIR = "__MACOSX"
@@ -364,8 +364,9 @@ def node_process_md_zip(state: ImportGraphState) -> ImportGraphState:
 if __name__ == "__main__":
     from rich import print as rprint
 
+    from common.config.runtime_paths import snapshot_path
+    from common.utils.paths import fixture_path
     from graphs.import_graph.import_graph_state import create_state, save_state
-    from utils.path_utils import fixture_path, snapshot_path
 
     start_state = create_state(
         task_id="test_task_start",

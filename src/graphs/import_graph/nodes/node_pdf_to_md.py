@@ -7,9 +7,9 @@ from pypdf import PdfReader
 
 from common.config.app_config import APP_CONFIG
 from common.config.env_config import ENV_CONFIG
+from common.events.tracing import step_log, trace_node
+from common.logging import logger
 from graphs.import_graph.import_graph_state import ImportGraphState
-from utils.logging_utils import logger
-from utils.node_utils import step_log, trace_node
 
 # PDF 文件头魔数 (前 5 字节)
 _PDF_MAGIC = b"%PDF-"
@@ -24,11 +24,10 @@ def pdf_page_cnt(pdf_path: Path) -> int:
 
 @step_log("校验 PDF 文件")
 def step_1_validate_and_setup(state: ImportGraphState) -> tuple[Path, int, str]:
-    """校验原始文件是真实存在的 PDF, 并把文件名(不含后缀)写入 state。"""
+    """校验原始文件是真实存在的 PDF, 并从 state 取回文件标题（由 node_entry 写入）。"""
     origin = state.get("origin_file_path")
     if not origin:
         raise ValueError(f"origin_file_path 为空: {origin!r}")
-    file_title = Path(origin).stem
 
     pdf_path = Path(origin)
     if not pdf_path.is_file():
@@ -39,7 +38,7 @@ def step_1_validate_and_setup(state: ImportGraphState) -> tuple[Path, int, str]:
             raise ValueError(f"文件不是 PDF 格式: {pdf_path}")
 
     file_title = state.get("file_title")
-    if not state.get("file_title"):
+    if not file_title:
         raise ValueError(f"file_title 为空: {state!r}")
 
     logger.info(f"PDF 校验通过: {pdf_path}")
@@ -226,8 +225,8 @@ def node_pdf_to_md(state: ImportGraphState) -> ImportGraphState:
 if __name__ == "__main__":
     from rich import print as rprint
 
+    from common.config.runtime_paths import snapshot_path
     from graphs.import_graph.import_graph_state import load_state, save_state
-    from utils.path_utils import snapshot_path
 
     prev_state = load_state(snapshot_path("import_01_entry.json"))
     next_state = node_pdf_to_md(prev_state)

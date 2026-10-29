@@ -2,7 +2,7 @@ import { memo, useEffect, useState } from "react";
 import { FileIcon } from "@/components/icons/AppIcons";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { StatusLog, type StatusLogLine } from "@/components/ui/StatusLog";
-import { IMPORT_CHILD_STATUS } from "@/lib/constants";
+import { IMPORT_CHILD_STATUS_META } from "@/lib/constants";
 import type { ImportChildTask } from "@/types/docs";
 
 interface ImportChildItemProps {
@@ -19,9 +19,7 @@ interface ImportChildItemProps {
 export const ImportChildItem = memo(function ImportChildItem({
   child,
 }: ImportChildItemProps) {
-  const statusMeta =
-    IMPORT_CHILD_STATUS.find((s) => s.value === child.status) ??
-    IMPORT_CHILD_STATUS[IMPORT_CHILD_STATUS.length - 1];
+  const statusMeta = IMPORT_CHILD_STATUS_META[child.status];
 
   const [now, setNow] = useState(() => Date.now());
   const active = child.status === "processing";
@@ -41,9 +39,9 @@ export const ImportChildItem = memo(function ImportChildItem({
     summaryText = "等待开始";
   } else if (child.status === "processing") {
     summaryText = `已耗时 ${elapsedText} · ${child.running[0] || "处理中"}`;
-  } else if (child.status === "completed") {
+  } else if (child.status === "complete") {
     summaryText = `耗时 ${elapsedText}`;
-  } else if (child.status === "error") {
+  } else if (child.status === "failed") {
     summaryText = child.failed[0]
       ? `失败于 ${child.failed[0]}`
       : "处理失败";

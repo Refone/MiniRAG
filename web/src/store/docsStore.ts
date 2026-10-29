@@ -62,13 +62,17 @@ const esMap: Record<string, EventSource> = {};
 const refreshedTasks = new Set<string>();
 let toastIdSeq = 0;
 
-/** 后端 child status -> 前端展示态 (interrupted 只在前端派生) */
-const CHILD_STATUS_MAP: Record<string, ImportChildStatus> = {
-  pending: "pending",
-  processing: "processing",
-  complete: "completed",
-  failed: "error",
-};
+/** 后端可能下发的子任务状态（interrupted 只在前端派生，不来自后端） */
+const BACKEND_CHILD_STATUSES: readonly ImportChildStatus[] = [
+  "pending",
+  "processing",
+  "complete",
+  "failed",
+];
+
+function isBackendChildStatus(value: string): boolean {
+  return (BACKEND_CHILD_STATUSES as readonly string[]).includes(value);
+}
 
 /** fork 事件 -> 前端子任务初始态 (默认收起由组件控制, 与 store 无关) */
 function childFromFork(child: ForkChild): ImportChildTask {
@@ -89,7 +93,7 @@ function childFromFork(child: ForkChild): ImportChildTask {
 
 /** 子任务终态判断 (父任务结束时用于冻结仍未完成的兄弟任务) */
 function isChildTerminal(status: ImportChildStatus): boolean {
-  return status === "completed" || status === "error" || status === "interrupted";
+  return status === "complete" || status === "failed" || status === "interrupted";
 }
 
 export const useDocsStore = create<DocsStoreState>()((set, get) => ({
@@ -226,7 +230,7 @@ export const useDocsStore = create<DocsStoreState>()((set, get) => ({
          */
         const freezeChildren = (
           fileId: string,
-          parentTone: "completed" | "error",
+          parentTone: "complete" | "failed",
         ) => {
           const file = get().files.find((f) => f.id === fileId);
           if (!file) return;
@@ -234,7 +238,7 @@ export const useDocsStore = create<DocsStoreState>()((set, get) => ({
           const stuck = file.children.filter((c) => !isChildTerminal(c.status));
           if (stuck.length === 0) return;
 
-          if (parentTone === "completed") {
+          if (parentTone === "complete") {
             console.warn(
               `[import] 父任务已完成但仍有 ${stuck.length} 个子任务未终态`,
               stuck.map((c) => c.id),
@@ -320,12 +324,12 @@ export const useDocsStore = create<DocsStoreState>()((set, get) => ({
                 if (d.status === "complete") {
                   parentTerminal = true;
                   updateFile(fileId, {
-                    status: "completed",
+                    status: "complete",
                     done,
                     running: [],
                     failed,
                   });
-                  freezeChildren(fileId, "completed");
+                  freezeChildren(fileId, "complete");
                   console.log(`[import] 任务 ${taskId} 处理完成`);
 
                   invalidateCache(CACHE_KEY.docsList);
@@ -341,12 +345,12 @@ export const useDocsStore = create<DocsStoreState>()((set, get) => ({
                 } else if (d.status === "failed") {
                   parentTerminal = true;
                   updateFile(fileId, {
-                    status: "error",
+                    status: "failed",
                     done,
                     running: [],
                     failed,
                   });
-                  freezeChildren(fileId, "error");
+                  freezeChildren(fileId, "failed");
                   console.error(`[import] 任务 ${taskId} 处理失败`);
                 } else if (
                   d.status === "processing" ||
@@ -364,13 +368,13 @@ export const useDocsStore = create<DocsStoreState>()((set, get) => ({
               onChildProgress: (d) => {
                 if (!d || parentTerminal) return;
 
-                const status = CHILD_STATUS_MAP[d.status];
-                if (!status) {
+                if (!isBackendChildStatus(d.status)) {
                   console.warn(
                     `[import] 未知子任务状态：${d.status}（child ${d.child_id}）`,
                   );
                   return;
                 }
+                const status = d.status as ImportChildStatus;
                 if (!hasChild(fileId, d.child_id)) {
                   console.warn(
                     `[import] 收到未登记子任务进度，可能丢失 fork 事件：${d.child_id}`,
@@ -408,7 +412,7 @@ export const useDocsStore = create<DocsStoreState>()((set, get) => ({
                     };
                   }
 
-                  if (status === "completed") {
+                  if (status === "complete") {
                     return {
                       ...c,
                       status,
@@ -443,8 +447,8 @@ export const useDocsStore = create<DocsStoreState>()((set, get) => ({
                 if (!parentTerminal) {
                   parentTerminal = true;
                   // 服务端未给终态就关流: 按断连处理, 不伪造完成
-                  updateFile(fileId, { status: "error", running: [] });
-                  freezeChildren(fileId, "error");
+                  updateFile(fileId, { status: "failed", running: [] });
+                  freezeChildren(fileId, "failed");
                 }
                 delete esMap[fileId];
               },
@@ -454,14 +458,12 @@ export const useDocsStore = create<DocsStoreState>()((set, get) => ({
                 console.warn(`[import] SSE 错误/中断：${msg}`);
                 if (!parentTerminal) {
                   parentTerminal = true;
-                  updateFile(fileId, { status: "error", running: [] });
-                  freezeChildren(fileId, "error");
+                  updateFile(fileId, { status: "failed", running: [] });
+                  freezeChildren(fileId, "failed");
                 }
                 delete esMap[fileId];
               },
 
-              // 导入流在 error 后还会发 __close__, 等它关流即可
-              closeOnServerError: false,
             },
           );
           esMap[fileId] = handle.es;
@@ -494,7 +496,7 @@ export const useDocsStore = create<DocsStoreState>()((set, get) => ({
             startSse(taskId, id);
           } catch (error) {
             console.error(`[import] 上传失败：${file.name}`, error);
-            updateFile(id, { status: "error" });
+            updateFile(id, { status: "failed" });
           }
         });
       },

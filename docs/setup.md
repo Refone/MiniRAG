@@ -29,8 +29,8 @@ wget https://github.com/milvus-io/milvus/raw/refs/heads/master/deployments/docke
 | MongoDB | TCP 连通性 + `ping` |
 | 运行时目录 | `var/uploads` / `var/import` / `var/logs` 存在且可写 |
 
-**软依赖** (缺失仅告警, 不阻止启动): `MINERU_API_KEY` / `VLM_API_KEY` /
-`QWEN_API_KEY` / `LLM_API_KEY` / `DASHSCOPE_API_KEY` 是否已在 `.env` 中配置。
+**软依赖** (缺失仅告警, 不阻止启动): `MINERU_API_KEY`（PDF 解析）、`DASHSCOPE_API_KEY`
+（LLM / VLM / Embedding / Rerank / Web Search 共用）是否已在 `.env` 中配置。
 
 说明: 各 client 的构造函数不再做任何网络请求, 连通性统一由自检流程负责
 (先 TCP 探测快速失败, 再发真实协议请求), 服务未启动时会得到明确的错误提示,

@@ -2,10 +2,10 @@ import json
 from pathlib import Path
 
 from common.config.app_config import APP_CONFIG
+from common.events.tracing import step_log, trace_node
+from common.logging import logger
+from common.utils.markdown_splitter import Chunk, split_markdown
 from graphs.import_graph.import_graph_state import ImportGraphState
-from utils.logging_utils import logger
-from utils.markdown_splitter import Chunk, split_markdown
-from utils.node_utils import step_log, trace_node
 
 
 @step_log(desc="验证并获取数据")
@@ -106,8 +106,8 @@ def node_document_split(state: ImportGraphState) -> ImportGraphState:
 if __name__ == "__main__":
     from rich import print as rprint
 
+    from common.config.runtime_paths import snapshot_path
     from graphs.import_graph.import_graph_state import load_state, save_state
-    from utils.path_utils import snapshot_path
 
     prev_state = load_state(snapshot_path("import_03_md_img.json"))
     next_state = node_document_split(prev_state)

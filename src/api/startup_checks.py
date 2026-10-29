@@ -14,13 +14,14 @@ startup_checks() 在 FastAPI lifespan 中执行, 检查分为两类:
 
 from __future__ import annotations
 
+import os
 import uuid
 from pathlib import Path
 from typing import Callable
 
 from common.client import MILVUS_CLIENT, MINIO_CLIENT, MONGODB_CLIENT
 from common.config.env_config import ENV_CONFIG
-from utils.logging_utils import logger
+from common.logging import logger
 
 
 def check_milvus() -> None:
@@ -105,6 +106,24 @@ _HARD_STEPS: list[tuple[str, Callable[[], None], str]] = [
 ]
 
 
+def warn_multi_worker() -> None:
+    """任务状态与 SSE 通道是**进程内**状态，多 worker 会各持一份、互相看不到。
+
+    不是致命错误（服务能起，但进度推送可能落到另一个进程），所以只告警。
+    """
+    raw = os.getenv("WEB_CONCURRENCY") or os.getenv("UVICORN_WORKERS") or "1"
+    try:
+        workers = int(raw)
+    except ValueError:
+        workers = 1
+    if workers > 1:
+        logger.warning(
+            "检测到 {} 个 worker：当前仅支持单 worker。多 worker 下任务状态与 SSE "
+            "通道各进程独立，进度推送可能丢失；如需横向扩展请改用外部状态存储。",
+            workers,
+        )
+
+
 def startup_checks() -> None:
     """后端启动自检: 逐项执行硬依赖检查, 汇总失败并阻止启动。"""
     logger.info("开始执行后端启动自检 ...")
@@ -119,6 +138,7 @@ def startup_checks() -> None:
             failures.append((label, exc, hint))
 
     warn_missing_api_keys()
+    warn_multi_worker()
 
     if failures:
         details = "; ".join(

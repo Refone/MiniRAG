@@ -1,3 +1,4 @@
+import asyncio
 import uuid
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -22,24 +23,48 @@ from api.schemas import (
     QueryRequest,
     UploadResponse,
 )
+from api.sse import sse_stream
 from api.startup_checks import startup_checks
 from common.client import MINIO_CLIENT
+from common.config.app_config import APP_CONFIG
 from common.config.env_config import ENV_CONFIG
-from common.store.chat_history import ChatMessage, chat_history_manager
+from common.events import EVENT_BUS, TASK_REGISTRY, TaskStatus
+from common.logging import logger
+from common.store import CHAT_HISTORY_MANAGER
+from common.store.chat_history import ChatMessage
 from service import docs_service
 from service.import_service import arun_import
 from service.query_service import arun_query
-from utils import task_utils
-from utils.logging_utils import logger
-from utils.sse_utils import sse_create_queue, sse_generator
+
+
+async def _sweep_loop() -> None:
+    """周期性回收过期的任务状态与 SSE 通道（进程内状态没有 GC）。"""
+    while True:
+        await asyncio.sleep(APP_CONFIG.sse_sweep_interval_seconds)
+        try:
+            gone_tasks = TASK_REGISTRY.sweep(APP_CONFIG.task_ttl_seconds)
+            gone_channels = EVENT_BUS.sweep(APP_CONFIG.sse_channel_ttl_seconds)
+            if gone_tasks or gone_channels:
+                logger.info(
+                    "运行态清扫: 任务 {}/通道 {}/剩余通道 {}",
+                    gone_tasks,
+                    gone_channels,
+                    EVENT_BUS.channel_count(),
+                )
+        except Exception:  # 清扫失败不能拖垮服务
+            logger.exception("运行态清扫失败")
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    logger.info("MiniRag API 启动 (version={})", __version__)
+    logger.info("MiniRAG API 启动 (version={})", __version__)
     startup_checks()
-    yield
-    logger.info("MiniRag API 关闭")
+    sweeper = asyncio.create_task(_sweep_loop())
+    try:
+        yield
+    finally:
+        sweeper.cancel()
+        logger.info("MiniRAG API 关闭 (残留通道 {})", EVENT_BUS.channel_count())
 
 
 app = FastAPI(
@@ -63,6 +88,28 @@ app.add_middleware(
 router = APIRouter(prefix="/api")
 
 
+_UPLOAD_CHUNK = 1024 * 1024
+
+
+async def _save_upload(file: UploadFile, dest: Path) -> None:
+    """分块落盘并强制体积上限（超限 413，不留半截文件）。"""
+    max_bytes = APP_CONFIG.max_upload_bytes
+    written = 0
+    with dest.open("wb") as f:
+        while chunk := await file.read(_UPLOAD_CHUNK):
+            written += len(chunk)
+            if written > max_bytes:
+                dest.unlink(missing_ok=True)
+                raise HTTPException(
+                    status_code=413,
+                    detail=(
+                        f"文件超过上限 {max_bytes // (1024 * 1024)}MB"
+                        f"（已读 {written / (1024 * 1024):.1f}MB）"
+                    ),
+                )
+            f.write(chunk)
+
+
 @router.get("/health")
 async def health() -> dict:
     """健康检查, 同时用于 docker-compose healthcheck。"""
@@ -83,19 +130,19 @@ async def import_document(
         raise HTTPException(status_code=400, detail="缺少文件名")
 
     task_id = uuid.uuid4().hex
-    upload_dir = Path(ENV_CONFIG.output_dir.upload_tmp_dir)
+    # 每个任务独立子目录：并发上传同名文件互不覆盖
+    upload_dir = Path(ENV_CONFIG.output_dir.upload_tmp_dir) / task_id
     upload_dir.mkdir(parents=True, exist_ok=True)
-    dest = upload_dir / f"{Path(file.filename).name}"
-    dest.unlink(missing_ok=True)
-    dest.write_bytes(await file.read())
+    dest = upload_dir / Path(file.filename).name
+    await _save_upload(file, dest)
 
-    sse_create_queue(task_id)
+    EVENT_BUS.create(task_id)
 
     background_tasks.add_task(arun_import, task_id=task_id, origin_file_path=str(dest))
 
     return UploadResponse(
         task_id=task_id,
-        status=task_utils.TaskStatus.PENDING.value,
+        status=TaskStatus.PENDING.value,
     )
 
 
@@ -109,7 +156,7 @@ async def upload_sse(
     logger.info(f"[{str(request.url)}], task_id={task_id}")
 
     return StreamingResponse(
-        sse_generator(
+        sse_stream(
             sse_id=task_id,
             request=request,
         ),
@@ -131,7 +178,7 @@ def query(
         f"enable_hyde={payload.enable_hyde}"
     )
 
-    sse_create_queue(payload.session_id)
+    EVENT_BUS.create(payload.session_id)
 
     background_tasks.add_task(
         arun_query,
@@ -158,7 +205,7 @@ async def query_sse(
     logger.info(f"[{str(request.url)}], session_id={session_id}")
 
     return StreamingResponse(
-        sse_generator(
+        sse_stream(
             sse_id=session_id,
             request=request,
         ),
@@ -175,7 +222,7 @@ def history(
 
     logger.info(f"[{str(request.url)}], session_id={session_id}")
 
-    message_list: list[ChatMessage] = chat_history_manager.get_latest_messages(
+    message_list: list[ChatMessage] = CHAT_HISTORY_MANAGER.get_latest_messages(
         session_id,
         # 历史页需展示全部记录, 不做条数限制;
         # 查询分析场景 (意图识别等) 仍按 APP_CONFIG.chat_message_lookback_count 回溯
@@ -194,7 +241,7 @@ def delete_history(
 
     logger.info(f"[{str(request.url)}], session_id={session_id}")
 
-    deleted_count = chat_history_manager.clear_history(session_id)
+    deleted_count = CHAT_HISTORY_MANAGER.clear_history(session_id)
     return {
         "status": "ok",
         "msg": f"历史记录已删除: {session_id}, 删除条数: {deleted_count}",

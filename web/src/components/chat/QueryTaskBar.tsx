@@ -16,7 +16,7 @@ export function QueryTaskBar({
   onDismiss: () => void;
 }) {
   const closable =
-    task.progress.status === "completed" || task.progress.status === "failed";
+    task.progress.status === "complete" || task.progress.status === "failed";
 
   return (
     <div

@@ -56,8 +56,8 @@ query_graph = builder.compile()
 if __name__ == "__main__":
     from rich import print as rprint
 
+    from common.logging import logger
     from graphs.query_graph.query_graph_state import create_state
-    from utils.logging_utils import logger
 
     logger.info("Starting query graph...")
 

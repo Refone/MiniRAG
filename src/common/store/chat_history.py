@@ -6,7 +6,7 @@ from pymongo import DESCENDING
 
 from common.client import MONGODB_CLIENT
 from common.config.app_config import APP_CONFIG
-from utils.logging_utils import logger
+from common.logging import logger
 
 
 class ChatMessage(TypedDict):
@@ -110,27 +110,27 @@ class ChatHistoryManager:
         return history_summary
 
 
-chat_history_manager: ChatHistoryManager = ChatHistoryManager()
+CHAT_HISTORY_MANAGER: ChatHistoryManager = ChatHistoryManager()
 
 if __name__ == "__main__":
     session_id = "test_session"
 
-    # chat_history_manager.clear_history(session_id)
-    chat_history_manager.save_message(
+    # CHAT_HISTORY_MANAGER.clear_history(session_id)
+    CHAT_HISTORY_MANAGER.save_message(
         session_id=session_id,
         role=MessageRole.USER,
         text="Hello, world!",
     )
-    chat_history_manager.save_message(
+    CHAT_HISTORY_MANAGER.save_message(
         session_id=session_id,
         role=MessageRole.ASSISTANT,
         text="你好我的朋友, 很高兴见到你!",
     )
-    chat_history_manager.save_message(
+    CHAT_HISTORY_MANAGER.save_message(
         session_id=session_id,
         role=MessageRole.USER,
         text="这个 item1 怎么退货?",
     )
-    latest_messages = chat_history_manager.get_latest_messages(session_id)
+    latest_messages = CHAT_HISTORY_MANAGER.get_latest_messages(session_id)
     for message in latest_messages:
         print(message)

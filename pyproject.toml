@@ -19,23 +19,21 @@ dependencies = [
     "chunkana>=0.1.6",
     "dashscope>=1.27.7",
     "fastapi>=0.141.1",
-    "grandalf>=0.8",
+    "httpx2>=2.13.0",
     "langchain>=1.4.2",
-    "langchain-community>=0.4.2",
     "langchain-core>=1.6.4",
     "langchain-deepseek>=1.1.1",
     "langchain-openai>=1.6.4",
     "langgraph>=1.2.12",
     "loguru>=0.7.3",
+    "mcp>=2.2.0",
+    "mcp-types>=2.2.0",
     "minio>=7.2.20",
-    "openai-agents>=0.20.0",
     "pydantic>=2.13.5",
     "pydantic-settings>=2.15.0",
     "pymilvus>=3.0.2",
     "pymongo>=4.18.1",
     "pypdf>=6.0.0",
-    "python-dotenv>=1.2.3",
-    "regex>=2026.9.10",
     "requests>=2.34.2",
     "rich>=13.0.0",
     "tiktoken>=0.7.0",
@@ -44,7 +42,9 @@ dependencies = [
 
 [dependency-groups]
 dev = [
+    "grandalf>=0.8",      # 仅 graph.get_graph().draw_ascii() 的 __main__ 调试需要
     "pre-commit>=4.7.0",
+    "pytest>=9.2.0",
     "ruff>=0.17.3",
 ]
 
@@ -60,3 +60,8 @@ select = [
     "F",    # Pyflakes：包括未使用的 import
     "I",    # isort：import 排序
 ]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+addopts = "-q"

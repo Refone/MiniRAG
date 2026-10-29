@@ -3,16 +3,22 @@
 /** 应用页面键（App.tsx 内 PageKey 状态切换即本项目的"路由"） */
 export type PageKey = "chat" | "docs";
 
+/**
+ * 任务状态（与后端 `common.events.registry.TaskStatus` 1:1，禁止自造同义词）。
+ * 前端本地态另见 `ImportStatus` 的 uploading 与 `ImportChildStatus` 的 interrupted。
+ */
+export type TaskStatus = "pending" | "processing" | "complete" | "failed";
+
 /** 任务进度视图（chat/docs 双域共享，SSE progress 事件 → 展示态） */
 export interface ProgressView {
   done: string[];
   running: string[];
-  status: string;
+  status: TaskStatus;
 }
 
 /** 父任务 SSE 状态事件载荷（/api/query/sse 与 /api/upload/sse 的 progress） */
 export interface StatusResponse {
-  status: string;
+  status: TaskStatus;
   done_list?: string[];
   running_list?: string[];
   /** 失败节点（仅失败时下发；父任务 / 旧后端可能为空） */
@@ -24,7 +30,7 @@ export interface StatusResponse {
 /** ZIP 子任务 SSE 状态事件载荷（/api/upload/sse 的 child-progress） */
 export interface ChildProgressResponse {
   child_id: string;
-  status: string;
+  status: TaskStatus;
   done_list?: string[];
   running_list?: string[];
   failed_list?: string[];

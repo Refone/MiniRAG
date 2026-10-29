@@ -1,4 +1,3 @@
-import inspect
 import os
 import sys
 import uuid
@@ -77,6 +76,17 @@ def init_logger():
 base_logger = init_logger()
 
 
+def _this_is_logging_frame(filename: str) -> bool:
+    """判断该文件是否属于日志基础设施自身 (本模块 / loguru 内部)。
+
+    只按文件路径判断。早先用 `"_log" in function` 过滤, 会把函数名里含 "_log"
+    的正常业务函数 (如 sync_log_files) 一并跳过, 日志归属错位到上一层调用方。
+    """
+    if filename.rsplit("/", 1)[-1] == "logging.py":
+        return True
+    return "/loguru/" in filename
+
+
 def fix_log_position(record):
     """
     为了在其他文件中调用 logger 打印
@@ -93,52 +103,22 @@ def fix_log_position(record):
         )
         return
 
-    def _this_is_logging_frame(frame):
-        """判断 frame 是否属于日志基础设施自身 (本模块 / loguru 内部)。
-
-        只按文件路径判断。早先用 `'_log' in frame.function` 过滤, 会把函数名里含
-        "_log" 的正常业务函数 (如 sync_log_files) 一并跳过, 日志归属错位到它的
-        上一层调用方, file/line 也跟着错。
-        """
-        filename = frame.filename.replace("\\", "/")
-        if filename.rsplit("/", 1)[-1] == "logging_utils.py":
-            return True
-        return "/loguru/" in filename
-
-    for frame in inspect.stack():
-        if _this_is_logging_frame(frame):
-            continue
-        record.update(
-            file=frame.filename.split("/")[-1].split("\\")[-1],
-            function=frame.function,
-            line=frame.lineno,
-        )
-        break
+    # 只用当前栈帧链向上走: 旧实现 inspect.stack() 会构建完整 FrameInfo 列表
+    # (含源码行预读), 每条日志都付一次代价。这里只读 f_back, O(栈深) 无拷贝。
+    frame = sys._getframe(1)
+    while frame is not None:
+        filename = frame.f_code.co_filename.replace("\\", "/")
+        if not _this_is_logging_frame(filename):
+            record.update(
+                file=filename.rsplit("/", 1)[-1],
+                function=frame.f_code.co_name,
+                line=frame.f_lineno,
+            )
+            return
+        frame = frame.f_back
 
 
 logger = base_logger.patch(fix_log_position)
-
-
-def brief_list(lst: list, head: int = 3, tail: int = 3) -> str:
-    if not lst:
-        return "[]"
-    if len(lst) <= head + tail:
-        return str(lst)
-    return (
-        f"[{', '.join(map(str, lst[:head]))}, ..., {', '.join(map(str, lst[-tail:]))}]"
-    )
-
-
-def brief_dict(d: dict, head: int = 3, tail: int = 3) -> str:
-    if not d:
-        return "{}"
-    items = list(d.items())
-    if len(items) <= head + tail:
-        return str(d)
-    return (
-        f"{{{', '.join(f'{k}: {v}' for k, v in items[:head])}, ..., "
-        f"{', '.join(f'{k}: {v}' for k, v in items[-tail:])}}}"
-    )
 
 
 if __name__ == "__main__":
@@ -149,10 +129,7 @@ if __name__ == "__main__":
     logger.critical("这是一条 CRITICAL 信息")
     logger.success("这是一条 SUCCESS 信息")
 
-    logger.info("示例 brief_list 函数: {}", brief_list([1, 2, 3, 4, 5, 6, 7, 8, 9]))
-    logger.info("示例 brief_list 函数 (短列表): {}", brief_list([1, 2, 3]))
+    from common.utils.brief import brief_dict, brief_list
 
+    logger.info("示例 brief_list 函数: {}", brief_list([1, 2, 3, 4, 5, 6, 7, 8, 9]))
     logger.info("示例 brief_dict 函数: {}", brief_dict({i: i * i for i in range(10)}))
-    logger.info(
-        "示例 brief_dict 函数 (短字典): {}", brief_dict({i: i * i for i in range(3)})
-    )

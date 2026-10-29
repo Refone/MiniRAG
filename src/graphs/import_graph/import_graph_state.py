@@ -115,14 +115,6 @@ def create_state(**state_dict) -> ImportGraphState:
     return state
 
 
-def get_default_state() -> ImportGraphState:
-    """
-    获取默认的导入节点状态
-    """
-
-    return copy.deepcopy(_DEFAULT_STATE)
-
-
 def save_state(state: ImportGraphState, file_path: str) -> None:
     """
     将当前状态保存到指定文件路径
@@ -145,7 +137,8 @@ def load_state(file_path: str) -> ImportGraphState:
 if __name__ == "__main__":
     from rich import print as rprint
 
-    from utils.path_utils import fixture_path, snapshot_path
+    from common.config.runtime_paths import snapshot_path
+    from common.utils.paths import fixture_path
 
     state = create_state(
         task_id="test-task-001",

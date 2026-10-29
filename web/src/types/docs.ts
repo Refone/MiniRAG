@@ -1,18 +1,15 @@
 /** 文档管理域类型契约（含 API 请求/响应 DTO） */
 
+import type { TaskStatus } from "./app";
+
 /** 文档管理页预览模式 */
 export type PreviewMode = "markdown" | "chunks" | "features";
 
-/** 父任务导入状态 */
-export type ImportStatus = "uploading" | "processing" | "completed" | "error";
+/** 父任务导入状态：uploading 是前端本地态，其余与后端 TaskStatus 一致 */
+export type ImportStatus = "uploading" | TaskStatus;
 
 /** ZIP 子任务展示状态（interrupted 为前端派生，不是后端状态值） */
-export type ImportChildStatus =
-  | "pending"
-  | "processing"
-  | "completed"
-  | "error"
-  | "interrupted";
+export type ImportChildStatus = TaskStatus | "interrupted";
 
 /** ZIP 分叉出的单个 md 子任务（展示态） */
 export interface ImportChildTask {
