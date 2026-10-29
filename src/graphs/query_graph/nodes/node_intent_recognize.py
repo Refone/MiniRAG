@@ -171,7 +171,7 @@ def node_intent_recognize(state: QueryGraphState) -> QueryGraphState:
 if __name__ == "__main__":
     from rich import print as rprint
 
-    from common.config.runtime_paths import snapshot_path
+    from common.config.path_config import snapshot_path
     from graphs.query_graph.query_graph_state import create_state, save_state
 
     init_state = create_state(

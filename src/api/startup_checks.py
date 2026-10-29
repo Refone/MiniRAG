@@ -21,6 +21,7 @@ from typing import Callable
 
 from common.client import MILVUS_CLIENT, MINIO_CLIENT, MONGODB_CLIENT
 from common.config.env_config import ENV_CONFIG
+from common.config.path_config import IMPORT_TMP_DIR, LOG_DIR, UPLOAD_TMP_DIR
 from common.logging import logger
 
 
@@ -44,11 +45,7 @@ def check_mongodb() -> None:
 
 def runtime_dirs() -> list[Path]:
     """API 运行所需的目录: 上传目录 / 导入阶段临时目录 / 日志目录。"""
-    return [
-        Path(ENV_CONFIG.output_dir.upload_tmp_dir),
-        Path(ENV_CONFIG.output_dir.import_tmp_dir),
-        Path(ENV_CONFIG.output_dir.log_dir),
-    ]
+    return [UPLOAD_TMP_DIR, IMPORT_TMP_DIR, LOG_DIR]
 
 
 def ensure_runtime_dirs() -> None:

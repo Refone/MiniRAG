@@ -1,4 +1,3 @@
-import os
 import shutil
 
 from common.client import (
@@ -7,6 +6,7 @@ from common.client import (
     MONGODB_CLIENT,
 )
 from common.config.env_config import ENV_CONFIG
+from common.config.path_config import IMPORT_TMP_DIR, UPLOAD_TMP_DIR
 
 
 def clean_db():
@@ -35,17 +35,15 @@ def rebuild_db():
 
 
 def clean_output_dir():
-    output_dir = ENV_CONFIG.output_dir.import_tmp_dir
-    if os.path.exists(output_dir):
-        print(f"删除输出目录 {output_dir}")
-        shutil.rmtree(output_dir)
+    if IMPORT_TMP_DIR.exists():
+        print(f"删除输出目录 {IMPORT_TMP_DIR}")
+        shutil.rmtree(IMPORT_TMP_DIR)
 
 
 def clean_upload_dir():
-    upload_dir = ENV_CONFIG.output_dir.upload_tmp_dir
-    if os.path.exists(upload_dir):
-        print(f"删除上传目录 {upload_dir}")
-        shutil.rmtree(upload_dir)
+    if UPLOAD_TMP_DIR.exists():
+        print(f"删除上传目录 {UPLOAD_TMP_DIR}")
+        shutil.rmtree(UPLOAD_TMP_DIR)
 
 
 if __name__ == "__main__":

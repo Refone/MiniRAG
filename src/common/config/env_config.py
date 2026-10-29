@@ -1,16 +1,39 @@
+"""环境配置：从 `.env` 读取配置（与 `path_config` 互相独立）。
+
+`.env` 的定位不依赖任何项目模块：`PROJECT_ROOT/.env` 优先（环境变量指定），
+否则从本文件位置向上找第一个 `.env`；找不到就跳过（容器里通常用环境变量注入）。
+路径相关参数一律不在 `.env`，统一见 `common.config.path_config`。
+"""
+
+import os
 from enum import StrEnum
 from pathlib import Path
 
-from pydantic import Field, field_validator
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from common.utils.paths import PROJECT_ROOT
 
-"""
-    该文件从 PROJECT_ROOT/.env 文件中读取配置信息
-"""
+def _find_env_file() -> Path | None:
+    """定位 .env：`PROJECT_ROOT/.env` 优先，否则向上找第一个 .env。"""
+    env_root = os.getenv("PROJECT_ROOT")
+    if env_root:
+        candidate = Path(env_root) / ".env"
+        if candidate.is_file():
+            return candidate
+
+    current = Path(__file__).resolve().parent
+    while True:
+        candidate = current / ".env"
+        if candidate.is_file():
+            return candidate
+        parent = current.parent
+        if parent == current:  # 到达根目录, 父目录等于自己
+            return None
+        current = parent
+
+
 BASE_CONFIG = {
-    "env_file": PROJECT_ROOT / ".env",
+    "env_file": _find_env_file(),
     "env_file_encoding": "utf-8",
     "extra": "ignore",
 }
@@ -21,27 +44,6 @@ class LogLevel(StrEnum):
     INFO = "INFO"
     WARNING = "WARNING"
     ERROR = "ERROR"
-
-
-class OutputDirSettings(BaseSettings):
-    model_config = SettingsConfigDict(**BASE_CONFIG, env_prefix="OUTPUT_DIR_")
-
-    import_tmp_dir: str = str(PROJECT_ROOT / "var/import")
-    upload_tmp_dir: str = str(PROJECT_ROOT / "var/uploads")
-    log_dir: str = str(PROJECT_ROOT / "var/logs")
-    # 节点 __main__ 调试快照 / 脚本临时产物
-    tmp_dir: str = str(PROJECT_ROOT / "var/tmp")
-
-    @field_validator("*", mode="after")
-    @classmethod
-    def _anchor_to_project_root(cls, v: str) -> str:
-        """相对路径一律按项目根解析。
-
-        .env 里写成相对路径 (如 var/uploads) 时, 直接使用会随 CWD 漂移,
-        而上传 / 日志 / 导入目录必须与 PROJECT_ROOT 绑定。
-        """
-        p = Path(v)
-        return str(p if p.is_absolute() else PROJECT_ROOT / p)
 
 
 class LogSettings(BaseSettings):
@@ -121,7 +123,6 @@ class DashscopeSettings(BaseSettings):
 
 
 class EnvConfig(BaseSettings):
-    output_dir: OutputDirSettings = Field(default_factory=OutputDirSettings)
     log: LogSettings = Field(default_factory=LogSettings)
     mineru: MineruSettings = Field(default_factory=MineruSettings)
     minio: MinioSettings = Field(default_factory=MinioSettings)

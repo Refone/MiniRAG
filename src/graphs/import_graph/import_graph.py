@@ -178,9 +178,9 @@ import_graph = workflow.compile()
 if __name__ == "__main__":
     from rich import print as rprint
 
+    from common.config.path_config import fixture_path
     from common.events import TASK_MANAGER
     from common.logging import logger
-    from common.utils.paths import fixture_path
     from graphs.import_graph.import_graph_state import create_state
 
     print(import_graph.get_graph().draw_ascii())

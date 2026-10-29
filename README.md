@@ -18,8 +18,8 @@ src     # 后端源码 (以 src/ 为 sys.path 根); 分层规则见 AGENTS.md
 │   ├── import_graph    # 导入流程: 文档导入-切分-向量化-落库
 │   └── query_graph     # 查询流程: query-向量化-三路召回-生成答案
 └── common    # 唯一共享层 (原顶层 utils/ 已并入)
-    ├── utils/    # T0 纯工具: paths / brief / net / tokenizer / markdown_*
-    ├── config/   # T1 配置: app_config / env_config / runtime_paths
+    ├── utils/    # T0 纯工具: brief / net / tokenizer / markdown_*
+    ├── config/   # T1 配置: app_config / env_config / path_config
     ├── logging.py# T2 日志基础设施
     ├── model/    # T2 LLM / Embedding / Reranker / VLM 封装
     ├── client/   # T3 Milvus / MinIO / MongoDB 客户端

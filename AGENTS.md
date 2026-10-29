@@ -50,7 +50,7 @@ api → service → graphs → common
 
 | tier | 模块 | 允许 import |
 | --- | --- | --- |
-| **0** 基础 | `utils/`（`paths` / `brief` / `net` / `tokenizer` / `markdown_splitter` / `markdown_image`）、`prompt/` | 仅标准库 / 第三方 |
+| **0** 基础 | `utils/`（`brief` / `net` / `tokenizer` / `markdown_splitter` / `markdown_image`）、`prompt/` | 仅标准库 / 第三方 |
 | **1** 配置 | `config/` | tier 0 |
 | **2** 设施 | `logging.py`、`model/` | tier 0–1 |
 | **3** 资源 | `client/`、`events/` | tier 0–2 |
@@ -58,13 +58,14 @@ api → service → graphs → common
 
 - 同 tier 的不同模块 / 子包之间**禁止**互相依赖；同一子包内部自由。
 - `common/utils/` **不允许**出现 import 项目内模块的文件——需要配置的函数放 `config/`。
+- 路径统一走 `common/config/path_config.py`（`PROJECT_ROOT` 定位 + `FIXTURES_DIR` / `IMPORT_TMP_DIR` / `UPLOAD_TMP_DIR` / `LOG_DIR` / `TMP_DIR` + `fixture_path` / `runtime_tmp_dir` / `snapshot_path`），`.env` 不配置任何路径参数；`env_config` 与 `path_config` 互相独立，`env_config` 自行向上查找 `.env` 文件。
 - 新增模块先定 tier 再写代码；tier 表以本节为唯一文档源。
 
 ### 模块命名
 
 - 节点函数以 `node_` 开头（= LangGraph 注册名 = SSE 里的节点标识），**不要**随意改名。
 - 节点文件名当前仍为 `node_*.py`（与函数名一致）；批量去掉文件名前缀属于后续需求，做时同步改本节。
-- `common/utils/` 下不带 `_utils` 后缀（`paths.py` 而非 `path_utils.py`）。
+- `common/utils/` 下不带 `_utils` 后缀（`brief.py` 而非 `brief_utils.py`）。
 - 避免与标准库同名：不新建 `token.py` / `tokenize.py`（用 `tokenizer.py`）；`common/logging.py` 是包内子模块，Python 3 绝对导入下不与标准库冲突。
 - 一个文件一个主题；超过 400 行考虑拆分。
 

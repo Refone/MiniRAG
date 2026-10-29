@@ -106,7 +106,7 @@ def node_document_split(state: ImportGraphState) -> ImportGraphState:
 if __name__ == "__main__":
     from rich import print as rprint
 
-    from common.config.runtime_paths import snapshot_path
+    from common.config.path_config import snapshot_path
     from graphs.import_graph.import_graph_state import load_state, save_state
 
     prev_state = load_state(snapshot_path("import_03_md_img.json"))

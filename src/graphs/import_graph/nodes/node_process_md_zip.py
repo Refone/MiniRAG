@@ -3,7 +3,7 @@ import zipfile
 from pathlib import Path, PurePosixPath
 from urllib.parse import unquote
 
-from common.config.env_config import ENV_CONFIG
+from common.config.path_config import IMPORT_TMP_DIR
 from common.events.tracing import step_log, trace_node
 from common.logging import logger
 from graphs.import_graph.import_graph_state import ImportGraphState
@@ -54,16 +54,16 @@ def step_1_validate_and_get_data(state: ImportGraphState) -> tuple[Path, str]:
 @step_log(desc="解压 md 压缩包")
 def step_2_unzip_md_zip(zip_file: Path, file_title: str) -> Path:
     """
-    使用 shutil 解压 zip 文件到 output/import/<file_title>/ 文件夹。
+    使用 shutil 解压 zip 文件到 var/import/<file_title>/ 文件夹。
 
     解压后目录结构取决于压缩包本身, 常见两种:
-        单 md:  output/import/<file_title>/<xxx>.md + images/
-        多 md:  output/import/<file_title>/<文件夹>/<xxx>.md ...
+        单 md:  var/import/<file_title>/<xxx>.md + images/
+        多 md:  var/import/<file_title>/<文件夹>/<xxx>.md ...
 
     同名文件夹已存在时先清空 (重复导入覆盖原则), 并清理 macOS 打包垃圾。
     返回解压根目录。
     """
-    md_dir = Path(ENV_CONFIG.output_dir.import_tmp_dir) / file_title
+    md_dir = IMPORT_TMP_DIR / file_title
     if md_dir.exists():
         shutil.rmtree(md_dir)
     md_dir.mkdir(parents=True, exist_ok=True)
@@ -305,7 +305,7 @@ def _remove_redundant_files(md_dir: Path, md_paths: list[Path]) -> None:
 @step_log(desc="校验 md 内容与图片完整性")
 def step_3_check_md_content(md_dir: Path, file_title: str) -> list[Path]:
     """
-    检查 output/import/<file_title>/ 文件夹内的 md 文件并保证内容完整:
+    检查 var/import/<file_title>/ 文件夹内的 md 文件并保证内容完整:
 
     1. 扫描所有 md 文件, 一个都没有则抛异常
     2. 单个 md 时按命名规范重命名
@@ -338,7 +338,7 @@ def node_process_md_zip(state: ImportGraphState) -> ImportGraphState:
     """
     串联三步:
     1. 校验 zip 与标题
-    2. 解压到 output/import/<file_title>/
+    2. 解压到 var/import/<file_title>/
     3. 校验 md 文件与图片完整性
 
     产出:
@@ -364,8 +364,7 @@ def node_process_md_zip(state: ImportGraphState) -> ImportGraphState:
 if __name__ == "__main__":
     from rich import print as rprint
 
-    from common.config.runtime_paths import snapshot_path
-    from common.utils.paths import fixture_path
+    from common.config.path_config import fixture_path, snapshot_path
     from graphs.import_graph.import_graph_state import create_state, save_state
 
     start_state = create_state(

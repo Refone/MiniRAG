@@ -137,8 +137,7 @@ def load_state(file_path: str) -> ImportGraphState:
 if __name__ == "__main__":
     from rich import print as rprint
 
-    from common.config.runtime_paths import snapshot_path
-    from common.utils.paths import fixture_path
+    from common.config.path_config import fixture_path, snapshot_path
 
     state = create_state(
         task_id="test-task-001",

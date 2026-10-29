@@ -173,8 +173,7 @@ if __name__ == "__main__":
 
     from rich import print as rprint
 
-    from common.config.runtime_paths import runtime_tmp_dir
-    from common.utils.paths import fixture_path
+    from common.config.path_config import fixture_path, runtime_tmp_dir
 
     md_content = ""
     md_path = fixture_path("hello-agent.md")

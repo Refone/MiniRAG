@@ -7,6 +7,7 @@ from pypdf import PdfReader
 
 from common.config.app_config import APP_CONFIG
 from common.config.env_config import ENV_CONFIG
+from common.config.path_config import IMPORT_TMP_DIR
 from common.events.tracing import step_log, trace_node
 from common.logging import logger
 from graphs.import_graph.import_graph_state import ImportGraphState
@@ -168,9 +169,8 @@ def step_3_download_and_unzip(zip_url: str, file_title: str) -> Path:
     把 full.md 重命名为 <file_title>.md 后返回其路径。
     """
 
-    # 在函数内解析目录而非模块级常量: 既让 from_project_root 便于替换,
-    # 也避免 import 时机过早固定路径。
-    md_dir = Path(ENV_CONFIG.output_dir.import_tmp_dir)
+    # 导入阶段目录由 path_config 统一提供 (var/import)
+    md_dir = IMPORT_TMP_DIR
     md_dir.mkdir(parents=True, exist_ok=True)
 
     download_response = requests.get(zip_url)
@@ -225,7 +225,7 @@ def node_pdf_to_md(state: ImportGraphState) -> ImportGraphState:
 if __name__ == "__main__":
     from rich import print as rprint
 
-    from common.config.runtime_paths import snapshot_path
+    from common.config.path_config import snapshot_path
     from graphs.import_graph.import_graph_state import load_state, save_state
 
     prev_state = load_state(snapshot_path("import_01_entry.json"))

@@ -28,6 +28,7 @@ from api.startup_checks import startup_checks
 from common.client import MINIO_CLIENT
 from common.config.app_config import APP_CONFIG
 from common.config.env_config import ENV_CONFIG
+from common.config.path_config import UPLOAD_TMP_DIR
 from common.events import EVENT_BUS, TASK_MANAGER, TaskStatus
 from common.logging import logger
 from common.store import CHAT_HISTORY_MANAGER
@@ -131,7 +132,7 @@ async def import_document(
 
     task_id = uuid.uuid4().hex
     # 每个任务独立子目录：并发上传同名文件互不覆盖
-    upload_dir = Path(ENV_CONFIG.output_dir.upload_tmp_dir) / task_id
+    upload_dir = UPLOAD_TMP_DIR / task_id
     upload_dir.mkdir(parents=True, exist_ok=True)
     dest = upload_dir / Path(file.filename).name
     await _save_upload(file, dest)

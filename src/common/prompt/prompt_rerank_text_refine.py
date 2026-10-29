@@ -24,8 +24,8 @@ class PromptRerankRefineText:
 
 
 if __name__ == "__main__":
+    from common.config.path_config import PROJECT_ROOT
     from common.model import LLM
-    from common.utils.paths import PROJECT_ROOT
 
     question = "HAK 180 一定要放平使用吗"
     # load 整段 output/markdown-folder/hak180产品安全手册/hak180产品安全手册_fixed.md

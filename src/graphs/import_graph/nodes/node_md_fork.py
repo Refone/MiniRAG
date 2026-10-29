@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from common.config.env_config import ENV_CONFIG
+from common.config.path_config import IMPORT_TMP_DIR
 from common.events import EVENT_BUS, TASK_MANAGER, SSEEvent
 from common.events.tracing import trace_node
 from common.logging import logger
@@ -27,9 +27,7 @@ def node_md_fork(state: ImportGraphState) -> ImportGraphState:
         return state
 
     task_id = state.get("task_id", "")
-    md_dir = (
-        Path(ENV_CONFIG.output_dir.import_tmp_dir) / state.get("file_title", "")
-    ).resolve()
+    md_dir = (IMPORT_TMP_DIR / state.get("file_title", "")).resolve()
 
     children: list[MdChild] = []
     for index, md_path_str in enumerate(state.get("markdown_file_paths", [])):

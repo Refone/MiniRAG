@@ -1,11 +1,11 @@
 import os
 import sys
 import uuid
-from pathlib import Path
 
 from loguru import logger as _logger
 
 from common.config.env_config import ENV_CONFIG
+from common.config.path_config import LOG_DIR
 
 LOG_FORMAT = (
     "<yellow>{time:YYYY-MM-DD HH:mm:ss.SSS}</yellow> | "
@@ -13,7 +13,6 @@ LOG_FORMAT = (
     "<cyan>{file}</cyan>:<cyan>{line}</cyan> <cyan>{function}</cyan> | "
     "<level>{message}</level>"
 )
-LOG_DIR = Path(ENV_CONFIG.output_dir.log_dir)
 LOG_FILE_NAME = "app_{time:YYYYMMDD}.log"
 LOG_FILE_PATH = LOG_DIR / LOG_FILE_NAME
 

@@ -53,7 +53,7 @@ COMMON_PACKAGE_TIER = -1  # src/common/__init__.py
 
 
 def module_info(path: Path) -> tuple[str, list[str]]:
-    """返回 (模块名, 层级路径两部分)，例如 common/utils/paths.py -> ("common.utils.paths", ...)."""
+    """返回 (模块名, 层级路径两部分)，例如 common/utils/brief.py -> ("common.utils.brief", ...)."""
     rel = path.relative_to(SRC).with_suffix("")
     parts = list(rel.parts)
     if parts and parts[-1] == "__init__":

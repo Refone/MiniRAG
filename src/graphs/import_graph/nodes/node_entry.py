@@ -29,8 +29,7 @@ def node_entry(state: ImportGraphState) -> ImportGraphState:
 if __name__ == "__main__":
     from rich import print as rprint
 
-    from common.config.runtime_paths import snapshot_path
-    from common.utils.paths import fixture_path
+    from common.config.path_config import fixture_path, snapshot_path
     from graphs.import_graph.import_graph_state import create_state, save_state
 
     start1 = create_state(
