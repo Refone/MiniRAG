@@ -3,7 +3,6 @@ docker/volumes/
 .env
 .vscode/
 .idea/
-.claude/settings.local.json
 __pycache__/
 */__pycache__/
 var/
