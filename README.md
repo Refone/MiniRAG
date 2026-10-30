@@ -69,9 +69,30 @@ web     # 前端 (Vite + React)
 - 位置：`.agents/skills/interactive-demo/`（`SKILL.md` + `assets/demo-template.html` + `references/`）。
 - 触发：向 AI 说「按 `docs/feat/xxx/PRD.md` 生成交互 demo」即可；DSH 等支持 `.agents/skills` 的工具会自动发现该 skill。
 - 产物：`docs/feat/<需求名>/demo.html`，单文件、离线可双击、明暗双主题、mock 数据，所有状态可从右上「原型演示」控件直达。
-- 约定：只改 demo，不提前动 `web/src`；评审通过后才进入后端方案设计与代码实现。
+- 约定：只改 demo，不提前动 `web/src`；评审通过后才进入后端改动方案与代码实现。
 
 详细规则与自检清单见 `.agents/skills/interactive-demo/SKILL.md`。
+
+## 后端改动方案（skill）
+
+同一 SOP 的下一环：用项目内置 skill `backend-plan` 把 PRD（＋已定稿的 `demo.html`）
+调研成人类可审批的后端改动方案 `docs/feat/<需求名>/后端改动方案.md`。
+
+- 位置：`.agents/skills/backend-plan/`（`SKILL.md` + `references/`：`plan-template.md` 文档骨架、`repo-map.md` 后端地图、`decision-patterns.md` 决策与评审协议）。
+- 触发：向 AI 说「按 `docs/feat/xxx/PRD.md` 生成后端改动方案」即可。
+- 产物：章节对齐 AGENTS.md「后端改动方案.md」（架构调整 / 文件修改清单 / 内部重要变更 / 对外重要变更 / 验收条件），另含需求映射、决策记录、风险与未决。
+- 修订：人类写了 `后端评审vX.md` 时，先产出 `后端评审反馈-vX.md` 逐条答复，再合并进方案正文。
+- 约定：只写文档、只读取证，不动 `src/`；方案评审通过后才动工改代码。
+
+用法：
+
+1. **首版**：说「按 `docs/feat/xxx/PRD.md` 生成后端改动方案」。AI 读 PRD＋demo、调研代码后产出 `后端改动方案.md`（v0），并在回复里附待拍板清单（方案中的 `⏳` 项）。
+2. **按评审修订**：把意见写进 `docs/feat/xxx/后端评审vX.md`，说「按后端评审 vX 修订方案」——先产出 `后端评审反馈-vX.md` 逐条答复，再合并进方案正文、升版本。
+3. **按 PRD 修订**：PRD 末尾「评审纪要」追加要求后，说「更新后端改动方案」做增量修订。
+4. **人类核对**：`grep -n '⏳' docs/feat/<需求名>/后端改动方案.md` 查看未决项；文档阶段 AI 不改 `src/`，`git status` 应只有文档变化。
+5. **上下文开销**：AI 按需读取参考（首版约 6–8k token 指引，全读约 10–13k），不整包加载；路由表见 `.agents/skills/backend-plan/SKILL.md`「按需读参考」。
+
+详细规则与自检清单见 `.agents/skills/backend-plan/SKILL.md`。
 
 ## 配置
 
