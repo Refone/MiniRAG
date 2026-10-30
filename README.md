@@ -94,6 +94,26 @@ web     # 前端 (Vite + React)
 
 详细规则与自检清单见 `.agents/skills/backend-plan/SKILL.md`。
 
+## 需求动工（skill）
+
+同一 SOP 的「动工」环节：三件套（PRD ＋ 定稿的 `demo.html` ＋ 评审通过的后端改动方案）齐备后，
+用项目内置 skill `implement` 把方案落地成 `src/` 与 `web/` 的核心代码变更，产出待人类提交的核心 commit。
+测试反馈修复是 SOP 的下一环节，不在此 skill 范围内。
+
+- 位置：`.agents/skills/implement/SKILL.md`（单文件，无 references）。
+- 触发：说「按方案动工」「开始实现 `docs/feat/xxx`」即可。
+- 口径：前端改动与 `demo.html` 逐点对齐（布局 / 状态 / 文案 / 动效），后端按方案的修改清单与对外契约施工。
+- 产物：`src/` 与 `web/src/` 的核心代码变更（即核心 commit 的工作区内容）；**变更记录就是 git commit（人类提交），不另写实施文档**。
+- 约定：只写代码，不改 PRD / demo / 方案正文；git 只读，提交由人类完成。
+
+用法：
+
+1. **动工**：说「按 `docs/feat/xxx` 动工」。AI 先核对门槛（方案无 `⏳`、demo 已定稿、基线全绿），再按方案清单改代码。
+2. **自测**：后端 ruff ＋ layout ＋ layers ＋ pytest，前端 `npm run build` ＋ 浏览器对照 demo 走查；结果写进交付回复。
+3. **人类验收**：`git status` 核对改动面（应与方案清单一致）；认可后由人类 add / commit，commit 即变更记录。
+
+详细规则与自检清单见 `.agents/skills/implement/SKILL.md`。
+
 ## 配置
 
 | 文件 | 入库 | 说明 |
