@@ -61,6 +61,18 @@ web     # 前端 (Vite + React)
 > 新增 / 重命名顶层目录时**必须同时改上面结构树与本表**；
 > `python tools/check_layout.py` 会校验本表与磁盘是否一致。
 
+## 前端交互 demo（skill）
+
+需求开发时（SOP 见 AGENTS.md「需求开发 SOP」），用项目内置 skill `interactive-demo`
+把 `docs/feat/<需求名>/PRD.md` 生成单文件交互原型 `docs/feat/<需求名>/demo.html`。
+
+- 位置：`.agents/skills/interactive-demo/`（`SKILL.md` + `assets/demo-template.html` + `references/`）。
+- 触发：向 AI 说「按 `docs/feat/xxx/PRD.md` 生成交互 demo」即可；DSH 等支持 `.agents/skills` 的工具会自动发现该 skill。
+- 产物：`docs/feat/<需求名>/demo.html`，单文件、离线可双击、明暗双主题、mock 数据，所有状态可从右上「原型演示」控件直达。
+- 约定：只改 demo，不提前动 `web/src`；评审通过后才进入后端方案设计与代码实现。
+
+详细规则与自检清单见 `.agents/skills/interactive-demo/SKILL.md`。
+
 ## 配置
 
 | 文件 | 入库 | 说明 |

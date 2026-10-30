@@ -1,0 +1,1001 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="light">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>MiniRAG · 交互原型</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%234f46e5'/%3E%3Ctext x='16' y='22' font-family='sans-serif' font-size='16' font-weight='700' fill='white' text-anchor='middle'%3EM%3C/text%3E%3C/svg%3E" />
+  <script>
+    /* 首帧前决定主题，避免闪白（键名与项目现有原型一致） */
+    (function () {
+      try {
+        var saved = localStorage.getItem("minicrag-preview-theme");
+        var theme = saved === "dark" || saved === "light"
+          ? saved
+          : (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+        document.documentElement.setAttribute("data-theme", theme);
+      } catch (e) { /* 隐私模式 */ }
+    })();
+  </script>
+  <style>
+    /* ==== 设计令牌（源: web/src/styles/tokens.css） ==== */
+    :root {
+      color-scheme: light;
+      --font-sans: system-ui, -apple-system, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+      --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+
+      --bg: #f4f5f7;
+      --bg-nav: #ffffff;
+      --surface: #ffffff;
+      --surface-2: #fafbfc;
+      --surface-hover: #f1f2f5;
+      --surface-inset: #eceef1;
+      --seg-thumb: #ffffff;
+
+      --border: #e4e6eb;
+      --border-strong: #d3d7dd;
+      --text: #1f2328;
+      --text-2: #646c7b;
+      --text-3: #8b93a1;
+
+      --accent: #4f46e5;
+      --accent-hover: #4338ca;
+      --accent-soft: #eef2ff;
+      --accent-border: #c7d2fe;
+      --accent-fill: #4f46e5;
+      --accent-fill-hover: #4338ca;
+      --on-accent: #ffffff;
+      --focus: #4f46e5;
+
+      --success: #15803d;
+      --success-soft: #dcfce7;
+      --warning: #b45309;
+      --warning-soft: #fef3c7;
+      --danger: #b91c1c;
+      --danger-soft: #fee2e2;
+      --purple: #7c3aed;
+      --purple-soft: #f3e8ff;
+
+      --user-bubble: #e9ebef;
+      --rail: #d3d7dd;
+      --tooltip-bg: #1f2328;
+      --tooltip-text: #ffffff;
+      --mask: rgba(15, 23, 42, .40);
+
+      --shadow-1: 0 1px 2px rgba(15, 23, 42, .06);
+      --shadow-2: 0 8px 24px rgba(15, 23, 42, .12), 0 2px 6px rgba(15, 23, 42, .06);
+      --shadow-seg: 0 1px 3px rgba(15, 23, 42, .16), 0 0 0 1px rgba(15, 23, 42, .04);
+      --shadow-card: 0 1px 2px rgba(15, 23, 42, .06);
+
+      --r-xs: 4px;
+      --r-sm: 6px;
+      --r-md: 8px;
+      --r-lg: 10px;
+      --r-xl: 12px;
+      --r-2xl: 16px;
+      --r-pill: 999px;
+    }
+
+    [data-theme="dark"] {
+      color-scheme: dark;
+
+      --bg: #1b1b1f;
+      --bg-nav: #161618;
+      --surface: #202127;
+      --surface-2: #26272e;
+      --surface-hover: #2a2b32;
+      --surface-inset: #161618;
+      --seg-thumb: #2d2e35;
+
+      --border: #2e2e32;
+      --border-strong: #3c3f44;
+      --text: #dfdfd6;
+      --text-2: #98989f;
+      --text-3: #6f7076;
+
+      --accent: #a8b1ff;
+      --accent-hover: #c7ccff;
+      --accent-soft: rgba(100, 108, 255, .16);
+      --accent-border: rgba(168, 177, 255, .35);
+      --accent-fill: #5a68dd;
+      --accent-fill-hover: #4f5fe0;
+      --on-accent: #ffffff;
+      --focus: #a8b1ff;
+
+      --success: #3dd68c;
+      --success-soft: rgba(16, 185, 129, .16);
+      --warning: #f9b44e;
+      --warning-soft: rgba(234, 179, 8, .14);
+      --danger: #f66f81;
+      --danger-soft: rgba(244, 63, 94, .16);
+      --purple: #c8abfa;
+      --purple-soft: rgba(159, 122, 234, .16);
+
+      --user-bubble: #2a2b32;
+      --rail: #3c3f44;
+      --tooltip-bg: #0f1013;
+      --tooltip-text: #dfdfd6;
+      --mask: rgba(0, 0, 0, .55);
+
+      --shadow-1: 0 1px 2px rgba(0, 0, 0, .35);
+      --shadow-2: 0 12px 32px rgba(0, 0, 0, .50);
+      --shadow-seg: 0 1px 2px rgba(0, 0, 0, .40), 0 0 0 1px rgba(255, 255, 255, .04);
+      --shadow-card: none;
+    }
+
+    /* ==== 基础 ==== */
+    *,
+    *::before,
+    *::after { box-sizing: border-box; }
+
+    html,
+    body { height: 100%; }
+
+    body {
+      margin: 0;
+      font-family: var(--font-sans);
+      font-size: 14px;
+      line-height: 1.55;
+      color: var(--text);
+      background: var(--bg);
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
+    }
+
+    button,
+    input,
+    textarea { font: inherit; color: inherit; }
+
+    button { cursor: pointer; }
+
+    :where(a, button, textarea, input, [tabindex]):focus-visible {
+      outline: 2px solid var(--focus);
+      outline-offset: 2px;
+    }
+
+    ::selection {
+      background: var(--accent-soft);
+      color: var(--text);
+    }
+
+    * {
+      scrollbar-width: thin;
+      scrollbar-color: var(--border-strong) transparent;
+    }
+    *::-webkit-scrollbar { width: 8px; height: 8px; }
+    *::-webkit-scrollbar-track { background: transparent; }
+    *::-webkit-scrollbar-thumb {
+      background: var(--border-strong);
+      border-radius: var(--r-pill);
+    }
+
+    [hidden] { display: none !important; }
+
+    .sprite {
+      position: absolute;
+      width: 0;
+      height: 0;
+      overflow: hidden;
+    }
+
+    /* 单色线性图标：颜色继承 currentColor */
+    .icon {
+      width: 16px;
+      height: 16px;
+      flex: 0 0 auto;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 1.8;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    /* ==== 应用骨架 ==== */
+    .app-shell {
+      height: 100vh;
+      height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .app-body {
+      flex: 1 1 auto;
+      min-height: 0;
+      display: flex;
+      overflow: hidden;
+    }
+
+    /* ==== 导航栏（与 web/src/components/layout/NavBar 对齐） ==== */
+    .navbar {
+      flex: 0 0 auto;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 12px 20px;
+      background: var(--bg-nav);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+    }
+
+    .logo {
+      width: 36px;
+      height: 36px;
+      flex: 0 0 auto;
+      display: grid;
+      place-items: center;
+      border-radius: var(--r-lg);
+      background: var(--accent-fill);
+      color: var(--on-accent);
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: -.02em;
+    }
+
+    .title {
+      display: flex;
+      flex-direction: column;
+      line-height: 1.1;
+      min-width: 0;
+    }
+    .title strong {
+      font-size: 14px;
+      font-weight: 650;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .title span {
+      margin-top: 3px;
+      font-size: 12px;
+      color: var(--text-2);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .tabs {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      margin-left: auto;
+    }
+
+    .tab {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 7px 12px;
+      border: 1px solid transparent;
+      border-radius: var(--r-md);
+      background: transparent;
+      color: var(--text-2);
+      font-size: 13px;
+      transition: color .15s, background-color .15s, border-color .15s;
+    }
+    .tab:hover { background: var(--surface-hover); color: var(--text); }
+    .tab.active {
+      background: var(--accent-soft);
+      border-color: var(--accent-border);
+      color: var(--accent);
+      font-weight: 600;
+    }
+
+    .theme-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 7px 11px;
+      border: 1px solid var(--border);
+      border-radius: var(--r-md);
+      background: transparent;
+      color: var(--text-2);
+      font-size: 12.5px;
+      transition: color .15s, border-color .15s, background-color .15s;
+    }
+    .theme-toggle:hover {
+      color: var(--text);
+      border-color: var(--border-strong);
+      background: var(--surface-hover);
+    }
+    .theme-label { line-height: 1; }
+
+    /* ==== 页面舞台（需求页面放这里） ==== */
+    .stage {
+      flex: 1 1 auto;
+      min-width: 0;
+      min-height: 0;
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      padding: 24px 20px 96px;
+    }
+
+    .stage-inner {
+      max-width: 800px;
+      margin: 0 auto;
+    }
+
+    /* ==== 示例区块（交付前整段替换） ==== */
+    .sample-note {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      gap: 4px 8px;
+      margin: 0 0 14px;
+      padding: 8px 12px;
+      border: 1px dashed var(--border-strong);
+      border-radius: var(--r-md);
+      color: var(--text-2);
+      font-size: 12px;
+    }
+    .sample-note strong { color: var(--accent); }
+
+    .panel {
+      padding: 16px 18px;
+      border: 1px solid var(--border);
+      border-radius: var(--r-xl);
+      background: var(--surface);
+      box-shadow: var(--shadow-card);
+    }
+
+    .panel-head {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .panel-icon { width: 18px; height: 18px; color: var(--accent); }
+    .panel-title {
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+      margin-right: auto;
+    }
+    .panel-title strong {
+      font-size: 14px;
+      font-weight: 650;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .muted {
+      color: var(--text-2);
+      font-size: 12px;
+    }
+
+    /* 状态徽标（与 web/src/styles/docs.css 的 .status-badge 对齐） */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 9px;
+      border-radius: var(--r-pill);
+      font-size: 11.5px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .badge-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: currentColor;
+    }
+    .badge.is-idle { background: var(--surface-inset); color: var(--text-2); }
+    .badge.is-processing { background: var(--accent-soft); color: var(--accent); }
+    .badge.is-completed { background: var(--success-soft); color: var(--success); }
+    .badge.is-error { background: var(--danger-soft); color: var(--danger); }
+
+    .steps {
+      list-style: none;
+      margin: 16px 0;
+      padding: 0;
+      display: grid;
+      gap: 10px;
+    }
+    .step {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      font-size: 13px;
+      color: var(--text-3);
+    }
+    .step .icon { width: 15px; height: 15px; }
+    .step.done { color: var(--text); }
+    .step.done .icon { color: var(--success); }
+    .step.running { color: var(--text); font-weight: 550; }
+    .step.running .icon { color: var(--accent); }
+    .step.error { color: var(--danger); }
+    .step.error .icon { color: var(--danger); }
+
+    .panel-foot {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-top: 14px;
+      padding-top: 12px;
+      border-top: 1px solid var(--border);
+    }
+
+    .btn {
+      border: 1px solid var(--border);
+      background: transparent;
+      padding: 7px 14px;
+      border-radius: var(--r-md);
+      font-size: 13px;
+      color: var(--text);
+      transition: background-color .15s, border-color .15s, transform .05s;
+    }
+    .btn:hover:not(:disabled) {
+      background: var(--surface-hover);
+      border-color: var(--border-strong);
+    }
+    .btn:active:not(:disabled) { transform: translateY(1px); }
+    .btn:disabled { opacity: .55; cursor: not-allowed; }
+
+    /* ==== 加载态 ==== */
+    .spin {
+      animation: icon-spin 1s linear infinite;
+      transform-origin: 50% 50%;
+    }
+    .spin-track {
+      fill: none;
+      stroke: currentColor;
+      stroke-opacity: .25;
+      stroke-width: 2;
+    }
+    .spin-arc {
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-dasharray: 28 100;
+    }
+    @keyframes icon-spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* ==== Toast（左下角，与 ui.css 对齐） ==== */
+    .toast-host {
+      position: fixed;
+      left: 24px;
+      bottom: 24px;
+      z-index: 100;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .toast {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      max-width: 340px;
+      padding: 10px 14px;
+      border: 1px solid var(--border);
+      border-radius: var(--r-lg);
+      background: var(--surface);
+      box-shadow: var(--shadow-2);
+      font-size: 13px;
+      animation: toast-in .2s ease-out;
+    }
+    .toast-dot {
+      flex: 0 0 auto;
+      width: 8px;
+      height: 8px;
+      margin-top: 6px;
+      border-radius: 50%;
+      background: var(--accent);
+    }
+    .toast.success .toast-dot { background: var(--success); }
+    .toast.error .toast-dot { background: var(--danger); }
+    @keyframes toast-in {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: none; }
+    }
+
+    /* ==== 原型演示控件（不属于产品 UI） ==== */
+    .demo-controls {
+      position: fixed;
+      top: 72px;
+      right: 16px;
+      z-index: 30;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 6px 5px 9px;
+      border: 1px dashed var(--border-strong);
+      border-radius: var(--r-md);
+      background: var(--surface);
+      box-shadow: var(--shadow-1);
+      color: var(--text-2);
+      font-size: 11px;
+      opacity: .92;
+    }
+    .demo-tag {
+      color: var(--accent);
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .demo-states {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .demo-btn {
+      padding: 3px 7px;
+      border: 1px solid var(--border);
+      border-radius: var(--r-xs);
+      background: transparent;
+      color: var(--text-2);
+      font-size: 11px;
+      white-space: nowrap;
+      transition: color .15s, border-color .15s, background-color .15s;
+    }
+    .demo-btn:hover {
+      color: var(--text);
+      border-color: var(--border-strong);
+      background: var(--surface-hover);
+    }
+    .demo-btn.is-active {
+      color: var(--accent);
+      border-color: var(--accent-border);
+      background: var(--accent-soft);
+    }
+    .demo-close {
+      width: 18px;
+      height: 18px;
+      padding: 0;
+      border: 0;
+      border-radius: var(--r-xs);
+      background: transparent;
+      color: var(--text-3);
+      font-size: 13px;
+      line-height: 1;
+    }
+    .demo-close:hover { color: var(--text); background: var(--surface-hover); }
+
+    /* ==== 响应式 ==== */
+    @media (max-width: 720px) {
+      .navbar { flex-wrap: wrap; gap: 10px; padding: 10px 14px; }
+      .title span { display: none; }
+      .tabs { order: 3; width: 100%; margin-left: 0; }
+      .tab { flex: 1; justify-content: center; }
+      .theme-toggle { margin-left: auto; }
+      .theme-label { display: none; }
+      .stage { padding: 16px 12px 96px; }
+      .panel-head { flex-wrap: wrap; }
+      .panel-title { flex: 1 1 auto; }
+      .demo-controls {
+        top: 108px;
+        left: 10px;
+        right: 10px;
+        justify-content: flex-start;
+        flex-wrap: wrap;
+      }
+      .demo-tag { display: none; }
+    }
+
+    /* ==== 动效降级 ==== */
+    @media (prefers-reduced-motion: reduce) {
+      *,
+      *::before,
+      *::after {
+        animation-duration: .01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: .01ms !important;
+        scroll-behavior: auto !important;
+      }
+      .spin { animation: none; }
+    }
+  </style>
+</head>
+<body>
+  <!-- 内联图标：单色线性，颜色继承 currentColor -->
+  <svg class="sprite" aria-hidden="true" focusable="false">
+    <symbol id="i-chat" viewBox="0 0 24 24"><path d="M21 11.5a8.5 8.5 0 0 1-8.5 8.5H8l-5 3 1.2-4.6A8.5 8.5 0 1 1 21 11.5z" /></symbol>
+    <symbol id="i-book" viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" /><path d="M4 19.5V6.5A2.5 2.5 0 0 1 6.5 4H20v13" /></symbol>
+    <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20.5 14.3A8.5 8.5 0 0 1 9.7 3.5a8.5 8.5 0 1 0 10.8 10.8z" /></symbol>
+    <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M19.1 4.9l-1.4 1.4M6.3 17.7l-1.4 1.4" /></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="m20 6-11 11-5-5" /></symbol>
+    <symbol id="i-alert" viewBox="0 0 24 24"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z" /><path d="M12 9v4M12 17h.01" /></symbol>
+    <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-2.6-6.4" /><path d="M21 3v6h-6" /></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12" /></symbol>
+    <symbol id="i-doc" viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" /><path d="M14 3v5h5" /></symbol>
+    <symbol id="i-circle" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" /></symbol>
+    <symbol id="i-spinner" viewBox="0 0 24 24"><circle class="spin-track" cx="12" cy="12" r="9" /><circle class="spin-arc" cx="12" cy="12" r="9" /></symbol>
+  </svg>
+
+  <div class="app-shell">
+    <!-- 顶部导航：tab 数量与页面名按需求改，DOM 轮廓保持与生产一致 -->
+    <header class="navbar">
+      <div class="brand">
+        <div class="logo" aria-hidden="true">M</div>
+        <div class="title">
+          <strong>MiniRAG</strong>
+          <span>智能本地知识库 · 对话与文档管理</span>
+        </div>
+      </div>
+
+      <nav class="tabs" aria-label="页面切换">
+        <button class="tab active" type="button" data-page="chat" aria-current="page">
+          <svg class="icon" aria-hidden="true"><use href="#i-chat" /></svg>
+          对话
+        </button>
+        <button class="tab" type="button" data-page="docs">
+          <svg class="icon" aria-hidden="true"><use href="#i-book" /></svg>
+          文档管理
+        </button>
+      </nav>
+
+      <button class="theme-toggle" id="themeToggle" type="button" aria-label="切换到深色模式" title="切换到深色模式">
+        <svg class="icon" aria-hidden="true"><use id="themeIcon" href="#i-moon" /></svg>
+        <span class="theme-label">深色</span>
+      </button>
+    </header>
+
+    <main class="app-body">
+      <section class="stage" id="stage" data-state="idle" data-page="chat">
+        <div class="stage-inner" data-slot="chat">
+
+          <!-- ↓↓↓ 需求页面：替换以下示例，保留 stage / stage-inner 结构 ↓↓↓ -->
+          <div class="sample-note">
+            <strong>示例区块</strong>
+            <span>演示状态机、徽标、步骤与 toast 的接法，交付前整段替换为 PRD 对应界面。</span>
+          </div>
+
+          <article class="panel" aria-labelledby="docTitle">
+            <header class="panel-head">
+              <svg class="icon panel-icon" aria-hidden="true"><use href="#i-doc" /></svg>
+              <div class="panel-title">
+                <strong id="docTitle">产品需求文档.pdf</strong>
+                <span class="muted">2.4 MB · 导入任务</span>
+              </div>
+              <span class="badge is-idle" id="badge">
+                <span class="badge-dot" aria-hidden="true"></span>
+                <span id="badgeText">待处理</span>
+              </span>
+            </header>
+
+            <ol class="steps" id="steps"></ol>
+
+            <footer class="panel-foot">
+              <span class="muted" id="hint">等待开始导入</span>
+              <button class="btn" id="actionBtn" type="button">开始导入</button>
+            </footer>
+          </article>
+          <!-- ↑↑↑ 需求页面示例结束 ↑↑↑ -->
+
+        </div>
+
+        <!-- 第二页占位：单页需求连同上方 tabs 一起删掉；多页面在这里放第二个界面 -->
+        <div class="stage-inner" data-slot="docs" hidden>
+          <div class="sample-note">
+            <strong>第二页</strong>
+            <span>多页面需求在此放第二个界面；单页需求删掉这个 slot 与对应 tab。</span>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- 原型演示控件：状态直达 + 重播 + 自动播放开关，?clean=1 隐藏 -->
+  <div class="demo-controls" id="demoControls" role="group" aria-label="原型演示控制">
+    <span class="demo-tag">原型演示</span>
+    <div class="demo-states" id="demoStates"></div>
+    <button class="demo-btn" id="demoReplay" type="button">重播</button>
+    <button class="demo-btn" id="demoAuto" type="button" aria-pressed="false">暂停</button>
+    <button class="demo-close" id="demoClose" type="button" aria-label="隐藏演示控件" title="隐藏演示控件">×</button>
+  </div>
+
+  <div class="toast-host" id="toastHost" aria-live="polite"></div>
+
+  <script>
+    (function () {
+      "use strict";
+
+      var root = document.documentElement;
+      var stage = document.getElementById("stage");
+      var badge = document.getElementById("badge");
+      var badgeText = document.getElementById("badgeText");
+      var stepsEl = document.getElementById("steps");
+      var hint = document.getElementById("hint");
+      var docTitleEl = document.getElementById("docTitle");
+      var actionBtn = document.getElementById("actionBtn");
+      var toastHost = document.getElementById("toastHost");
+      var controls = document.getElementById("demoControls");
+      var statesHost = document.getElementById("demoStates");
+      var replayBtn = document.getElementById("demoReplay");
+      var autoBtn = document.getElementById("demoAuto");
+      var closeBtn = document.getElementById("demoClose");
+      var themeBtn = document.getElementById("themeToggle");
+      var themeLabel = themeBtn.querySelector(".theme-label");
+      var themeIcon = document.getElementById("themeIcon");
+      var tabs = document.querySelectorAll(".tab");
+      var slots = document.querySelectorAll("[data-slot]");
+
+      var params = new URLSearchParams(location.search);
+      var THEME_KEY = "minicrag-preview-theme";
+      var AUTO_DELAY = 900;
+      var STEP_MS = 1100;
+
+      /* Mock 数据：替换为需求语境的数据，保持结构简单 */
+      var MOCK = {
+        docTitle: "产品需求文档.pdf",
+        steps: ["解析文档结构", "清洗与分块", "向量化", "写入向量库"],
+        idleHint: "等待开始导入",
+        runningHint: "正在处理，请稍候…",
+        doneHint: "共生成 128 个分块，已写入 Milvus",
+        errorHint: "OCR 服务超时，可重试"
+      };
+
+      var STATES = [
+        { key: "idle", label: "待处理" },
+        { key: "running", label: "处理中" },
+        { key: "done", label: "已完成" },
+        { key: "failed", label: "失败" }
+      ];
+
+      var BADGE = {
+        idle: { text: "待处理", cls: "is-idle" },
+        running: { text: "处理中", cls: "is-processing" },
+        done: { text: "已入库", cls: "is-completed" },
+        failed: { text: "导入失败", cls: "is-error" }
+      };
+
+      var state = "idle";
+      var progress = 0;
+      var paused = params.has("static");
+      var timers = [];
+      var reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+      /* ---------- 定时器：统一登记，重播/切状态先清空 ---------- */
+      function later(fn, ms) {
+        timers.push(window.setTimeout(fn, ms));
+      }
+
+      function clearTimers() {
+        timers.forEach(function (id) { window.clearTimeout(id); });
+        timers = [];
+      }
+
+      /* ---------- 主题 ---------- */
+      function applyTheme(theme) {
+        root.setAttribute("data-theme", theme);
+        var dark = theme === "dark";
+        themeLabel.textContent = dark ? "浅色" : "深色";
+        themeIcon.setAttribute("href", dark ? "#i-sun" : "#i-moon");
+        var label = dark ? "切换到浅色模式" : "切换到深色模式";
+        themeBtn.setAttribute("aria-label", label);
+        themeBtn.title = label;
+        try { localStorage.setItem(THEME_KEY, theme); } catch (e) { /* 隐私模式 */ }
+      }
+
+      applyTheme(root.getAttribute("data-theme") === "dark" ? "dark" : "light");
+      themeBtn.addEventListener("click", function () {
+        applyTheme(root.getAttribute("data-theme") === "dark" ? "light" : "dark");
+      });
+      if (params.has("theme")) {
+        applyTheme(params.get("theme") === "dark" ? "dark" : "light");
+      }
+
+      /* ---------- Toast：自动消失用独立定时器，避免被 clearTimers 误清 ---------- */
+      function toast(text, kind) {
+        var el = document.createElement("div");
+        el.className = "toast" + (kind ? " " + kind : "");
+
+        var dot = document.createElement("span");
+        dot.className = "toast-dot";
+        dot.setAttribute("aria-hidden", "true");
+
+        var body = document.createElement("span");
+        body.textContent = text;
+
+        el.appendChild(dot);
+        el.appendChild(body);
+        toastHost.appendChild(el);
+        window.setTimeout(function () { el.remove(); }, 2600);
+      }
+
+      /* ---------- 渲染 ---------- */
+      function stepKind(index) {
+        if (state === "done" || index < progress) return "done";
+        if (state === "failed" && index === progress) return "error";
+        if (state === "running" && index === progress) return "running";
+        return "pending";
+      }
+
+      function stepIcon(kind) {
+        if (kind === "done") return '<svg class="icon" aria-hidden="true"><use href="#i-check" /></svg>';
+        if (kind === "error") return '<svg class="icon" aria-hidden="true"><use href="#i-alert" /></svg>';
+        if (kind === "running") return '<svg class="icon spin" aria-hidden="true"><use href="#i-spinner" /></svg>';
+        return '<svg class="icon" aria-hidden="true"><use href="#i-circle" /></svg>';
+      }
+
+      function render() {
+        stage.setAttribute("data-state", state);
+
+        badge.className = "badge " + BADGE[state].cls;
+        badgeText.textContent = BADGE[state].text;
+
+        var html = "";
+        for (var i = 0; i < MOCK.steps.length; i++) {
+          var kind = stepKind(i);
+          html += '<li class="step ' + kind + '">' + stepIcon(kind) +
+            "<span>" + MOCK.steps[i] + "</span></li>";
+        }
+        stepsEl.innerHTML = html;
+
+        hint.textContent = state === "running" ? MOCK.runningHint
+          : state === "done" ? MOCK.doneHint
+            : state === "failed" ? MOCK.errorHint
+              : MOCK.idleHint;
+
+        actionBtn.disabled = state === "running";
+        actionBtn.textContent = state === "running" ? "导入中…"
+          : state === "failed" ? "重试"
+            : state === "done" ? "重新导入"
+              : "开始导入";
+
+        var buttons = statesHost.children;
+        for (var j = 0; j < buttons.length; j++) {
+          buttons[j].classList.toggle("is-active", buttons[j].getAttribute("data-state") === state);
+        }
+      }
+
+      function applyState(next) {
+        clearTimers();
+        state = next;
+        if (next === "idle") progress = 0;
+        if (next === "done") progress = MOCK.steps.length;
+        if (next === "failed") progress = 2;
+        render();
+      }
+
+      /* ---------- 自动推进（重播 = 清空定时器后从 idle 重来） ---------- */
+      function startFlow() {
+        clearTimers();
+        paused = false;          // 显式启动 = 自动播放，暂停按钮据此反转
+        updateAutoBtn();
+        progress = 0;
+        state = "running";
+        render();
+        tick();
+      }
+
+      function tick() {
+        later(function () {
+          if (state !== "running") return;
+          progress += 1;
+          if (progress < MOCK.steps.length) {
+            render();
+            tick();
+            return;
+          }
+          render();
+          later(function () {
+            applyState("done");
+            toast("《" + MOCK.docTitle + "》已入库", "success");
+          }, 700);
+        }, STEP_MS);
+      }
+
+      function replay() {
+        applyState("idle");
+        startFlow();
+      }
+
+      /* ---------- 页面切换（tab → data-page / data-slot） ---------- */
+      function switchPage(page) {
+        stage.setAttribute("data-page", page);
+        tabs.forEach(function (tab) {
+          var on = tab.getAttribute("data-page") === page;
+          tab.classList.toggle("active", on);
+          if (on) tab.setAttribute("aria-current", "page");
+          else tab.removeAttribute("aria-current");
+        });
+        slots.forEach(function (slot) {
+          slot.hidden = slot.getAttribute("data-slot") !== page;
+        });
+      }
+
+      tabs.forEach(function (tab) {
+        tab.addEventListener("click", function () {
+          switchPage(tab.getAttribute("data-page"));
+        });
+      });
+
+      /* ---------- 演示控件 ---------- */
+      function updateAutoBtn() {
+        autoBtn.textContent = paused ? "自动播放" : "暂停";
+        autoBtn.setAttribute("aria-pressed", String(!paused));
+      }
+
+      function setAuto(on) {
+        paused = !on;
+        updateAutoBtn();
+        if (paused) {
+          clearTimers();
+          return;
+        }
+        if (state === "running") tick();
+        else startFlow();
+      }
+
+      STATES.forEach(function (item) {
+        var btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "demo-btn";
+        btn.textContent = item.label;
+        btn.setAttribute("data-state", item.key);
+        btn.addEventListener("click", function () {
+          // 手动选状态 = 定格：先停自动播放，避免刚点完又自己往下走
+          paused = true;
+          updateAutoBtn();
+          // 「处理中」定格在第 3 步，方便停住看样式；要看完整推进用「重播」
+          if (item.key === "running") {
+            clearTimers();
+            state = "running";
+            progress = 2;
+            render();
+            return;
+          }
+          applyState(item.key);
+          if (item.key === "done") toast("《" + MOCK.docTitle + "》已入库", "success");
+          if (item.key === "failed") toast("导入失败，请检查 OCR 服务", "error");
+        });
+        statesHost.appendChild(btn);
+      });
+
+      replayBtn.addEventListener("click", replay);
+      autoBtn.addEventListener("click", function () { setAuto(paused); });
+      closeBtn.addEventListener("click", function () { controls.hidden = true; });
+      document.addEventListener("keydown", function (event) {
+        // 有弹窗时把 Esc 让给弹窗，这里只处理演示控件
+        if (event.key === "Escape") controls.hidden = true;
+      });
+
+      actionBtn.addEventListener("click", function () {
+        if (state === "failed") {
+          toast("正在重试导入…");
+          later(startFlow, 700);
+          return;
+        }
+        startFlow();
+      });
+
+      /* ---------- 初始化：URL 参数优先 ---------- */
+      if (params.has("clean")) controls.hidden = true;
+      docTitleEl.textContent = MOCK.docTitle;
+
+      var pageParam = params.get("page");
+      if (pageParam && document.querySelector('.tab[data-page="' + pageParam + '"]')) {
+        switchPage(pageParam);
+      }
+
+      var initialState = params.get("state");
+      if (initialState && BADGE[initialState]) {
+        paused = true;
+        if (initialState === "running") {
+          state = "running";
+          progress = 2;
+          render();
+        } else {
+          applyState(initialState);
+        }
+      } else {
+        applyState("idle");
+        if (reduceMotion) paused = true;
+        // 指定了 ?page= 通常是为了截某一页，不自动跑另一页的状态机
+        if (!paused && !pageParam) later(startFlow, AUTO_DELAY);
+      }
+      updateAutoBtn();
+    })();
+  </script>
+</body>
+</html>
