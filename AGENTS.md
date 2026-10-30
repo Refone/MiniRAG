@@ -21,66 +21,122 @@
 - 任何**只读**命令都可以执行：`git status`、`git log`、`git diff`、`git show` 等。
 - **不要做任何改变状态的操作**，包括但不限于 `git add`、`git commit`、`git push`、
   `git checkout --`、`git restore`、`git reset`。
-- 改动留在工作区，由人审阅后自行提交。
+- AI 生成代码留在工作区，由人类提交暂存区、提交 commit、以及推送。
+  - 人类提交暂存区：认可阶段修改，仍需进一步调整。
+  - 人类提交 commit：认可对应任务完成。
 
-## 关于需求开发 SOP
+## 需求开发 SOP
 
-需求开发 AI 与 人类基于文档进行协作，需求中的关键文档，以及文档中需要输出的内容，见 `docs/notes/RD-SOP-draft.md`。
+- AI 与人类通过文档和 commit 协同完成需求。工作流如下:
 
-## 代码结构规则
+```mermaid
+graph LR
+  PRD[PRD.md]
+  前端交互demo[前端交互demo]
+  后端方案设计[后端方案设计.md]
+  测试反馈[测试反馈.md]
 
-### 分层（只允许向下依赖）
-
+  动工((AI 完成核心代码变更))
+  修改((AI 迭代修复))
+  PRD --> 前端交互demo
+  PRD --> 后端方案设计
+  前端交互demo --> 动工
+  后端方案设计 --> 动工
+  动工 --> 测试反馈
+  测试反馈 --> 修改
+  修改 --> 测试反馈
 ```
-api → service → graphs → common
+
+各个文档需要 AI 完成的内容如下：
+
+### 1. PRD
+
+需要 AI 把后续补充的要求，追加到文档末的评审纪要章节。
+
+### 2. 前端交互demo
+
+根据项目当前状态与需求描述，生成一个交互原型页面，呈现页面布局、动画效果、交互逻辑。
+
+### 后端方案设计.md
+
+根据需求生成给人类阅读审批的方案设计文档。信息精简，尽量突出核心改动和设计思路。
+
+需要有的章节：
+
+1. 架构调整：目录结构、模块划分、依赖关系等的调整。
+2. 文件修改清单。
+3. 内部重要变更：
+   1. schema 的引入和修改
+   2. 全局实例的引入和修改
+
+4. 对外重要变更：
+   1. 外部服务的 export、import。包括本地封装的客户端。
+   2. 数据库、缓存、队列等的引入和修改
+
+5. 验收条件：由 AI 来率先提出验收标准，人类可在 PRD 补充章节中完善。
+
+### 4. 测试反馈.md
+
+AI 阅读文档中尚未回归的测试问题或修改建议，生成代码改动，自测，并更新对应问题的修改结果。
+
+## 架构约束
+
+- 由 `tools/check_layers.py` 检查层级关系，正常改动须遵守，架构调整须同步更新检查脚本。
+- `if __name__ == "__main__":` 块不参与校验。
+
+### 一级模块
+
+一级模块模块仅允许按照下图所示的依赖方向进行直接依赖：
+
+```mermaid
+graph LR
+
+    api --> service
+    api -->common
+    service --> graphs
+    service --> common
+    graphs --> common
+
+    api --> fastapi
 ```
 
-| 从 \ 到 | api | service | graphs | common | fastapi |
-| --- | --- | --- | --- | --- | --- |
-| `api` | — | ✅ | ❌ | ✅ | ✅ |
-| `service` | ❌ | — | ✅ | ✅ | ❌ |
-| `graphs` | ❌ | ❌ | — | ✅ | ❌ |
-| `common` | ❌ | ❌ | ❌ | 见下表 | ❌ |
+### `common` 内部依赖规则
 
-- `if __name__ == "__main__":` 块不参与校验（脚本，允许 import 任意层）。
-- 只有 `api/` 允许 import fastapi / starlette；`common`、`graphs`、`service` 一律禁止。
-- 由 `tools/check_layers.py` 强制，改动后必须跑通。
-
-### `common` 内部 5 个 tier（只允许依赖更低 tier）
-
-| tier | 模块 | 允许 import |
-| --- | --- | --- |
-| **0** 基础 | `utils/`（`brief` / `net` / `tokenizer` / `markdown_splitter` / `markdown_image`）、`prompt/`、`schema/` | 仅标准库 / 第三方 |
-| **1** 配置 | `config/` | tier 0 |
-| **2** 设施 | `logging.py`、`model/` | tier 0–1 |
-| **3** 资源 | `client/`、`events/` | tier 0–2 |
-| **4** 聚合 | `store/` | tier 0–3 |
-
+- 核心原则：只允许高 tier 依赖低 tier
 - 同 tier 的不同模块 / 子包之间**禁止**互相依赖；同一子包内部自由。
-- `common/utils/` **不允许**出现 import 项目内模块的文件——需要配置的函数放 `config/`。
-- 路径统一走 `common/config/path_config.py`（`PROJECT_ROOT` 定位 + `FIXTURES_DIR` / `IMPORT_TMP_DIR` / `UPLOAD_TMP_DIR` / `LOG_DIR` / `TMP_DIR` + `fixture_path` / `runtime_tmp_dir` / `snapshot_path`），`.env` 不配置任何路径参数；`env_config` 与 `path_config` 互相独立，`env_config` 自行向上查找 `.env` 文件。
-- 新增模块先定 tier 再写代码；tier 表以本节为唯一文档源。
 
-### 模块命名
+| tier       | 模块                           | 允许 import       |
+| ---------- | ------------------------------ | ----------------- |
+| **0** 基础 | `utils/`、`prompt/`、`schema/` | 仅标准库 / 第三方 |
+| **1** 配置 | `config/`                      | tier 0            |
+| **2** 设施 | `logging.py`、`model/`         | tier 0,1          |
+| **3** 资源 | `client/`、`events/`           | tier 0,1,2        |
+| **4** 聚合 | `store/`                       | tier 0,1,2,3      |
 
-- 节点函数以 `node_` 开头（= LangGraph 注册名 = SSE 里的节点标识），**不要**随意改名。
-- 节点文件名当前仍为 `node_*.py`（与函数名一致）；批量去掉文件名前缀属于后续需求，做时同步改本节。
-- `common/utils/` 下不带 `_utils` 后缀（`brief.py` 而非 `brief_utils.py`）。
-- 避免与标准库同名：不新建 `token.py` / `tokenize.py`（用 `tokenizer.py`）；`common/logging.py` 是包内子模块，Python 3 绝对导入下不与标准库冲突。
-- 一个文件一个主题；超过 400 行考虑拆分。
-- 包内 `__init__.py` 只做 re-export（契约 docstring + `__all__`），不实例化、不产生副作用；有状态单例定义在模块文件内而非 `__init__.py`，业务侧一律包级导入（`from common.client import MILVUS_CLIENT`）；角色型单例（`LLM` / `VLM` 等）与供应商实现解耦，绑定集中声明在 `model/registry.py`；`utils/`、`config/` 这类纯函数 / 配置包不 re-export，走深路径导入。
+模块职责：
 
-### 状态词表
+| 模块         | 职责                                    |
+| ------------ | --------------------------------------- |
+| `schema/`    | 定义全局数据结构约定                    |
+| `utils/`     | 提供通用工具函数                        |
+| `prompt/`    | 管理提示词及相关功能                    |
+| `config/`    | 管理应用配置、环境变量及路径配置        |
+| `logging.py` | 提供日志功能                            |
+| `model/`     | 封装外部模型调用，如 LLM、VLM、Reranker |
+| `client/`    | 封装外部服务客户端，如 Milvus、MinIO    |
+| `events/`    | 提供事件处理功能，如 SSE 订阅与推送     |
+| `store/`     | 提供数据存储功能                        |
 
-后端 `TaskStatus` 是唯一词表，SSE / HTTP 只传后端值：`pending` / `processing` / `complete` / `failed`。
+`config/` 内部配置划分：
 
-前端 `src/types/app.ts` 1:1 对齐，不得自造 `completed` / `error`；前端本地态只允许 `uploading`（导入前）与 `interrupted`（派生）两个。展示文案只放 `web/src/lib/constants.ts`。
+- `app_config`：应用运行时参数。
+- `env_config`：环境变量及外部服务参数，如 API Key。
+- `path_config`：路径相关参数。
 
-### 项目名
+---
 
-| 场景 | 写法 |
-| --- | --- |
-| 展示名（页面标题 / NavBar / README / 日志 / API title） | `MiniRAG` |
-| Python 标识符（类名等） | `MiniRag` |
-| 包 / 容器 / 项目名 | `mini-rag` |
-| 存储资源前缀（bucket / db / collection） | `minirag` |
+## 注释原则
+
+- 关键 schema 提供示例数据实例。
+- 注释尽量不引入文档和需求的内容，保持对代码本身的说明。
+- 不生成文件头部的注释。
