@@ -1,0 +1,2401 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="light">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>MiniRAG · Token 统计交互原型</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%234f46e5'/%3E%3Ctext x='16' y='22' font-family='sans-serif' font-size='16' font-weight='700' fill='white' text-anchor='middle'%3EM%3C/text%3E%3C/svg%3E" />
+  <script>
+    (function () {
+      try {
+        var queryTheme = new URLSearchParams(location.search).get("theme");
+        var saved = localStorage.getItem("minicrag-preview-theme");
+        var theme = queryTheme === "dark" || queryTheme === "light"
+          ? queryTheme
+          : (saved === "dark" || saved === "light"
+            ? saved
+            : (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"));
+        document.documentElement.setAttribute("data-theme", theme);
+      } catch (e) { /* 隐私模式 */ }
+    })();
+  </script>
+  <style>
+    /* ==== 设计令牌（源: web/src/styles/tokens.css） ==== */
+    :root {
+      color-scheme: light;
+      --font-sans: system-ui, -apple-system, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+      --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+
+      --bg: #f4f5f7;
+      --bg-nav: #ffffff;
+      --surface: #ffffff;
+      --surface-2: #fafbfc;
+      --surface-hover: #f1f2f5;
+      --surface-inset: #eceef1;
+      --seg-thumb: #ffffff;
+
+      --border: #e4e6eb;
+      --border-strong: #d3d7dd;
+      --text: #1f2328;
+      --text-2: #646c7b;
+      --text-3: #8b93a1;
+
+      --accent: #4f46e5;
+      --accent-hover: #4338ca;
+      --accent-soft: #eef2ff;
+      --accent-border: #c7d2fe;
+      --accent-fill: #4f46e5;
+      --accent-fill-hover: #4338ca;
+      --on-accent: #ffffff;
+      --focus: #4f46e5;
+
+      --success: #15803d;
+      --success-soft: #dcfce7;
+      --warning: #b45309;
+      --warning-soft: #fef3c7;
+      --danger: #b91c1c;
+      --danger-soft: #fee2e2;
+      --purple: #7c3aed;
+      --purple-soft: #f3e8ff;
+
+      --user-bubble: #e9ebef;
+      --rail: #d3d7dd;
+      --tooltip-bg: #1f2328;
+      --tooltip-text: #ffffff;
+      --mask: rgba(15, 23, 42, .40);
+
+      --shadow-1: 0 1px 2px rgba(15, 23, 42, .06);
+      --shadow-2: 0 8px 24px rgba(15, 23, 42, .12), 0 2px 6px rgba(15, 23, 42, .06);
+      --shadow-seg: 0 1px 3px rgba(15, 23, 42, .16), 0 0 0 1px rgba(15, 23, 42, .04);
+      --shadow-card: 0 1px 2px rgba(15, 23, 42, .06);
+
+      --r-xs: 4px;
+      --r-sm: 6px;
+      --r-md: 8px;
+      --r-lg: 10px;
+      --r-xl: 12px;
+      --r-2xl: 16px;
+      --r-pill: 999px;
+    }
+
+    [data-theme="dark"] {
+      color-scheme: dark;
+
+      --bg: #1b1b1f;
+      --bg-nav: #161618;
+      --surface: #202127;
+      --surface-2: #26272e;
+      --surface-hover: #2a2b32;
+      --surface-inset: #161618;
+      --seg-thumb: #2d2e35;
+
+      --border: #2e2e32;
+      --border-strong: #3c3f44;
+      --text: #dfdfd6;
+      --text-2: #98989f;
+      --text-3: #6f7076;
+
+      --accent: #a8b1ff;
+      --accent-hover: #c7ccff;
+      --accent-soft: rgba(100, 108, 255, .16);
+      --accent-border: rgba(168, 177, 255, .35);
+      --accent-fill: #5a68dd;
+      --accent-fill-hover: #4f5fe0;
+      --on-accent: #ffffff;
+      --focus: #a8b1ff;
+
+      --success: #3dd68c;
+      --success-soft: rgba(16, 185, 129, .16);
+      --warning: #f9b44e;
+      --warning-soft: rgba(234, 179, 8, .14);
+      --danger: #f66f81;
+      --danger-soft: rgba(244, 63, 94, .16);
+      --purple: #c8abfa;
+      --purple-soft: rgba(159, 122, 234, .16);
+
+      --user-bubble: #2a2b32;
+      --rail: #3c3f44;
+      --tooltip-bg: #0f1013;
+      --tooltip-text: #dfdfd6;
+      --mask: rgba(0, 0, 0, .55);
+
+      --shadow-1: 0 1px 2px rgba(0, 0, 0, .35);
+      --shadow-2: 0 12px 32px rgba(0, 0, 0, .50);
+      --shadow-seg: 0 1px 2px rgba(0, 0, 0, .40), 0 0 0 1px rgba(255, 255, 255, .04);
+      --shadow-card: none;
+    }
+
+    /* ==== 基础 ==== */
+    *,
+    *::before,
+    *::after { box-sizing: border-box; }
+
+    html,
+    body { height: 100%; }
+
+    body {
+      margin: 0;
+      font-family: var(--font-sans);
+      font-size: 14px;
+      line-height: 1.55;
+      color: var(--text);
+      background: var(--bg);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    button,
+    input,
+    textarea { font: inherit; color: inherit; }
+
+    button { cursor: pointer; }
+
+    :where(a, button, textarea, input, [tabindex]):focus-visible {
+      outline: 2px solid var(--focus);
+      outline-offset: 2px;
+    }
+
+    ::selection { background: var(--accent-soft); color: var(--text); }
+
+    * { scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; }
+    *::-webkit-scrollbar { width: 8px; height: 8px; }
+    *::-webkit-scrollbar-track { background: transparent; }
+    *::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: var(--r-pill); }
+
+    [hidden] { display: none !important; }
+
+    .sprite { position: absolute; width: 0; height: 0; overflow: hidden; }
+
+    .icon {
+      width: 16px;
+      height: 16px;
+      flex: 0 0 auto;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 1.8;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    /* ==== 应用骨架 ==== */
+    .app-shell {
+      height: 100vh;
+      height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .app-body {
+      flex: 1 1 auto;
+      min-height: 0;
+      display: flex;
+      overflow: hidden;
+    }
+
+    /* ==== 导航栏 ==== */
+    .navbar {
+      flex: 0 0 auto;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 12px 20px;
+      background: var(--bg-nav);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
+
+    .logo {
+      width: 36px;
+      height: 36px;
+      flex: 0 0 auto;
+      display: grid;
+      place-items: center;
+      border-radius: var(--r-lg);
+      background: var(--accent-fill);
+      color: var(--on-accent);
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: -.02em;
+    }
+
+    .title { display: flex; flex-direction: column; line-height: 1.1; min-width: 0; }
+    .title strong { font-size: 14px; font-weight: 650; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .title span { margin-top: 3px; font-size: 12px; color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    .tabs { display: flex; align-items: center; gap: 4px; margin-left: auto; }
+
+    .tab {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 7px 12px;
+      border: 1px solid transparent;
+      border-radius: var(--r-md);
+      background: transparent;
+      color: var(--text-2);
+      font-size: 13px;
+      transition: color .15s, background-color .15s, border-color .15s;
+    }
+    .tab:hover { background: var(--surface-hover); color: var(--text); }
+    .tab.active {
+      background: var(--accent-soft);
+      border-color: var(--accent-border);
+      color: var(--accent);
+      font-weight: 600;
+    }
+
+    .theme-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 7px 11px;
+      border: 1px solid var(--border);
+      border-radius: var(--r-md);
+      background: transparent;
+      color: var(--text-2);
+      font-size: 12.5px;
+      transition: color .15s, border-color .15s, background-color .15s;
+    }
+    .theme-toggle:hover { color: var(--text); border-color: var(--border-strong); background: var(--surface-hover); }
+
+    /* ==== NavBar Token 指示器 ==== */
+    .token-meter {
+      --c-llm: var(--accent);
+      --c-vlm: var(--purple);
+      --c-embedding: var(--success);
+      --c-reranker: var(--warning);
+      position: relative;
+      flex: 0 0 auto;
+      display: flex;
+      align-items: center;
+    }
+
+    .token-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 4px 8px 4px 5px;
+      border: 1px solid var(--border);
+      border-radius: var(--r-lg);
+      background: var(--surface-2);
+      color: var(--text);
+      text-align: left;
+      transition: border-color .15s, background-color .15s, box-shadow .15s;
+    }
+    .token-chip:hover { border-color: var(--border-strong); background: var(--surface-hover); }
+    .token-chip[aria-expanded="true"] { border-color: var(--accent-border); background: var(--accent-soft); }
+    .token-chip.is-bump { animation: chip-bump .3s ease-out; }
+    @keyframes chip-bump {
+      0% { border-color: var(--accent-border); box-shadow: 0 0 0 4px var(--accent-soft); }
+      100% { border-color: var(--border); box-shadow: 0 0 0 0 transparent; }
+    }
+
+    .token-chip-icon {
+      width: 26px;
+      height: 26px;
+      flex: 0 0 auto;
+      display: grid;
+      place-items: center;
+      border-radius: var(--r-md);
+      background: var(--accent-soft);
+      color: var(--accent);
+    }
+    .token-chip-icon .icon { width: 15px; height: 15px; }
+
+    .token-chip-main { display: flex; flex-direction: column; line-height: 1.15; min-width: 0; }
+    .token-chip-label { display: inline-flex; align-items: center; gap: 5px; color: var(--text-2); font-size: 10.5px; white-space: nowrap; }
+    .token-live-dot { display: none; width: 5px; height: 5px; border-radius: 50%; background: var(--success); }
+    .token-chip.is-live .token-live-dot { display: block; }
+    .token-chip-value { display: flex; align-items: baseline; gap: 4px; }
+    .token-num { font-family: var(--font-mono); font-size: 13px; font-weight: 650; font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
+    .token-unit { font-size: 10px; color: var(--text-3); }
+    .token-chip-spark {
+      display: flex;
+      gap: 1.5px;
+      width: 34px;
+      height: 6px;
+      border-radius: var(--r-pill);
+      background: var(--surface-inset);
+      overflow: hidden;
+    }
+    .token-chip-spark span,
+    .tp-stack span { display: block; height: 100%; flex: 0 0 0; transition: flex-grow .3s, width .3s; }
+    .token-chip-spark [data-kind="llm"], .tp-stack [data-kind="llm"] { background: var(--c-llm); }
+    .token-chip-spark [data-kind="vlm"], .tp-stack [data-kind="vlm"] { background: var(--c-vlm); }
+    .token-chip-spark [data-kind="embedding"], .tp-stack [data-kind="embedding"] { background: var(--c-embedding); }
+    .token-chip-spark [data-kind="reranker"], .tp-stack [data-kind="reranker"] { background: var(--c-reranker); }
+    .token-caret { width: 14px; height: 14px; color: var(--text-3); transition: transform .18s; }
+    .token-chip[aria-expanded="true"] .token-caret { transform: rotate(180deg); }
+
+    .token-delta {
+      position: absolute;
+      top: calc(100% + 6px);
+      right: 6px;
+      z-index: 2;
+      padding: 2px 8px;
+      border: 1px solid var(--border);
+      border-radius: var(--r-pill);
+      background: var(--surface);
+      box-shadow: var(--shadow-1);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 600;
+      white-space: nowrap;
+      color: var(--accent);
+      opacity: 0;
+      pointer-events: none;
+    }
+    .token-delta.show { animation: delta-float 1.1s ease-out both; }
+    @keyframes delta-float {
+      0% { opacity: 0; transform: translateY(-4px); }
+      15% { opacity: 1; transform: none; }
+      72% { opacity: 1; transform: none; }
+      100% { opacity: 0; transform: translateY(7px); }
+    }
+
+    /* ==== Token 明细面板 ==== */
+    .token-panel {
+      position: fixed;
+      z-index: 40;
+      padding: 14px;
+      overflow-y: auto;
+      border: 1px solid var(--border);
+      border-radius: var(--r-xl);
+      background: var(--surface);
+      box-shadow: var(--shadow-2);
+      animation: panel-in .16s ease-out;
+    }
+    @keyframes panel-in { from { opacity: 0; transform: translateY(-4px); } }
+
+    .tp-head { display: flex; align-items: center; gap: 8px; }
+    .tp-head-main { display: flex; flex-direction: column; min-width: 0; margin-right: auto; }
+    .tp-head-main strong { font-size: 14px; font-weight: 650; }
+    .tp-session { margin-top: 2px; font-family: var(--font-mono); font-size: 10.5px; color: var(--text-3); }
+    .tp-close {
+      width: 22px;
+      height: 22px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+      border: 0;
+      border-radius: var(--r-sm);
+      background: transparent;
+      color: var(--text-3);
+    }
+    .tp-close:hover { color: var(--text); background: var(--surface-hover); }
+    .tp-close .icon { width: 14px; height: 14px; }
+    .tp-live { flex: 0 0 auto; }
+
+    .segmented {
+      position: relative;
+      display: grid;
+      grid-auto-flow: column;
+      grid-auto-columns: 1fr;
+      gap: 2px;
+      padding: 3px;
+      background: var(--surface-inset);
+      border-radius: var(--r-lg);
+    }
+    .seg-btn {
+      position: relative;
+      z-index: 1;
+      border: 0;
+      background: transparent;
+      padding: 6px 10px;
+      border-radius: var(--r-md);
+      font-size: 12.5px;
+      color: var(--text-2);
+    }
+    .seg-btn.active { color: var(--text); font-weight: 600; }
+    .seg-thumb {
+      position: absolute;
+      top: 3px;
+      bottom: 3px;
+      left: 3px;
+      width: calc(50% - 4px);
+      border-radius: var(--r-md);
+      background: var(--seg-thumb);
+      box-shadow: var(--shadow-seg);
+      transition: transform .22s cubic-bezier(.4, 0, .2, 1);
+    }
+    .tp-tabs { margin: 12px 0 10px; }
+    .tp-tabs[data-tab="history"] .seg-thumb { transform: translateX(calc(100% + 2px)); }
+
+    .tp-total { padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--r-lg); background: var(--surface-2); }
+    .tp-total-row { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+    .tp-total-label { font-size: 11.5px; color: var(--text-2); }
+    .tp-total-value { display: inline-flex; align-items: baseline; gap: 4px; }
+    .tp-total-value .token-num { font-size: 20px; letter-spacing: -.02em; }
+    .tp-stack {
+      display: flex;
+      gap: 2px;
+      height: 7px;
+      margin-top: 9px;
+      border-radius: var(--r-pill);
+      background: var(--surface-inset);
+      overflow: hidden;
+    }
+
+    .tp-rows { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 2px; }
+    .tp-row {
+      display: grid;
+      grid-template-columns: 18px 1fr auto;
+      grid-template-areas: "icon main nums" ". bar bar";
+      column-gap: 9px;
+      row-gap: 6px;
+      padding: 7px 6px;
+      border-radius: var(--r-md);
+    }
+    .tp-row.is-flash { animation: row-flash .9s ease-out; }
+    @keyframes row-flash {
+      0% { background: var(--accent-soft); }
+      100% { background: transparent; }
+    }
+    .tp-row[data-kind="llm"] { --c: var(--c-llm); }
+    .tp-row[data-kind="vlm"] { --c: var(--c-vlm); }
+    .tp-row[data-kind="embedding"] { --c: var(--c-embedding); }
+    .tp-row[data-kind="reranker"] { --c: var(--c-reranker); }
+    .tp-row-icon { grid-area: icon; color: var(--c); }
+    .tp-row-icon .icon { width: 15px; height: 15px; }
+    .tp-row-main { grid-area: main; display: flex; flex-direction: column; min-width: 0; line-height: 1.25; }
+    .tp-row-name { font-size: 12.5px; font-weight: 600; }
+    .tp-row-model { font-family: var(--font-mono); font-size: 10px; color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .tp-row-nums { grid-area: nums; display: flex; flex-direction: column; align-items: flex-end; gap: 1px; line-height: 1.25; }
+    .tp-row-val { font-size: 12.5px; }
+    .tp-row-pct { font-size: 10px; color: var(--text-3); font-variant-numeric: tabular-nums; }
+    .tp-row-bar { grid-area: bar; height: 4px; border-radius: var(--r-pill); background: var(--surface-inset); overflow: hidden; }
+    .tp-row-fill { display: block; width: 0; height: 100%; border-radius: inherit; background: var(--c); transition: width .3s; }
+
+    .tp-empty {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 4px 2px;
+      color: var(--text-2);
+    }
+    .tp-empty .icon { width: 14px; height: 14px; color: var(--text-3); }
+    .tp-empty span { font-size: 11.5px; line-height: 1.5; }
+    .tp-error {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      padding: 22px 12px;
+      text-align: center;
+    }
+    .tp-error .icon { width: 26px; height: 26px; color: var(--danger); }
+    .tp-error strong { font-size: 13px; font-weight: 600; }
+    .tp-error span { font-size: 11.5px; color: var(--text-2); line-height: 1.6; }
+    .tp-error .btn { margin-top: 4px; }
+
+    .tp-skeleton { display: grid; gap: 10px; padding: 6px 2px 2px; }
+    .sk-total { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--r-lg); }
+    .sk-row { display: grid; grid-template-columns: 18px 1fr 54px; gap: 9px; align-items: center; }
+    .skeleton { border-radius: var(--r-md); background: var(--surface-2); animation: skeleton-pulse 1.4s ease-in-out infinite; }
+    @keyframes skeleton-pulse { 0%, 100% { opacity: .55; } 50% { opacity: 1; } }
+    .sk-line { height: 12px; }
+    .sk-line.w40 { width: 40%; }
+    .sk-line.w60 { width: 60%; }
+    .sk-dot { width: 16px; height: 16px; border-radius: var(--r-xs); }
+
+    .tp-hist-hint { margin: 2px 0 10px; font-size: 11.5px; color: var(--text-2); }
+    .tp-hist { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+    .tp-hist-item { border: 1px solid var(--border); border-radius: var(--r-lg); background: var(--surface-2); overflow: hidden; }
+    .tp-hist-item.is-current { border-color: var(--accent-border); background: var(--accent-soft); }
+    .tp-hist-head {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 9px 10px;
+      border: 0;
+      background: transparent;
+      color: inherit;
+      text-align: left;
+    }
+    .tp-hist-head:hover { background: var(--surface-hover); }
+    .tp-hist-item.is-current .tp-hist-head:hover { background: transparent; }
+    .tp-hist-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+    .tp-hist-title { display: flex; align-items: center; gap: 6px; min-width: 0; font-size: 12.5px; font-weight: 600; }
+    .tp-hist-text { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .tp-current-badge { flex: 0 0 auto; padding: 1px 6px; font-size: 10px; }
+    .tp-hist-meta { font-family: var(--font-mono); font-size: 10px; color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .tp-hist-total { flex: 0 0 auto; font-size: 12.5px; }
+    .tp-hist-caret { width: 13px; height: 13px; color: var(--text-3); transition: transform .15s; }
+    .tp-hist-item.is-open .tp-hist-caret { transform: rotate(180deg); }
+    .tp-hist-detail { padding: 0 10px 9px 38px; }
+    .tp-hist-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 12px; }
+    .tp-hist-grid span { display: flex; justify-content: space-between; gap: 6px; font-size: 10.5px; color: var(--text-3); }
+
+    .tp-foot {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-top: 12px;
+      padding-top: 10px;
+      border-top: 1px solid var(--border);
+      font-size: 10.5px;
+      color: var(--text-3);
+    }
+    .tp-updated { display: inline-flex; align-items: center; gap: 4px; }
+    .tp-updated .icon { width: 12px; height: 12px; }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 9px;
+      border-radius: var(--r-pill);
+      font-size: 11.5px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .badge-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+    .badge.is-idle { background: var(--surface-inset); color: var(--text-2); }
+    .badge.is-processing { background: var(--accent-soft); color: var(--accent); }
+    .badge.is-completed { background: var(--success-soft); color: var(--success); }
+    .badge.is-error { background: var(--danger-soft); color: var(--danger); }
+
+    /* ==== 对话页 ==== */
+    .chat-page {
+      position: relative;
+      flex: 1 1 auto;
+      min-width: 0;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .chat {
+      flex: 1;
+      min-height: 0;
+      width: 100%;
+      overflow-y: auto;
+      overflow-x: hidden;
+      overscroll-behavior: contain;
+      padding: 0 0 190px;
+    }
+
+    .chat-inner { width: 100%; max-width: 800px; margin: 0 auto; padding: 26px 20px 0; }
+    .dayline { margin: 4px 0 18px; color: var(--text-2); font-size: 12px; text-align: center; }
+
+    .msg { display: flex; margin: 16px 0; }
+    .msg.user { justify-content: flex-end; }
+    .user-row { display: flex; flex-direction: column; align-items: flex-end; max-width: 78%; }
+    .msg.user .bubble {
+      padding: 10px 14px;
+      border-radius: var(--r-xl);
+      background: var(--user-bubble);
+      color: var(--text);
+      font-size: 15px;
+      line-height: 1.6;
+      white-space: pre-wrap;
+      overflow-wrap: break-word;
+    }
+    .msg.bot { gap: 12px; align-items: flex-start; }
+    .avatar {
+      width: 30px;
+      height: 30px;
+      flex: 0 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 9px;
+      background: var(--accent-soft);
+      color: var(--accent);
+    }
+    .avatar .icon { width: 16px; height: 16px; }
+    .bot-body { flex: 1; min-width: 0; font-size: 15px; line-height: 1.7; }
+    .answer { white-space: pre-wrap; overflow-wrap: break-word; }
+    .answer p { margin: 0 0 .7em; }
+    .answer p:last-child { margin-bottom: 0; }
+    .answer.is-streaming::after { content: "▍"; margin-left: 1px; color: var(--accent); animation: cursor-blink 1s steps(2, start) infinite; }
+    .answer.is-streaming.is-paused::after { animation: none; }
+    @keyframes cursor-blink { 50% { opacity: 0; } }
+    .meta { margin-top: 6px; color: var(--text-2); font-size: 11px; }
+
+    .typing { display: inline-flex; gap: 6px; align-items: center; padding: 6px 0; }
+    .typing .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text-2); animation: dot-bounce 1.2s infinite ease-in-out; }
+    .typing .dot:nth-child(2) { animation-delay: .15s; }
+    .typing .dot:nth-child(3) { animation-delay: .3s; }
+    @keyframes dot-bounce {
+      0%, 80%, 100% { transform: translateY(0); opacity: .6; }
+      40% { transform: translateY(-5px); opacity: 1; }
+    }
+
+    .answer-figure {
+      max-width: 400px;
+      margin: 12px 0 4px;
+      padding: 12px 12px 6px;
+      border: 1px solid var(--border);
+      border-radius: var(--r-lg);
+      background: var(--surface-2);
+      animation: figure-in .24s ease-out;
+    }
+    @keyframes figure-in { from { opacity: 0; transform: translateY(3px); } }
+    .figure-svg { display: block; width: 100%; height: auto; }
+    .fig-body { fill: var(--surface); stroke: var(--border-strong); stroke-width: 1.5; }
+    .fig-port { fill: var(--surface-inset); stroke: var(--border-strong); stroke-width: 1.5; }
+    .fig-dot { fill: var(--success); }
+    .fig-label { fill: var(--text-2); font-family: var(--font-mono); font-size: 10px; }
+    .answer-figure figcaption { margin-top: 4px; color: var(--text-3); font-size: 11px; text-align: center; }
+
+    /* ---- 阶段进度卡片（输入框上方） ---- */
+    details.progress {
+      margin-top: 10px;
+      padding: 8px 12px;
+      border: 1px solid var(--border);
+      border-radius: var(--r-lg);
+      background: var(--surface-2);
+    }
+    details.progress summary {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--text-2);
+      font-size: 12px;
+      list-style: none;
+      cursor: pointer;
+      user-select: none;
+    }
+    details.progress summary::-webkit-details-marker { display: none; }
+    details.progress summary::before {
+      content: "";
+      width: 6px;
+      height: 6px;
+      flex: 0 0 auto;
+      border-right: 1.5px solid currentColor;
+      border-bottom: 1.5px solid currentColor;
+      transform: rotate(-45deg);
+      transition: transform .15s;
+    }
+    details.progress[open] summary::before { transform: rotate(45deg); }
+    .progress-title { white-space: nowrap; }
+    .progress-count { color: var(--text-2); }
+    details.progress ul { list-style: none; margin: 8px 0 0 18px; padding: 0; display: grid; gap: 6px; max-height: min(200px, 30vh); overflow-y: auto; }
+    details.progress li { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-3); }
+    details.progress li .icon { width: 14px; height: 14px; }
+    details.progress li.done { color: var(--text); }
+    details.progress li.done .icon { color: var(--success); }
+    details.progress li.running { color: var(--text); font-weight: 550; }
+    details.progress li.running .icon { color: var(--accent); }
+    .step-note { margin-left: 4px; color: var(--text-3); font-size: 11px; font-weight: 400; }
+
+    .task-slot { display: flow-root; }
+    .task-bar { position: relative; width: calc(100% - 108px); margin: 0 auto 8px; animation: task-in .16s ease-out; }
+    @keyframes task-in { from { opacity: 0; transform: translateY(4px); } }
+    .task-bar details.progress { margin: 0; }
+    .task-bar--closable details.progress summary { padding-right: 24px; }
+    .task-close {
+      position: absolute;
+      top: 6px;
+      right: 8px;
+      width: 22px;
+      height: 22px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+      border: 0;
+      border-radius: var(--r-sm);
+      background: transparent;
+      color: var(--text-3);
+    }
+    .task-close:hover { color: var(--text); background: var(--surface-hover); }
+    .task-close .icon { width: 13px; height: 13px; }
+
+    .spin { animation: icon-spin 1s linear infinite; transform-origin: 50% 50%; }
+    .spin-track { fill: none; stroke: currentColor; stroke-opacity: .25; stroke-width: 2; }
+    .spin-arc { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-dasharray: 28 100; }
+    @keyframes icon-spin { to { transform: rotate(360deg); } }
+
+    /* ---- 悬浮输入卡片 ---- */
+    .composer-wrap {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 10;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 0 16px 12px;
+      pointer-events: none;
+    }
+    .composer-wrap::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      height: 140px;
+      background: linear-gradient(to top, var(--bg) 30%, transparent 100%);
+      pointer-events: none;
+    }
+    .composer-anchor { position: relative; width: 100%; max-width: 768px; pointer-events: auto; }
+    .composer {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      padding: 10px 12px;
+      border: 1px solid var(--border-strong);
+      border-radius: var(--r-2xl);
+      background: var(--surface);
+      box-shadow: var(--shadow-1);
+      transition: border-color .15s, box-shadow .15s;
+    }
+    .composer:focus-within { border-color: var(--accent-border); box-shadow: 0 0 0 3px var(--accent-soft); }
+    .composer textarea {
+      width: 100%;
+      min-height: 44px;
+      max-height: 160px;
+      padding: 4px 6px 6px;
+      border: 0;
+      outline: 0;
+      resize: none;
+      background: transparent;
+      color: var(--text);
+      font-size: 15px;
+      line-height: 1.6;
+      overflow-y: auto;
+    }
+    .composer textarea::placeholder { color: var(--text-2); }
+    .composer-footer { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+    .composer-actions { display: flex; flex-wrap: nowrap; align-items: center; gap: 8px; margin-left: auto; }
+    .tool-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border: 1px solid var(--border);
+      border-radius: var(--r-md);
+      background: transparent;
+      color: var(--text-2);
+      font-size: 12px;
+      white-space: nowrap;
+      transition: color .15s, background-color .15s, border-color .15s;
+    }
+    .tool-pill:hover { color: var(--text); border-color: var(--border-strong); }
+    .tool-pill.active { color: var(--accent); border-color: var(--accent-border); background: var(--accent-soft); }
+    .api-status { display: inline-flex; align-items: center; gap: 6px; color: var(--text-2); font-size: 12px; white-space: nowrap; }
+    .api-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text-2); }
+    .api-dot.ok { background: var(--success); }
+    .composer-clear {
+      padding: 4px 6px;
+      border: 0;
+      border-radius: var(--r-sm);
+      background: transparent;
+      color: var(--text-2);
+      font-size: 12px;
+      white-space: nowrap;
+      transition: color .15s, background-color .15s;
+    }
+    .composer-clear:hover { color: var(--danger); background: var(--danger-soft); }
+    .send {
+      width: 32px;
+      height: 32px;
+      flex: 0 0 auto;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border: 0;
+      border-radius: 50%;
+      background: var(--accent-fill);
+      color: var(--on-accent);
+      transition: background-color .15s;
+    }
+    .send:hover:not(:disabled) { background: var(--accent-fill-hover); }
+    .send:disabled { opacity: .4; cursor: not-allowed; }
+    .send .icon { width: 18px; height: 18px; stroke-width: 2.2; }
+    .hint { position: relative; z-index: 1; margin-top: 8px; color: var(--text-2); font-size: 11.5px; text-align: center; }
+    .kbd {
+      padding: 1px 5px;
+      border: 1px solid var(--border);
+      border-bottom-color: var(--border-strong);
+      border-radius: var(--r-xs);
+      background: var(--surface-2);
+      color: var(--text-2);
+      font-family: var(--font-mono);
+      font-size: 11px;
+    }
+
+    /* ==== 文档页（共用 NavBar，验证指示器跨页常驻） ==== */
+    .docs-page { flex: 1 1 auto; min-width: 0; min-height: 0; display: flex; gap: 16px; padding: 16px; overflow: hidden; }
+    body.has-demo-controls .docs-page { padding-top: 56px; }
+    .docs-side {
+      width: 360px;
+      flex: 0 0 auto;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      border: 1px solid var(--border);
+      border-radius: var(--r-xl);
+      background: var(--surface);
+      overflow: hidden;
+    }
+    .docs-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; padding: 14px 16px; border-bottom: 1px solid var(--border); }
+    .docs-head strong { font-size: 14px; font-weight: 650; }
+    .muted { color: var(--text-2); font-size: 12px; }
+    .doc-list { list-style: none; margin: 0; padding: 8px; display: grid; gap: 4px; overflow-y: auto; }
+    .doc-item { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: var(--r-lg); }
+    .doc-item.is-active { background: var(--accent-soft); }
+    .doc-icon { width: 30px; height: 30px; flex: 0 0 auto; display: grid; place-items: center; border-radius: var(--r-md); background: var(--surface-inset); color: var(--text-2); }
+    .doc-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+    .doc-main strong { font-size: 12.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .doc-main span { font-size: 11px; color: var(--text-2); }
+    .docs-main {
+      flex: 1;
+      min-width: 0;
+      max-width: 820px;
+      padding: 20px 24px;
+      border: 1px solid var(--border);
+      border-radius: var(--r-xl);
+      background: var(--surface);
+      overflow-y: auto;
+    }
+    .docs-preview-head { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+    .docs-preview-head strong { font-size: 15px; font-weight: 650; }
+    .docs-excerpt { margin: 0 0 10px; font-size: 13px; line-height: 1.7; }
+    .docs-note { margin: 0 0 14px; font-size: 12px; color: var(--text-2); }
+
+    /* ==== 确认弹窗 ==== */
+    .modal-mask {
+      position: fixed;
+      inset: 0;
+      z-index: 90;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--mask);
+    }
+    .modal {
+      width: 380px;
+      max-width: calc(100vw - 40px);
+      padding: 20px;
+      border: 1px solid var(--border);
+      border-radius: var(--r-xl);
+      background: var(--surface);
+      box-shadow: var(--shadow-2);
+    }
+    .modal h3 { margin: 0 0 10px; font-size: 16px; font-weight: 650; }
+    .modal p { margin: 0 0 16px; font-size: 13px; line-height: 1.6; color: var(--text-2); }
+    .modal-actions { display: flex; justify-content: flex-end; gap: 8px; }
+    .btn {
+      padding: 7px 14px;
+      border: 1px solid var(--border);
+      border-radius: var(--r-md);
+      background: transparent;
+      color: var(--text);
+      font-size: 13px;
+      transition: background-color .15s, border-color .15s, transform .05s;
+    }
+    .btn:hover:not(:disabled) { background: var(--surface-hover); border-color: var(--border-strong); }
+    .btn:active:not(:disabled) { transform: translateY(1px); }
+    .btn.primary { border-color: transparent; background: var(--danger-soft); color: var(--danger); }
+    .btn.primary:hover:not(:disabled) { border-color: var(--danger); background: var(--danger-soft); }
+
+    /* ==== Toast ==== */
+    .toast-host { position: fixed; left: 24px; bottom: 24px; z-index: 100; display: flex; flex-direction: column; gap: 8px; }
+    .toast {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      max-width: 340px;
+      padding: 10px 14px;
+      border: 1px solid var(--border);
+      border-radius: var(--r-lg);
+      background: var(--surface);
+      box-shadow: var(--shadow-2);
+      font-size: 13px;
+      animation: toast-in .2s ease-out;
+    }
+    .toast-dot { flex: 0 0 auto; width: 8px; height: 8px; margin-top: 6px; border-radius: 50%; background: var(--accent); }
+    .toast.success .toast-dot { background: var(--success); }
+    .toast.error .toast-dot { background: var(--danger); }
+    @keyframes toast-in { from { opacity: 0; transform: translateY(8px); } }
+
+    /* ==== 原型演示控件（不属于产品 UI；放左上，避免压住右侧 Token 弹层） ==== */
+    .demo-controls {
+      position: fixed;
+      top: 72px;
+      left: 16px;
+      z-index: 30;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 6px 5px 9px;
+      border: 1px dashed var(--border-strong);
+      border-radius: var(--r-md);
+      background: var(--surface);
+      box-shadow: var(--shadow-1);
+      color: var(--text-2);
+      font-size: 11px;
+      max-width: calc(100vw - 32px);
+    }
+    .demo-tag { color: var(--accent); font-weight: 600; white-space: nowrap; }
+    .demo-states { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+    .demo-btn {
+      padding: 3px 7px;
+      border: 1px solid var(--border);
+      border-radius: var(--r-xs);
+      background: transparent;
+      color: var(--text-2);
+      font-size: 11px;
+      white-space: nowrap;
+      transition: color .15s, border-color .15s, background-color .15s;
+    }
+    .demo-btn:hover:not(:disabled) { color: var(--text); border-color: var(--border-strong); background: var(--surface-hover); }
+    .demo-btn.is-active { color: var(--accent); border-color: var(--accent-border); background: var(--accent-soft); }
+    .demo-btn:disabled { opacity: .45; cursor: not-allowed; }
+    .demo-close {
+      width: 18px;
+      height: 18px;
+      padding: 0;
+      border: 0;
+      border-radius: var(--r-xs);
+      background: transparent;
+      color: var(--text-3);
+      font-size: 13px;
+      line-height: 1;
+    }
+    .demo-close:hover { color: var(--text); background: var(--surface-hover); }
+
+    /* ==== 响应式 ==== */
+    @media (max-width: 900px) {
+      .token-chip-label { display: none; }
+      .token-chip-spark { display: none; }
+      .token-chip { padding: 4px 7px 4px 4px; }
+    }
+
+    @media (max-width: 860px) {
+      .docs-page { flex-direction: column; overflow-y: auto; }
+      .docs-side { width: auto; }
+      .docs-main { max-width: none; }
+    }
+
+    @media (max-width: 720px) {
+      .navbar { flex-wrap: wrap; gap: 10px; padding: 10px 14px; }
+      .title span { display: none; }
+      .tabs { order: 3; width: 100%; margin-left: 0; }
+      .tab { flex: 1; justify-content: center; }
+      .token-meter { margin-left: auto; }
+      .theme-label { display: none; }
+      .chat { padding-bottom: 210px; }
+      .chat-inner { padding: 20px 14px 0; }
+      .user-row { max-width: 88%; }
+      .composer-wrap { padding: 0 10px 10px; }
+      .composer { border-radius: 14px; }
+      .hint { display: none; }
+      .task-bar { width: 100%; }
+      .docs-page { padding: 10px; }
+      body.has-demo-controls .docs-page { padding-top: 84px; }
+      .docs-main { padding: 16px; }
+      .demo-controls { top: 112px; left: 10px; right: 10px; max-width: none; }
+      .demo-tag { display: none; }
+    }
+
+    /* ==== 动效降级 ==== */
+    @media (prefers-reduced-motion: reduce) {
+      *,
+      *::before,
+      *::after {
+        animation-duration: .01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: .01ms !important;
+        scroll-behavior: auto !important;
+      }
+      .spin { animation: none; }
+      .answer.is-streaming::after { animation: none; }
+    }
+  </style>
+</head>
+<body>
+  <svg class="sprite" aria-hidden="true" focusable="false">
+    <symbol id="i-chat" viewBox="0 0 24 24"><path d="M21 11.5a8.5 8.5 0 0 1-8.5 8.5H8l-5 3 1.2-4.6A8.5 8.5 0 1 1 21 11.5z" /></symbol>
+    <symbol id="i-book" viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" /><path d="M4 19.5V6.5A2.5 2.5 0 0 1 6.5 4H20v13" /></symbol>
+    <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20.5 14.3A8.5 8.5 0 0 1 9.7 3.5a8.5 8.5 0 1 0 10.8 10.8z" /></symbol>
+    <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M19.1 4.9l-1.4 1.4M6.3 17.7l-1.4 1.4" /></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="m20 6-11 11-5-5" /></symbol>
+    <symbol id="i-alert" viewBox="0 0 24 24"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z" /><path d="M12 9v4M12 17h.01" /></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12" /></symbol>
+    <symbol id="i-doc" viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" /><path d="M14 3v5h5" /></symbol>
+    <symbol id="i-circle" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" /></symbol>
+    <symbol id="i-spinner" viewBox="0 0 24 24"><circle class="spin-track" cx="12" cy="12" r="9" /><circle class="spin-arc" cx="12" cy="12" r="9" /></symbol>
+    <symbol id="i-chevron" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6" /></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" /><path d="M12 7.5V12l3 2" /></symbol>
+    <symbol id="i-gauge" viewBox="0 0 24 24"><path d="M4 17a8 8 0 1 1 16 0" /><path d="M12 17l3.8-4.2" /><circle cx="12" cy="17" r="1.2" /></symbol>
+    <symbol id="i-cpu" viewBox="0 0 24 24"><rect x="7" y="7" width="10" height="10" rx="2" /><path d="M10 3v4M14 3v4M10 17v4M14 17v4M3 10h4M3 14h4M17 10h4M17 14h4" /></symbol>
+    <symbol id="i-image" viewBox="0 0 24 24"><rect x="3.5" y="4.5" width="17" height="15" rx="2.5" /><circle cx="9" cy="10" r="1.6" /><path d="m4.5 17 4.5-4.5 3.5 3.5 2.5-2.5 4.5 4.5" /></symbol>
+    <symbol id="i-layers" viewBox="0 0 24 24"><path d="m12 3 8.5 4.5L12 12 3.5 7.5 12 3z" /><path d="m3.5 12 8.5 4.5 8.5-4.5" /><path d="m3.5 16.5 8.5 4.5 8.5-4.5" /></symbol>
+    <symbol id="i-sort" viewBox="0 0 24 24"><path d="M7 4v16M7 20l-3-3M7 20l3-3" /><path d="M17 20V4M17 4l-3 3M17 4l3 3" /></symbol>
+    <symbol id="i-spark" viewBox="0 0 24 24"><path d="M12 2.5l1.9 6.1 6.1 1.9-6.1 1.9L12 18.5l-1.9-6.1L4 10.5l6.1-1.9L12 2.5z" /><path d="M19 16.5l.7 2.3 2.3.7-2.3.7-.7 2.3-.7-2.3-2.3-.7 2.3-.7.7-2.3z" /></symbol>
+    <symbol id="i-arrow-up" viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7" /></symbol>
+  </svg>
+
+  <div class="app-shell">
+    <header class="navbar">
+      <div class="brand">
+        <div class="logo" aria-hidden="true">M</div>
+        <div class="title">
+          <strong>MiniRAG</strong>
+          <span>智能本地知识库 · 对话与文档管理</span>
+        </div>
+      </div>
+
+      <nav class="tabs" aria-label="页面切换">
+        <button class="tab active" type="button" data-page="chat" aria-current="page">
+          <svg class="icon" aria-hidden="true"><use href="#i-chat" /></svg>
+          对话
+        </button>
+        <button class="tab" type="button" data-page="docs">
+          <svg class="icon" aria-hidden="true"><use href="#i-book" /></svg>
+          文档管理
+        </button>
+      </nav>
+
+      <div class="token-meter">
+        <button
+          class="token-chip"
+          id="tokenChip"
+          type="button"
+          aria-haspopup="dialog"
+          aria-expanded="false"
+          aria-controls="tokenPanel"
+          title="查看本次会话的 Token 消耗明细"
+        >
+          <span class="token-chip-icon" aria-hidden="true"><svg class="icon"><use href="#i-gauge" /></svg></span>
+          <span class="token-chip-main">
+            <span class="token-chip-label"><span class="token-live-dot" aria-hidden="true"></span>本次会话</span>
+            <span class="token-chip-value">
+              <span class="token-num" id="chipTotal">24,182</span>
+              <span class="token-unit">tokens</span>
+            </span>
+          </span>
+          <span class="token-chip-spark" id="chipSpark" aria-hidden="true">
+            <span data-kind="llm"></span><span data-kind="vlm"></span><span data-kind="embedding"></span><span data-kind="reranker"></span>
+          </span>
+          <svg class="icon token-caret" aria-hidden="true"><use href="#i-chevron" /></svg>
+        </button>
+
+        <div class="token-panel" id="tokenPanel" role="dialog" aria-label="Token 消耗明细" hidden>
+          <div class="tp-head">
+            <div class="tp-head-main">
+              <strong>Token 消耗</strong>
+              <span class="tp-session" id="tpSession">sess-8f2a1c</span>
+            </div>
+            <span class="badge tp-live" id="tpLive"><span class="badge-dot" aria-hidden="true"></span><span id="tpLiveText">已同步</span></span>
+            <button class="tp-close" id="tpClose" type="button" aria-label="关闭 Token 明细" title="关闭">
+              <svg class="icon" aria-hidden="true"><use href="#i-x" /></svg>
+            </button>
+          </div>
+
+          <div class="segmented tp-tabs" id="tpTabs" data-tab="current" role="tablist" aria-label="统计范围">
+            <button class="seg-btn active" id="tpTabCurrent" type="button" role="tab" aria-selected="true" aria-controls="tpCurrent" data-tab="current">本次会话</button>
+            <button class="seg-btn" id="tpTabHistory" type="button" role="tab" aria-selected="false" aria-controls="tpHistory" data-tab="history" tabindex="-1">历史会话</button>
+            <span class="seg-thumb" aria-hidden="true"></span>
+          </div>
+
+          <div class="tp-view" id="tpCurrent" role="tabpanel" aria-labelledby="tpTabCurrent">
+            <div class="tp-total" id="tpTotalBlock">
+              <div class="tp-total-row">
+                <span class="tp-total-label">合计消耗</span>
+                <span class="tp-total-value"><span class="token-num" id="tpTotal">24,182</span><span class="token-unit">tokens</span></span>
+              </div>
+              <div class="tp-stack" id="tpStack" aria-hidden="true">
+                <span data-kind="llm"></span><span data-kind="vlm"></span><span data-kind="embedding"></span><span data-kind="reranker"></span>
+              </div>
+            </div>
+
+            <div class="tp-empty" id="tpEmpty" hidden>
+              <svg class="icon" aria-hidden="true"><use href="#i-gauge" /></svg>
+              <span>本次会话还没有消耗 Token，发送消息后会按模型类型实时累计。</span>
+            </div>
+
+            <ul class="tp-rows" id="tpRows">
+              <li class="tp-row" data-kind="llm">
+                <span class="tp-row-icon" aria-hidden="true"><svg class="icon"><use href="#i-cpu" /></svg></span>
+                <span class="tp-row-main"><span class="tp-row-name">LLM</span><span class="tp-row-model">deepseek-v4.1-flash</span></span>
+                <span class="tp-row-nums"><span class="tp-row-val token-num" data-val="llm">0</span><span class="tp-row-pct" data-pct="llm">0.0%</span></span>
+                <span class="tp-row-bar" aria-hidden="true"><span class="tp-row-fill" data-fill="llm"></span></span>
+              </li>
+              <li class="tp-row" data-kind="vlm">
+                <span class="tp-row-icon" aria-hidden="true"><svg class="icon"><use href="#i-image" /></svg></span>
+                <span class="tp-row-main"><span class="tp-row-name">VLM</span><span class="tp-row-model">qwen3-vl-plus</span></span>
+                <span class="tp-row-nums"><span class="tp-row-val token-num" data-val="vlm">0</span><span class="tp-row-pct" data-pct="vlm">0.0%</span></span>
+                <span class="tp-row-bar" aria-hidden="true"><span class="tp-row-fill" data-fill="vlm"></span></span>
+              </li>
+              <li class="tp-row" data-kind="embedding">
+                <span class="tp-row-icon" aria-hidden="true"><svg class="icon"><use href="#i-layers" /></svg></span>
+                <span class="tp-row-main"><span class="tp-row-name">Embedding</span><span class="tp-row-model">text-embedding-v4</span></span>
+                <span class="tp-row-nums"><span class="tp-row-val token-num" data-val="embedding">0</span><span class="tp-row-pct" data-pct="embedding">0.0%</span></span>
+                <span class="tp-row-bar" aria-hidden="true"><span class="tp-row-fill" data-fill="embedding"></span></span>
+              </li>
+              <li class="tp-row" data-kind="reranker">
+                <span class="tp-row-icon" aria-hidden="true"><svg class="icon"><use href="#i-sort" /></svg></span>
+                <span class="tp-row-main"><span class="tp-row-name">Reranker</span><span class="tp-row-model">qwen3.7-text-rerank</span></span>
+                <span class="tp-row-nums"><span class="tp-row-val token-num" data-val="reranker">0</span><span class="tp-row-pct" data-pct="reranker">0.0%</span></span>
+                <span class="tp-row-bar" aria-hidden="true"><span class="tp-row-fill" data-fill="reranker"></span></span>
+              </li>
+            </ul>
+
+            <div class="tp-skeleton" id="tpSkeleton" hidden aria-hidden="true">
+              <div class="sk-total"><span class="skeleton sk-line w40"></span><span class="skeleton sk-line w60"></span></div>
+              <div class="sk-row"><span class="skeleton sk-dot"></span><span class="skeleton sk-line"></span><span class="skeleton sk-line w40"></span></div>
+              <div class="sk-row"><span class="skeleton sk-dot"></span><span class="skeleton sk-line"></span><span class="skeleton sk-line w40"></span></div>
+              <div class="sk-row"><span class="skeleton sk-dot"></span><span class="skeleton sk-line"></span><span class="skeleton sk-line w40"></span></div>
+              <div class="sk-row"><span class="skeleton sk-dot"></span><span class="skeleton sk-line"></span><span class="skeleton sk-line w40"></span></div>
+            </div>
+
+            <div class="tp-error" id="tpError" hidden>
+              <svg class="icon" aria-hidden="true"><use href="#i-alert" /></svg>
+              <strong>Token 统计加载失败</strong>
+              <span>无法获取本次会话的消耗数据，请稍后重试。</span>
+              <button class="btn" id="tpRetry" type="button">重试</button>
+            </div>
+
+            <div class="tp-foot">
+              <span class="tp-updated"><svg class="icon" aria-hidden="true"><use href="#i-clock" /></svg><span id="tpUpdated">20:43:12 更新</span></span>
+              <span>不同会话独立统计</span>
+            </div>
+          </div>
+
+          <div class="tp-view" id="tpHistory" role="tabpanel" aria-labelledby="tpTabHistory" hidden>
+            <div id="tpHist"></div>
+            <div class="tp-foot">
+              <span class="tp-updated"><svg class="icon" aria-hidden="true"><use href="#i-clock" /></svg>最近会话</span>
+              <span>按会话独立统计</span>
+            </div>
+          </div>
+        </div>
+
+        <span class="token-delta" id="tokenDelta" aria-hidden="true"></span>
+      </div>
+
+      <button class="theme-toggle" id="themeToggle" type="button" aria-label="切换到深色模式" title="切换到深色模式">
+        <svg class="icon" aria-hidden="true"><use id="themeIcon" href="#i-moon" /></svg>
+        <span class="theme-label">深色</span>
+      </button>
+    </header>
+
+    <main class="app-body">
+      <div class="chat-page" id="viewChat">
+        <div class="chat" id="chat">
+          <div class="chat-inner" id="chatInner"></div>
+        </div>
+
+        <div class="composer-wrap" id="composerWrap">
+          <div class="composer-anchor">
+            <div class="task-slot" id="taskSlot"></div>
+            <div class="composer">
+              <textarea id="composerInput" rows="1" placeholder="给智能知识库小助手发送消息" aria-label="输入消息"></textarea>
+              <div class="composer-footer">
+                <button class="tool-pill active" type="button" aria-pressed="true" title="开启后回答会结合网络搜索结果">网络搜索</button>
+                <button class="tool-pill active" type="button" aria-pressed="true" title="开启后先由模型生成假设性回答，再据此在知识库中检索">HyDE 搜索</button>
+                <div class="composer-actions">
+                  <span class="api-status" title="查询服务连接状态"><span class="api-dot ok"></span>服务已连接</span>
+                  <button class="composer-clear" id="clearHistoryBtn" type="button">清空历史会话</button>
+                  <button class="send" id="sendBtn" type="button" aria-label="发送" title="发送（Enter）">
+                    <svg class="icon" aria-hidden="true"><use href="#i-arrow-up" /></svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="hint">快捷键：<span class="kbd">Enter</span> 发送，<span class="kbd">Shift</span> + <span class="kbd">Enter</span> 换行</div>
+        </div>
+      </div>
+
+      <div class="docs-page" id="viewDocs" hidden>
+        <aside class="docs-side">
+          <header class="docs-head"><strong>文档管理</strong><span class="muted">3 个文档</span></header>
+          <ul class="doc-list">
+            <li class="doc-item is-active">
+              <span class="doc-icon" aria-hidden="true"><svg class="icon"><use href="#i-doc" /></svg></span>
+              <span class="doc-main"><strong>华为擎云 S520 用户手册.pdf</strong><span>2.4 MB · 今天 20:38</span></span>
+              <span class="badge is-completed">已完成</span>
+            </li>
+            <li class="doc-item">
+              <span class="doc-icon" aria-hidden="true"><svg class="icon"><use href="#i-doc" /></svg></span>
+              <span class="doc-main"><strong>万用表使用说明.md</strong><span>128 KB · 10-27 09:12</span></span>
+              <span class="badge is-completed">已完成</span>
+            </li>
+            <li class="doc-item">
+              <span class="doc-icon" aria-hidden="true"><svg class="icon"><use href="#i-doc" /></svg></span>
+              <span class="doc-main"><strong>设备接口图解.pdf</strong><span>1.1 MB · 10-26 21:04</span></span>
+              <span class="badge is-processing">处理中</span>
+            </li>
+          </ul>
+        </aside>
+        <section class="docs-main">
+          <header class="docs-preview-head">
+            <strong>华为擎云 S520 用户手册.pdf</strong>
+            <span class="badge is-completed">已完成</span>
+          </header>
+          <p class="docs-excerpt">第 12 页 · 电源接口</p>
+          <p class="docs-note">接口示意图随文档分块一并入库，提问时会作为插图引用。</p>
+          <figure class="answer-figure">
+            <svg class="figure-svg" viewBox="0 0 320 128" role="img" aria-label="说明书插图：电源接口示意图">
+              <rect class="fig-body" x="24" y="22" width="272" height="70" rx="10" />
+              <rect class="fig-port" x="52" y="44" width="36" height="16" rx="4" />
+              <rect class="fig-port" x="122" y="44" width="44" height="16" rx="4" />
+              <rect class="fig-port" x="198" y="44" width="52" height="16" rx="4" />
+              <circle class="fig-dot" cx="66" cy="76" r="2.5" />
+              <text class="fig-label" x="70" y="112" text-anchor="middle">DC 19V</text>
+              <text class="fig-label" x="144" y="112" text-anchor="middle">USB-C</text>
+              <text class="fig-label" x="224" y="112" text-anchor="middle">HDMI 2.0</text>
+            </svg>
+            <figcaption>说明书第 12 页 · 电源接口示意图</figcaption>
+          </figure>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <div class="demo-controls" id="demoControls" role="group" aria-label="原型演示控制">
+    <span class="demo-tag">原型演示</span>
+    <div class="demo-states" id="demoStates"></div>
+    <button class="demo-btn" id="demoReplay" type="button" title="重新播放当前状态">重播</button>
+    <button class="demo-btn" id="demoAuto" type="button" aria-pressed="false" title="暂停 / 继续实时累加">暂停</button>
+    <button class="demo-close" id="demoClose" type="button" aria-label="隐藏演示控件" title="隐藏演示控件">×</button>
+  </div>
+
+  <div class="toast-host" id="toastHost" aria-live="polite"></div>
+
+  <div class="modal-mask" id="confirmMask" hidden>
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="confirmTitle" aria-describedby="confirmDesc">
+      <h3 id="confirmTitle">清空历史会话？</h3>
+      <p id="confirmDesc">当前会话的消息与 Token 统计会从 0 重新开始；已往会话的消耗记录保留在「历史会话」中，互不合并。</p>
+      <div class="modal-actions">
+        <button class="btn" id="confirmCancel" type="button">取消</button>
+        <button class="btn primary" id="confirmOk" type="button">清空</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      "use strict";
+
+      var root = document.documentElement;
+      var params = new URLSearchParams(location.search);
+      var reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+      var meter = document.querySelector(".token-meter");
+      var chip = document.getElementById("tokenChip");
+      var chipTotal = document.getElementById("chipTotal");
+      var chipSpark = document.getElementById("chipSpark");
+      var deltaEl = document.getElementById("tokenDelta");
+
+      var panel = document.getElementById("tokenPanel");
+      var tpClose = document.getElementById("tpClose");
+      var tpSession = document.getElementById("tpSession");
+      var tpLive = document.getElementById("tpLive");
+      var tpLiveText = document.getElementById("tpLiveText");
+      var tpTabs = document.getElementById("tpTabs");
+      var tpTabButtons = tpTabs.querySelectorAll(".seg-btn");
+      var tpCurrent = document.getElementById("tpCurrent");
+      var tpHistory = document.getElementById("tpHistory");
+      var tpTotal = document.getElementById("tpTotal");
+      var tpTotalBlock = document.getElementById("tpTotalBlock");
+      var tpStack = document.getElementById("tpStack");
+      var tpRows = document.getElementById("tpRows");
+      var tpEmpty = document.getElementById("tpEmpty");
+      var tpSkeleton = document.getElementById("tpSkeleton");
+      var tpError = document.getElementById("tpError");
+      var tpRetry = document.getElementById("tpRetry");
+      var tpUpdated = document.getElementById("tpUpdated");
+      var tpHist = document.getElementById("tpHist");
+
+      var chat = document.getElementById("chat");
+      var chatInner = document.getElementById("chatInner");
+      var composerWrap = document.getElementById("composerWrap");
+      var composerInput = document.getElementById("composerInput");
+      var sendBtn = document.getElementById("sendBtn");
+      var clearBtn = document.getElementById("clearHistoryBtn");
+      var taskSlot = document.getElementById("taskSlot");
+
+      var viewChat = document.getElementById("viewChat");
+      var viewDocs = document.getElementById("viewDocs");
+      var pageTabs = document.querySelectorAll(".navbar .tab");
+
+      var confirmMask = document.getElementById("confirmMask");
+      var confirmCancel = document.getElementById("confirmCancel");
+      var confirmOk = document.getElementById("confirmOk");
+
+      var toastHost = document.getElementById("toastHost");
+      var controls = document.getElementById("demoControls");
+      var statesHost = document.getElementById("demoStates");
+      var replayBtn = document.getElementById("demoReplay");
+      var autoBtn = document.getElementById("demoAuto");
+      var closeControls = document.getElementById("demoClose");
+
+      var themeBtn = document.getElementById("themeToggle");
+      var themeLabel = themeBtn.querySelector(".theme-label");
+      var themeIcon = document.getElementById("themeIcon");
+
+      /* ==== 文案与 mock 数据 ==== */
+      var KINDS = ["llm", "vlm", "embedding", "reranker"];
+      var SOURCE_LABEL = { llm: "LLM", vlm: "VLM", embedding: "Embedding", reranker: "Reranker" };
+      var STEPS = ["意图识别", "向量化查询", "互联网搜索", "HyDE 搜索", "融合排序", "答案输出"];
+      var WELCOME_TEXT = "你好，我是智能知识库小助手。你可以直接提问，我会在“阶段进度”里展示处理过程。";
+      var WELCOME_HINT = "提示：可以问“如何使用万用表测量电压？”";
+      var PRIOR_Q = "如何用万用表测量电压？";
+      var PRIOR_A = "先用万用表确认量程：旋钮拨到直流电压档，选择高于被测电压的档位，例如 20 V 或 200 V。\n\n把黑表笔插入 COM，红表笔插入 VΩ；红笔接触正极、黑笔接触负极，读数稳定后再记录即可。测量时表笔不要滑动，读数稳定后再松开。";
+      var QUERY_Q = "说明书里电源接口的示意图标注了什么？";
+      var QUERY_A = "说明书第 12 页的电源接口示意图标注了三处接口：DC 电源输入（19V/3.42A）、USB-C 全功能接口和 HDMI 2.0 输出。\n\n图注还标出了接口旁的指示灯：接入电源后由橙色变为白色，表示正在充电；长时间不亮时，可以检查适配器是否插紧。";
+      var STAGE = { llmIntent: 312, embeddingQuery: 146, llmHyde: 1048, embeddingHyde: 486, reranker: 3264, answerLlm: 1286, vlmImage: 689 };
+      var BASE_USAGE = { llm: 16420, vlm: 1906, embedding: 2642, reranker: 3214 };
+      var DONE_USAGE = { llm: 19066, vlm: 2595, embedding: 3274, reranker: 6478 };
+      var LARGE_USAGE = { llm: 1043280, vlm: 62540, embedding: 88214, reranker: 90568 };
+      var HISTORY_FIXED = [
+        { id: "sess-d3c90e", title: "华为擎云 S520 有什么四指手势？", when: "昨天 18:07", usage: { llm: 9320, vlm: 0, embedding: 1186, reranker: 2430 } },
+        { id: "sess-5b71fa", title: "导入的 PDF 支持哪些格式？", when: "10-27 09:12", usage: { llm: 4180, vlm: 689, embedding: 742, reranker: 980 } },
+        { id: "sess-a24b0d", title: "如何重置 MiniRAG 的索引？", when: "10-26 21:04", usage: { llm: 2864, vlm: 0, embedding: 486, reranker: 0 } }
+      ];
+      var STATES = [
+        { key: "empty", label: "新会话", title: "清空后的新会话：四类消耗均为 0" },
+        { key: "live", label: "实时累加", title: "发送查询后观察 NavBar 数字随阶段跳变" },
+        { key: "done", label: "已有数据", title: "一次查询结束后的结算状态" },
+        { key: "loading", label: "加载中", title: "打开面板首次拉取统计" },
+        { key: "error", label: "统计失败", title: "面板展示加载失败与重试" },
+        { key: "large", label: "大数值", title: "百万级 Token 的排版" }
+      ];
+      var STATE_KEYS = { empty: 1, live: 1, done: 1, loading: 1, error: 1, large: 1 };
+      var BADGE = {
+        empty: { text: "已同步", cls: "is-idle" },
+        live: { text: "实时", cls: "is-processing" },
+        done: { text: "已同步", cls: "is-completed" },
+        loading: { text: "统计中", cls: "is-processing" },
+        error: { text: "同步失败", cls: "is-error" },
+        large: { text: "已同步", cls: "is-completed" }
+      };
+      var NEXT_SESSION_IDS = ["sess-4b7e19", "sess-91c2d0", "sess-77a0f3"];
+      var THEME_KEY = "minicrag-preview-theme";
+
+      /* ==== 运行时状态 ==== */
+      var usage = copyUsage(BASE_USAGE);
+      var state = "done";
+      var panelOpen = false;
+      var panelTab = "current";
+      var chatMode = "settled";
+      var currentSession = null;
+      var history = [];
+      var flow = null;
+      var paused = false;
+      var streamTimer = 0;
+      var timers = [];
+      var sessionSeq = 0;
+      var confirmTrigger = null;
+      var lastBump = 0;
+      var numEls = [];
+      var rowVals = {};
+      var rowPcts = {};
+      var rowFills = {};
+
+      KINDS.forEach(function (k) {
+        rowVals[k] = tpRows.querySelector('[data-val="' + k + '"]');
+        rowPcts[k] = tpRows.querySelector('[data-pct="' + k + '"]');
+        rowFills[k] = tpRows.querySelector('[data-fill="' + k + '"]');
+      });
+
+      /* ==== 基础工具 ==== */
+      function fmt(n) {
+        return String(Math.max(0, Math.round(n))).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+      }
+
+      function copyUsage(u) {
+        return { llm: u.llm, vlm: u.vlm, embedding: u.embedding, reranker: u.reranker };
+      }
+
+      function zeroUsage() {
+        return { llm: 0, vlm: 0, embedding: 0, reranker: 0 };
+      }
+
+      function totalOf(u) {
+        return u.llm + u.vlm + u.embedding + u.reranker;
+      }
+
+      function esc(s) {
+        return String(s).replace(/[&<>"']/g, function (c) {
+          return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+        });
+      }
+
+      function later(fn, ms) {
+        timers.push(window.setTimeout(fn, ms));
+      }
+
+      function clearTimers() {
+        for (var i = 0; i < timers.length; i++) window.clearTimeout(timers[i]);
+        timers = [];
+      }
+
+      function stopStreamTimer() {
+        if (streamTimer) {
+          window.clearInterval(streamTimer);
+          streamTimer = 0;
+        }
+      }
+
+      /* ==== 数字补间（NavBar 与面板共用） ==== */
+      function setNumber(el, value, animate) {
+        if (!el) return;
+        if (numEls.indexOf(el) === -1) numEls.push(el);
+        value = Math.max(0, Math.round(value));
+        if (el._raf) {
+          window.cancelAnimationFrame(el._raf);
+          el._raf = 0;
+        }
+        var from = el._num;
+        if (!animate || reduceMotion || typeof from !== "number" || from === value) {
+          el._num = value;
+          el.textContent = fmt(value);
+          return;
+        }
+        var start = 0;
+        function frame(ts) {
+          if (!start) start = ts;
+          var p = Math.min(1, (ts - start) / 260);
+          var eased = 1 - Math.pow(1 - p, 3);
+          var v = Math.round(from + (value - from) * eased);
+          el._num = v;
+          el.textContent = fmt(v);
+          if (p < 1) {
+            el._raf = window.requestAnimationFrame(frame);
+          } else {
+            el._num = value;
+            el.textContent = fmt(value);
+            el._raf = 0;
+          }
+        }
+        el._raf = window.requestAnimationFrame(frame);
+      }
+
+      function cancelTweens() {
+        for (var i = 0; i < numEls.length; i++) {
+          if (numEls[i]._raf) {
+            window.cancelAnimationFrame(numEls[i]._raf);
+            numEls[i]._raf = 0;
+          }
+        }
+      }
+
+      function renderBar(container, u) {
+        var total = totalOf(u);
+        for (var i = 0; i < container.children.length; i++) {
+          var seg = container.children[i];
+          var v = u[seg.getAttribute("data-kind")] || 0;
+          var ratio = total > 0 ? v / total : 0;
+          seg.hidden = ratio <= 0;
+          seg.style.flex = ratio > 0 ? ratio + " 1 0%" : "0 0 0";
+        }
+      }
+
+      /* ==== 主题 ==== */
+      function applyTheme(theme) {
+        root.setAttribute("data-theme", theme);
+        var dark = theme === "dark";
+        themeLabel.textContent = dark ? "浅色" : "深色";
+        themeIcon.setAttribute("href", dark ? "#i-sun" : "#i-moon");
+        var label = dark ? "切换到浅色模式" : "切换到深色模式";
+        themeBtn.setAttribute("aria-label", label);
+        themeBtn.title = label;
+        try { localStorage.setItem(THEME_KEY, theme); } catch (e) { /* 隐私模式 */ }
+      }
+
+      applyTheme(root.getAttribute("data-theme") === "dark" ? "dark" : "light");
+      themeBtn.addEventListener("click", function () {
+        applyTheme(root.getAttribute("data-theme") === "dark" ? "light" : "dark");
+      });
+      if (params.has("theme")) applyTheme(params.get("theme") === "dark" ? "dark" : "light");
+
+      /* ==== Toast ==== */
+      function toast(text, kind) {
+        var el = document.createElement("div");
+        el.className = "toast" + (kind ? " " + kind : "");
+        var dot = document.createElement("span");
+        dot.className = "toast-dot";
+        dot.setAttribute("aria-hidden", "true");
+        var body = document.createElement("span");
+        body.textContent = text;
+        el.appendChild(dot);
+        el.appendChild(body);
+        toastHost.appendChild(el);
+        while (toastHost.children.length > 3) toastHost.removeChild(toastHost.firstChild);
+        window.setTimeout(function () { el.remove(); }, 2800);
+      }
+
+      /* ==== 会话数据 ==== */
+      function standardSession() {
+        currentSession = { id: "sess-8f2a1c", title: PRIOR_Q, when: "今天 20:41", hasPrior: true };
+        history = HISTORY_FIXED.map(function (item) {
+          return { id: item.id, title: item.title, when: item.when, usage: copyUsage(item.usage) };
+        });
+      }
+
+      /* ==== 对话渲染 ==== */
+      function paragraphHtml(text) {
+        return text.split("\n\n").map(function (p) {
+          return "<p>" + esc(p) + "</p>";
+        }).join("");
+      }
+
+      function figureSvg() {
+        return '<svg class="figure-svg" viewBox="0 0 320 128" role="img" aria-label="说明书插图：电源接口示意图">' +
+          '<rect class="fig-body" x="24" y="22" width="272" height="70" rx="10" />' +
+          '<rect class="fig-port" x="52" y="44" width="36" height="16" rx="4" />' +
+          '<rect class="fig-port" x="122" y="44" width="44" height="16" rx="4" />' +
+          '<rect class="fig-port" x="198" y="44" width="52" height="16" rx="4" />' +
+          '<circle class="fig-dot" cx="66" cy="76" r="2.5" />' +
+          '<text class="fig-label" x="70" y="112" text-anchor="middle">DC 19V</text>' +
+          '<text class="fig-label" x="144" y="112" text-anchor="middle">USB-C</text>' +
+          '<text class="fig-label" x="224" y="112" text-anchor="middle">HDMI 2.0</text>' +
+          "</svg>";
+      }
+
+      function figureHtml(live) {
+        return '<figure class="answer-figure"' + (live ? ' id="liveFigure" hidden' : "") + ">" +
+          figureSvg() + "<figcaption>说明书第 12 页 · 电源接口示意图</figcaption></figure>";
+      }
+
+      function avatarHtml() {
+        return '<div class="avatar bot" aria-hidden="true"><svg class="icon"><use href="#i-spark" /></svg></div>';
+      }
+
+      function userHtml(text, time) {
+        return '<div class="msg user"><div class="user-row"><div class="bubble">' + esc(text) +
+          '</div><div class="meta">' + esc(time) + "</div></div></div>";
+      }
+
+      function botHtml(content, meta) {
+        return '<div class="msg bot">' + avatarHtml() + '<div class="bot-body">' + content +
+          '<div class="meta">' + esc(meta || "") + "</div></div></div>";
+      }
+
+      function welcomeHtml() {
+        return botHtml('<div class="answer"><p>' + esc(WELCOME_TEXT) + "</p></div>", WELCOME_HINT);
+      }
+
+      function liveBotHtml() {
+        return '<div class="msg bot">' + avatarHtml() + '<div class="bot-body">' +
+          '<div class="answer" id="liveAnswer" hidden></div>' +
+          '<span class="typing" id="liveTyping"><span class="dot"></span><span class="dot"></span><span class="dot"></span></span>' +
+          (flow && flow.hasImage ? figureHtml(true) : "") +
+          '<div class="meta" id="liveMeta"></div>' +
+          "</div></div>";
+      }
+
+      function renderChat() {
+        var html = '<div class="dayline">今天</div>';
+        if (chatMode === "welcome") {
+          html += welcomeHtml();
+        } else {
+          if (currentSession && currentSession.hasPrior) {
+            html += userHtml(PRIOR_Q, "20:41");
+            html += botHtml('<div class="answer">' + paragraphHtml(PRIOR_A) + "</div>", "20:41");
+          } else {
+            html += welcomeHtml();
+          }
+          if (chatMode === "settled") {
+            html += userHtml(QUERY_Q, "20:43");
+            html += botHtml('<div class="answer">' + paragraphHtml(QUERY_A) + "</div>" + figureHtml(false), "20:43");
+          } else if (chatMode === "query" && flow) {
+            html += userHtml(flow.question, "20:43");
+            html += liveBotHtml();
+          }
+        }
+        chatInner.innerHTML = html;
+        scrollChat();
+      }
+
+      function scrollChat() {
+        window.requestAnimationFrame(function () { chat.scrollTop = chat.scrollHeight; });
+      }
+
+      /* ==== 阶段进度卡片 ==== */
+      function runningStep() {
+        if (!flow) return "";
+        if (flow.phase === "answer") return "答案输出";
+        return STEPS[Math.min(flow.completed, STEPS.length - 1)];
+      }
+
+      function stepIcon(kind) {
+        if (kind === "done") return '<svg class="icon" aria-hidden="true"><use href="#i-check" /></svg>';
+        if (kind === "running") return '<svg class="icon spin" aria-hidden="true"><use href="#i-spinner" /></svg>';
+        return '<svg class="icon" aria-hidden="true"><use href="#i-circle" /></svg>';
+      }
+
+      function renderTask() {
+        if (!flow) {
+          taskSlot.innerHTML = "";
+          return;
+        }
+        var done = flow.phase === "done";
+        var items = "";
+        for (var i = 0; i < STEPS.length; i++) {
+          var kind = done || i < flow.completed ? "done" : i === flow.completed ? "running" : "pending";
+          var note = i === 5 && flow.vlmAdded ? '<span class="step-note">含说明书插图识别</span>' : "";
+          items += '<li class="step ' + kind + '">' + stepIcon(kind) +
+            "<span>" + STEPS[i] + note + "</span></li>";
+        }
+        taskSlot.innerHTML = '<div class="task-bar' + (done ? " task-bar--closable" : "") + '">' +
+          '<details class="progress" open><summary>' +
+          '<span class="progress-title">阶段进度</span>' +
+          '<span class="progress-count">' + (done ? "（已完成）" : "（进行中：" + runningStep() + "…）") + "</span>" +
+          "</summary><ul>" + items + "</ul></details>" +
+          (done
+            ? '<button class="task-close" type="button" data-task-close aria-label="关闭任务状态卡片" title="关闭"><svg class="icon" aria-hidden="true"><use href="#i-x" /></svg></button>'
+            : "") +
+          "</div>";
+      }
+
+      function clearTask() {
+        taskSlot.innerHTML = "";
+      }
+
+      taskSlot.addEventListener("click", function (e) {
+        var btn = e.target.closest ? e.target.closest("[data-task-close]") : null;
+        if (btn) clearTask();
+      });
+
+      /* ==== 流程节奏 ==== */
+      function manualAnswer(question) {
+        return "关于「" + question + "」：知识库中匹配到 3 篇相关文档。建议先确认设备型号与固件版本，再按说明书对应章节操作；如果涉及接口或屏幕画面，可以补充图片后再提问，系统会结合插图给出更准确的说明。";
+      }
+
+      function makeFlow(question, hasImage) {
+        return {
+          question: question,
+          answer: hasImage ? QUERY_A : manualAnswer(question),
+          hasImage: !!hasImage,
+          beats: [
+            { delay: 640, done: 1, add: { llm: STAGE.llmIntent } },
+            { delay: 560, done: 2, add: { embedding: STAGE.embeddingQuery } },
+            { delay: 420, done: 3, add: null },
+            { delay: 480, done: 4, add: { llm: STAGE.llmHyde, embedding: STAGE.embeddingHyde } },
+            { delay: 560, done: 5, add: { reranker: STAGE.reranker } },
+            { delay: 460, done: 5, add: null, answer: true }
+          ],
+          index: 0,
+          completed: 0,
+          phase: "steps",
+          streamPos: 0,
+          streamAdded: 0,
+          vlmAdded: false
+        };
+      }
+
+      function flowRunning() {
+        return state === "live" && !!flow && flow.phase !== "done";
+      }
+
+      function bumpChip() {
+        var now = Date.now();
+        if (now - lastBump < 420) return;
+        lastBump = now;
+        chip.classList.remove("is-bump");
+        void chip.offsetWidth;
+        chip.classList.add("is-bump");
+        chip.addEventListener("animationend", function () { chip.classList.remove("is-bump"); }, { once: true });
+      }
+
+      function showDelta(kinds, amount) {
+        if (panelOpen) return;
+        var text = "+" + fmt(amount);
+        if (kinds.length === 1) {
+          text += " " + SOURCE_LABEL[kinds[0]];
+          deltaEl.style.color = "var(--c-" + kinds[0] + ")";
+        } else {
+          text += " tokens";
+          deltaEl.style.color = "var(--accent)";
+        }
+        deltaEl.textContent = text;
+        deltaEl.classList.remove("show");
+        void deltaEl.offsetWidth;
+        deltaEl.classList.add("show");
+      }
+
+      function flashRows(kinds) {
+        kinds.forEach(function (kind) {
+          var row = tpRows.querySelector('.tp-row[data-kind="' + kind + '"]');
+          if (!row) return;
+          row.classList.remove("is-flash");
+          void row.offsetWidth;
+          row.classList.add("is-flash");
+          row.addEventListener("animationend", function () { row.classList.remove("is-flash"); }, { once: true });
+        });
+      }
+
+      function applyAdd(add, showDeltaBubble) {
+        if (!add) return;
+        var kinds = [];
+        var amount = 0;
+        KINDS.forEach(function (kind) {
+          var v = add[kind] || 0;
+          if (v > 0) {
+            kinds.push(kind);
+            amount += v;
+            usage[kind] += v;
+          }
+        });
+        if (!kinds.length) return;
+        bumpChip();
+        renderChip(true);
+        if (panelOpen) {
+          renderPanelNumbers(true);
+          flashRows(kinds);
+        } else if (showDeltaBubble) {
+          showDelta(kinds, amount);
+        }
+        syncHistoryCurrent();
+      }
+
+      function scheduleBeat() {
+        if (!flow || flow.phase !== "steps" || flow.index >= flow.beats.length) return;
+        var beat = flow.beats[flow.index];
+        later(function () {
+          if (!flow || flow.phase !== "steps") return;
+          flow.index += 1;
+          flow.completed = beat.done;
+          applyAdd(beat.add, true);
+          if (beat.answer) {
+            flow.phase = "answer";
+            renderTask();
+            startStream();
+            return;
+          }
+          renderTask();
+          scheduleBeat();
+        }, beat.delay);
+      }
+
+      function startStream() {
+        if (!flow) return;
+        var typing = document.getElementById("liveTyping");
+        var answer = document.getElementById("liveAnswer");
+        var meta = document.getElementById("liveMeta");
+        if (!typing || !answer) return;
+        typing.hidden = true;
+        answer.hidden = false;
+        answer.classList.add("is-streaming");
+        answer.classList.toggle("is-paused", paused);
+        if (meta) meta.textContent = "";
+        if (streamTimer) window.clearInterval(streamTimer);
+        streamTimer = window.setInterval(streamTick, 26);
+      }
+
+      function streamTick() {
+        if (!flow || flow.phase !== "answer") return;
+        var answer = document.getElementById("liveAnswer");
+        if (!answer) return;
+        var chars = Array.from(flow.answer);
+        var step = reduceMotion ? chars.length : 2;
+        flow.streamPos = Math.min(chars.length, flow.streamPos + step);
+        answer.textContent = chars.slice(0, flow.streamPos).join("");
+        if (chat.scrollHeight - chat.scrollTop - chat.clientHeight < 80) chat.scrollTop = chat.scrollHeight;
+        var target = Math.round(STAGE.answerLlm * flow.streamPos / chars.length);
+        if (target > flow.streamAdded) {
+          usage.llm += target - flow.streamAdded;
+          flow.streamAdded = target;
+          bumpChip();
+          renderChip(true);
+          if (panelOpen) renderPanelNumbers(true);
+          syncHistoryCurrent();
+        }
+        if (flow.streamPos >= chars.length) {
+          stopStreamTimer();
+          finishFlow();
+        }
+      }
+
+      function finishFlow() {
+        if (!flow) return;
+        var answer = document.getElementById("liveAnswer");
+        if (answer) answer.classList.remove("is-streaming", "is-paused");
+        if (flow.hasImage && !flow.vlmAdded) {
+          flow.vlmAdded = true;
+          usage.vlm += STAGE.vlmImage;
+          bumpChip();
+          renderChip(true);
+          if (panelOpen) {
+            renderPanelNumbers(true);
+            flashRows(["vlm"]);
+          } else {
+            showDelta(["vlm"], STAGE.vlmImage);
+          }
+          var figure = document.getElementById("liveFigure");
+          if (figure) figure.hidden = false;
+          syncHistoryCurrent();
+        }
+        var meta = document.getElementById("liveMeta");
+        if (meta) meta.textContent = "20:43";
+        flow.phase = "done";
+        paused = false;
+        state = "done";
+        renderTask();
+        renderAll(false);
+        if (panelOpen) renderPanel();
+        updateSendState();
+        scrollChat();
+      }
+
+      function pauseFlow() {
+        if (!flowRunning()) return;
+        paused = true;
+        clearTimers();
+        stopStreamTimer();
+        chip.classList.remove("is-bump");
+        var answer = document.getElementById("liveAnswer");
+        if (answer) answer.classList.add("is-paused");
+        updateAutoBtn();
+      }
+
+      function resumeFlow() {
+        if (state !== "live" || !flow || flow.phase === "done") return;
+        paused = false;
+        var answer = document.getElementById("liveAnswer");
+        if (answer) answer.classList.remove("is-paused");
+        updateAutoBtn();
+        if (flow.phase === "answer") startStream();
+        else scheduleBeat();
+      }
+
+      function startFlow(question, hasImage) {
+        flow = makeFlow(question, hasImage);
+        chatMode = "query";
+        renderChat();
+        renderTask();
+        scheduleBeat();
+      }
+
+      function freezeLive() {
+        paused = true;
+        flow = makeFlow(QUERY_Q, true);
+        flow.completed = 5;
+        flow.phase = "answer";
+        flow.streamPos = 46;
+        flow.streamAdded = Math.round(STAGE.answerLlm * flow.streamPos / Array.from(flow.answer).length);
+        usage = copyUsage(BASE_USAGE);
+        usage.llm += STAGE.llmIntent + STAGE.llmHyde + flow.streamAdded;
+        usage.embedding += STAGE.embeddingQuery + STAGE.embeddingHyde;
+        usage.reranker += STAGE.reranker;
+        chatMode = "query";
+        renderChat();
+        var typing = document.getElementById("liveTyping");
+        var answer = document.getElementById("liveAnswer");
+        if (typing) typing.hidden = true;
+        if (answer) {
+          answer.hidden = false;
+          answer.classList.add("is-streaming", "is-paused");
+          answer.textContent = Array.from(flow.answer).slice(0, flow.streamPos).join("");
+        }
+        renderTask();
+        renderAll(false);
+        if (panelOpen) renderPanel();
+        updateSendState();
+      }
+
+      /* ==== NavBar 指示器 ==== */
+      function renderChip(animate) {
+        var unknown = state === "loading" || state === "error";
+        if (unknown) {
+          if (chipTotal._raf) {
+            window.cancelAnimationFrame(chipTotal._raf);
+            chipTotal._raf = 0;
+          }
+          chipTotal._num = undefined;
+          chipTotal.textContent = "—";
+        } else {
+          setNumber(chipTotal, totalOf(usage), animate);
+        }
+        renderBar(chipSpark, usage);
+        chip.classList.toggle("is-live", flowRunning());
+        var label = unknown ? "本次会话 Token 统计不可用" : "本次会话 Token 消耗 " + fmt(totalOf(usage));
+        chip.setAttribute("aria-label", label + "，点击查看明细");
+      }
+
+      /* ==== 面板 ==== */
+      function positionPanel() {
+        var rect = chip.getBoundingClientRect();
+        var nav = document.querySelector(".navbar").getBoundingClientRect();
+        var width = Math.min(360, window.innerWidth - 20);
+        var left = Math.max(10, Math.min(rect.right - width, window.innerWidth - width - 10));
+        var top = Math.max(rect.bottom, nav.bottom) + 8;
+        panel.style.width = width + "px";
+        panel.style.left = left + "px";
+        panel.style.top = top + "px";
+        panel.style.maxHeight = Math.max(240, window.innerHeight - top - 16) + "px";
+      }
+
+      function badgeMeta() {
+        return BADGE[state] || BADGE.done;
+      }
+
+      function updatedCopy() {
+        if (state === "loading") return "正在统计…";
+        if (state === "error") return "上次同步 20:43:12";
+        if (state === "empty") return "刚刚更新";
+        if (state === "live") return "正在更新…";
+        return "20:43:12 更新";
+      }
+
+      function renderRows(animate) {
+        var total = totalOf(usage);
+        KINDS.forEach(function (kind) {
+          var v = usage[kind];
+          var pct = total > 0 ? (v / total) * 100 : 0;
+          setNumber(rowVals[kind], v, animate);
+          rowPcts[kind].textContent = pct.toFixed(1) + "%";
+          rowFills[kind].style.width = pct.toFixed(2) + "%";
+        });
+      }
+
+      function renderPanelNumbers(animate) {
+        setNumber(tpTotal, totalOf(usage), animate);
+        renderBar(tpStack, usage);
+        renderRows(animate);
+      }
+
+      function renderPanel() {
+        if (!panelOpen) return;
+        tpSession.textContent = currentSession ? currentSession.id : "—";
+        var meta = badgeMeta();
+        tpLive.className = "badge tp-live " + meta.cls;
+        tpLiveText.textContent = meta.text;
+        var loading = state === "loading";
+        var failed = state === "error";
+        var total = totalOf(usage);
+        var empty = !loading && !failed && total === 0;
+        tpSkeleton.hidden = !loading;
+        tpError.hidden = !failed;
+        tpTotalBlock.hidden = loading || failed;
+        tpRows.hidden = loading || failed;
+        tpEmpty.hidden = !empty;
+        if (!loading && !failed) {
+          setNumber(tpTotal, total, false);
+          renderBar(tpStack, usage);
+          renderRows(false);
+        }
+        tpUpdated.textContent = updatedCopy();
+        if (panelTab === "history") renderHistory();
+      }
+
+      function openPanel() {
+        if (panelOpen) {
+          renderPanel();
+          return;
+        }
+        panelOpen = true;
+        panel.hidden = false;
+        chip.setAttribute("aria-expanded", "true");
+        positionPanel();
+        renderPanel();
+      }
+
+      function closePanel(refocus) {
+        if (!panelOpen) return;
+        panelOpen = false;
+        panel.hidden = true;
+        chip.setAttribute("aria-expanded", "false");
+        if (refocus) chip.focus();
+      }
+
+      chip.addEventListener("click", function () {
+        if (panelOpen) closePanel(false);
+        else openPanel();
+      });
+
+      tpClose.addEventListener("click", function () { closePanel(true); });
+
+      tpRetry.addEventListener("click", function () {
+        if (state !== "error") return;
+        clearTimers();
+        state = "loading";
+        renderAll(false);
+        renderPanel();
+        toast("正在重新统计本次会话…");
+        later(function () {
+          state = "done";
+          renderAll(false);
+          if (panelOpen) renderPanel();
+          toast("Token 统计已恢复", "success");
+        }, 1100);
+      });
+
+      document.addEventListener("pointerdown", function (e) {
+        if (!panelOpen) return;
+        if (meter.contains(e.target)) return;
+        closePanel(false);
+      });
+      window.addEventListener("resize", function () {
+        if (panelOpen) positionPanel();
+      });
+
+      tpTabButtons.forEach(function (btn) {
+        btn.addEventListener("click", function () {
+          panelTab = btn.getAttribute("data-tab");
+          syncTabs();
+          renderPanel();
+        });
+      });
+
+      function syncTabs() {
+        tpTabs.setAttribute("data-tab", panelTab);
+        for (var i = 0; i < tpTabButtons.length; i++) {
+          var btn = tpTabButtons[i];
+          var on = btn.getAttribute("data-tab") === panelTab;
+          btn.classList.toggle("active", on);
+          btn.setAttribute("aria-selected", String(on));
+          btn.tabIndex = on ? 0 : -1;
+        }
+        tpCurrent.hidden = panelTab !== "current";
+        tpHistory.hidden = panelTab !== "history";
+      }
+
+      /* ==== 历史会话 ==== */
+      function histGridHtml(u) {
+        return '<div class="tp-hist-grid">' + KINDS.map(function (kind) {
+          return "<span>" + SOURCE_LABEL[kind] + "<strong>" + fmt(u[kind]) + "</strong></span>";
+        }).join("") + "</div>";
+      }
+
+      function fillHistGrid(el, u) {
+        el.innerHTML = histGridHtml(u);
+      }
+
+      function renderHistory() {
+        var items = [{
+          current: true,
+          id: currentSession ? currentSession.id : "—",
+          title: currentSession ? currentSession.title : "—",
+          when: "今天 20:43",
+          usage: usage
+        }].concat(history);
+        var html = '<p class="tp-hist-hint">每个会话独立统计，互不合并；点击会话查看四类消耗。</p><ul class="tp-hist">';
+        items.forEach(function (item, idx) {
+          var u = item.usage || zeroUsage();
+          html += '<li class="tp-hist-item' + (item.current ? " is-current" : "") + '"' +
+            (item.current ? ' data-current="1"' : "") + ' data-hist="' + idx + '">' +
+            '<button class="tp-hist-head" type="button" aria-expanded="false">' +
+            '<span class="tp-hist-main">' +
+            '<span class="tp-hist-title"><span class="tp-hist-text">' + esc(item.title) + "</span>" +
+            (item.current ? '<span class="badge is-processing tp-current-badge">当前</span>' : "") +
+            "</span>" +
+            '<span class="tp-hist-meta">' + esc(item.id) + " · " + esc(item.when) + "</span>" +
+            "</span>" +
+            '<span class="tp-hist-total token-num">' + fmt(totalOf(u)) + "</span>" +
+            '<svg class="icon tp-hist-caret" aria-hidden="true"><use href="#i-chevron" /></svg>' +
+            "</button>" +
+            '<div class="tp-hist-detail" hidden>' + histGridHtml(u) + "</div>" +
+            "</li>";
+        });
+        html += "</ul>";
+        tpHist.innerHTML = html;
+      }
+
+      function syncHistoryCurrent() {
+        if (!panelOpen || panelTab !== "history") return;
+        var item = tpHist.querySelector('[data-current="1"]');
+        if (!item) return;
+        var totalEl = item.querySelector(".tp-hist-total");
+        if (totalEl) totalEl.textContent = fmt(totalOf(usage));
+        var detail = item.querySelector(".tp-hist-detail");
+        if (detail && !detail.hidden) fillHistGrid(detail, usage);
+      }
+
+      tpHist.addEventListener("click", function (e) {
+        var head = e.target.closest ? e.target.closest(".tp-hist-head") : null;
+        if (!head) return;
+        var item = head.parentNode;
+        var open = item.classList.toggle("is-open");
+        head.setAttribute("aria-expanded", String(open));
+        var detail = item.querySelector(".tp-hist-detail");
+        if (detail) detail.hidden = !open;
+      });
+
+      /* ==== 演示状态 ==== */
+      function renderAll(animate) {
+        renderChip(animate);
+        updateDemoActive();
+        updateAutoBtn();
+        updateSendState();
+      }
+
+      function updateDemoActive() {
+        for (var i = 0; i < statesHost.children.length; i++) {
+          var btn = statesHost.children[i];
+          btn.classList.toggle("is-active", btn.getAttribute("data-state") === state);
+        }
+      }
+
+      function updateAutoBtn() {
+        autoBtn.textContent = paused ? "自动播放" : "暂停";
+        autoBtn.setAttribute("aria-pressed", String(!paused));
+        autoBtn.disabled = state !== "live" || !flow || flow.phase === "done";
+      }
+
+      function updateSendState() {
+        var busy = flowRunning();
+        sendBtn.disabled = busy;
+        sendBtn.title = busy ? "生成中…" : "发送（Enter）";
+      }
+
+      function applyState(key, opts) {
+        opts = opts || {};
+        clearTimers();
+        stopStreamTimer();
+        cancelTweens();
+        flow = null;
+        paused = false;
+        state = key;
+        panelTab = "current";
+        chip.classList.remove("is-bump");
+        chatMode = "settled";
+
+        if (key === "empty") {
+          standardSession();
+          history = [{ id: currentSession.id, title: currentSession.title, when: "今天 20:43", usage: copyUsage(BASE_USAGE) }].concat(history);
+          currentSession = { id: NEXT_SESSION_IDS[0], title: "新的会话", when: "今天 20:44", hasPrior: false };
+          usage = zeroUsage();
+          chatMode = "welcome";
+          clearTask();
+        } else if (key === "live") {
+          standardSession();
+          usage = copyUsage(BASE_USAGE);
+          chatMode = "prior";
+          clearTask();
+        } else if (key === "large") {
+          standardSession();
+          usage = copyUsage(LARGE_USAGE);
+          clearTask();
+        } else if (key === "loading" || key === "error") {
+          standardSession();
+          usage = copyUsage(DONE_USAGE);
+          clearTask();
+        } else {
+          standardSession();
+          usage = copyUsage(DONE_USAGE);
+          flow = makeFlow(QUERY_Q, true);
+          flow.phase = "done";
+          flow.completed = STEPS.length;
+          flow.vlmAdded = true;
+          renderTask();
+        }
+
+        renderChat();
+        syncTabs();
+
+        var wantPanel = key === "empty" || key === "loading" || key === "error";
+        panelOpen = wantPanel;
+        panel.hidden = !wantPanel;
+        chip.setAttribute("aria-expanded", String(wantPanel));
+        if (wantPanel) positionPanel();
+
+        renderAll(false);
+        if (panelOpen) renderPanel();
+
+        if (key === "live") {
+          if (opts.autoLive === false) {
+            freezeLive();
+          } else {
+            startFlow(QUERY_Q, true);
+            renderAll(false);
+          }
+        }
+        updateSendState();
+        console.log("[demo] state:", key);
+      }
+
+      /* ==== 输入与发送 ==== */
+      function resizeComposer() {
+        composerInput.style.height = "auto";
+        composerInput.style.height = Math.min(composerInput.scrollHeight, 160) + "px";
+      }
+
+      function sendMessage() {
+        var text = composerInput.value.trim();
+        if (!text) return;
+        if (flowRunning()) {
+          toast("正在生成中，请稍候");
+          return;
+        }
+        composerInput.value = "";
+        resizeComposer();
+        if (currentSession && currentSession.title === "新的会话") currentSession.title = text;
+        clearTimers();
+        stopStreamTimer();
+        state = "live";
+        paused = false;
+        chatMode = "query";
+        startFlow(text, false);
+        renderAll(false);
+        if (panelOpen) renderPanel();
+        updateSendState();
+      }
+
+      composerInput.addEventListener("input", resizeComposer);
+      composerInput.addEventListener("keydown", function (e) {
+        if (e.key === "Enter" && !e.shiftKey) {
+          e.preventDefault();
+          sendMessage();
+        }
+      });
+      sendBtn.addEventListener("click", sendMessage);
+
+      /* ==== 清空历史会话 ==== */
+      function openConfirm(trigger) {
+        confirmTrigger = trigger || null;
+        confirmMask.hidden = false;
+        confirmCancel.focus();
+      }
+
+      function closeConfirm(restore) {
+        var trigger = confirmTrigger;
+        confirmTrigger = null;
+        confirmMask.hidden = true;
+        if (restore && trigger) trigger.focus();
+      }
+
+      clearBtn.addEventListener("click", function () { openConfirm(clearBtn); });
+      confirmCancel.addEventListener("click", function () { closeConfirm(true); });
+      confirmMask.addEventListener("click", function (e) {
+        if (e.target === confirmMask) closeConfirm(true);
+      });
+      confirmOk.addEventListener("click", function () {
+        closeConfirm(true);
+        clearSession();
+      });
+
+      function clearSession() {
+        clearTimers();
+        stopStreamTimer();
+        cancelTweens();
+        flow = null;
+        paused = true;
+        chip.classList.remove("is-bump");
+        if (currentSession && totalOf(usage) > 0) {
+          history.unshift({ id: currentSession.id, title: currentSession.title, when: "今天 20:43", usage: copyUsage(usage) });
+        }
+        currentSession = {
+          id: NEXT_SESSION_IDS[sessionSeq++ % NEXT_SESSION_IDS.length],
+          title: "新的会话",
+          when: "今天 20:44",
+          hasPrior: false
+        };
+        usage = zeroUsage();
+        state = "empty";
+        chatMode = "welcome";
+        renderChat();
+        clearTask();
+        panelTab = "current";
+        syncTabs();
+        panelOpen = true;
+        panel.hidden = false;
+        chip.setAttribute("aria-expanded", "true");
+        positionPanel();
+        renderAll(false);
+        renderPanel();
+        updateSendState();
+        toast("已清空历史会话，Token 统计已重置", "success");
+      }
+
+      /* ==== 页面切换 ==== */
+      function switchPage(page) {
+        var isChat = page === "chat";
+        viewChat.hidden = !isChat;
+        viewDocs.hidden = isChat;
+        if (isChat) scrollChat();
+        for (var i = 0; i < pageTabs.length; i++) {
+          var tab = pageTabs[i];
+          var on = tab.getAttribute("data-page") === page;
+          tab.classList.toggle("active", on);
+          if (on) tab.setAttribute("aria-current", "page");
+          else tab.removeAttribute("aria-current");
+        }
+      }
+
+      for (var t = 0; t < pageTabs.length; t++) {
+        (function (tab) {
+          tab.addEventListener("click", function () { switchPage(tab.getAttribute("data-page")); });
+        })(pageTabs[t]);
+      }
+
+      /* ==== 演示控件 ==== */
+      STATES.forEach(function (item) {
+        var btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "demo-btn";
+        btn.textContent = item.label;
+        btn.title = item.title;
+        btn.setAttribute("data-state", item.key);
+        btn.addEventListener("click", function () {
+          applyState(item.key, { autoLive: true });
+        });
+        statesHost.appendChild(btn);
+      });
+
+      replayBtn.addEventListener("click", function () {
+        applyState(state, { autoLive: true });
+      });
+      autoBtn.addEventListener("click", function () {
+        if (paused) resumeFlow();
+        else pauseFlow();
+      });
+      closeControls.addEventListener("click", hideDemoControls);
+
+      document.addEventListener("keydown", function (e) {
+        if (e.key !== "Escape") return;
+        if (!confirmMask.hidden) {
+          closeConfirm(true);
+          return;
+        }
+        if (panelOpen) {
+          closePanel(true);
+          return;
+        }
+        hideDemoControls();
+      });
+
+      function hideDemoControls() {
+        controls.hidden = true;
+        document.body.classList.remove("has-demo-controls");
+      }
+
+      /* ==== 布局跟随 ==== */
+      function syncChatPadding() {
+        var nearBottom = chat.scrollHeight - chat.scrollTop - chat.clientHeight < 48;
+        chat.style.paddingBottom = composerWrap.offsetHeight + 24 + "px";
+        if (nearBottom) chat.scrollTop = chat.scrollHeight;
+      }
+
+      if (window.ResizeObserver) {
+        new ResizeObserver(syncChatPadding).observe(composerWrap);
+      } else {
+        window.addEventListener("resize", syncChatPadding);
+      }
+      resizeComposer();
+      syncChatPadding();
+
+      /* ==== 初始化 ==== */
+      if (params.has("clean")) {
+        hideDemoControls();
+      } else {
+        document.body.classList.add("has-demo-controls");
+      }
+      switchPage(params.get("page") === "docs" ? "docs" : "chat");
+
+      var stateParam = params.get("state");
+      var docsParam = params.get("page") === "docs";
+      var autoLive = !(params.has("state") || params.has("static") || docsParam);
+      var initial = params.has("static") || docsParam ? "done" : "live";
+      if (stateParam && STATE_KEYS[stateParam]) initial = stateParam;
+      applyState(initial, { autoLive: autoLive });
+    })();
+  </script>
+</body>
+</html>
