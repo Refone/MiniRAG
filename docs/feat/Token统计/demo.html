@@ -421,7 +421,9 @@
       transition: transform .22s cubic-bezier(.4, 0, .2, 1);
     }
     .tp-tabs { margin: 12px 0 10px; }
-    .tp-tabs[data-tab="history"] .seg-thumb { transform: translateX(calc(100% + 2px)); }
+    .tp-tabs .seg-thumb { width: calc(33.333% - 4px); }
+    .tp-tabs[data-scope="query"] .seg-thumb { transform: translateX(calc(100% + 2px)); }
+    .tp-tabs[data-scope="upload"] .seg-thumb { transform: translateX(calc(200% + 4px)); }
 
     .tp-total { padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--r-lg); background: var(--surface-2); }
     .tp-total-row { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
@@ -499,35 +501,6 @@
     .sk-line.w40 { width: 40%; }
     .sk-line.w60 { width: 60%; }
     .sk-dot { width: 16px; height: 16px; border-radius: var(--r-xs); }
-
-    .tp-hist-hint { margin: 2px 0 10px; font-size: 11.5px; color: var(--text-2); }
-    .tp-hist { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
-    .tp-hist-item { border: 1px solid var(--border); border-radius: var(--r-lg); background: var(--surface-2); overflow: hidden; }
-    .tp-hist-item.is-current { border-color: var(--accent-border); background: var(--accent-soft); }
-    .tp-hist-head {
-      width: 100%;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 9px 10px;
-      border: 0;
-      background: transparent;
-      color: inherit;
-      text-align: left;
-    }
-    .tp-hist-head:hover { background: var(--surface-hover); }
-    .tp-hist-item.is-current .tp-hist-head:hover { background: transparent; }
-    .tp-hist-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-    .tp-hist-title { display: flex; align-items: center; gap: 6px; min-width: 0; font-size: 12.5px; font-weight: 600; }
-    .tp-hist-text { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .tp-current-badge { flex: 0 0 auto; padding: 1px 6px; font-size: 10px; }
-    .tp-hist-meta { font-family: var(--font-mono); font-size: 10px; color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .tp-hist-total { flex: 0 0 auto; font-size: 12.5px; }
-    .tp-hist-caret { width: 13px; height: 13px; color: var(--text-3); transition: transform .15s; }
-    .tp-hist-item.is-open .tp-hist-caret { transform: rotate(180deg); }
-    .tp-hist-detail { padding: 0 10px 9px 38px; }
-    .tp-hist-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 12px; }
-    .tp-hist-grid span { display: flex; justify-content: space-between; gap: 6px; font-size: 10.5px; color: var(--text-3); }
 
     .tp-foot {
       display: flex;
@@ -687,6 +660,7 @@
 
     .task-slot { display: flow-root; }
     .task-bar { position: relative; width: calc(100% - 108px); margin: 0 auto 8px; animation: task-in .16s ease-out; }
+    .task-bar.is-entered { animation: none; }
     @keyframes task-in { from { opacity: 0; transform: translateY(4px); } }
     .task-bar details.progress { margin: 0; }
     .task-bar--closable details.progress summary { padding-right: 24px; }
@@ -837,8 +811,11 @@
       background: var(--surface);
       overflow: hidden;
     }
-    .docs-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; padding: 14px 16px; border-bottom: 1px solid var(--border); }
-    .docs-head strong { font-size: 14px; font-weight: 650; }
+    .docs-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 12px 14px; border-bottom: 1px solid var(--border); }
+    .docs-head-main { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+    .docs-head strong { font-size: 14px; font-weight: 650; white-space: nowrap; }
+    .import-slot { flex: 0 0 auto; }
+    .import-slot:not(:empty) { padding: 10px 8px 0; }
     .muted { color: var(--text-2); font-size: 12px; }
     .doc-list { list-style: none; margin: 0; padding: 8px; display: grid; gap: 4px; overflow-y: auto; }
     .doc-item { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: var(--r-lg); }
@@ -897,6 +874,55 @@
     .btn:active:not(:disabled) { transform: translateY(1px); }
     .btn.primary { border-color: transparent; background: var(--danger-soft); color: var(--danger); }
     .btn.primary:hover:not(:disabled) { border-color: var(--danger); background: var(--danger-soft); }
+    .btn-accent { border-color: var(--accent-fill); background: var(--accent-fill); color: var(--on-accent); font-weight: 600; }
+    .btn-accent:hover:not(:disabled) { border-color: var(--accent-fill-hover); background: var(--accent-fill-hover); color: var(--on-accent); }
+    .btn-accent:disabled { opacity: .5; cursor: not-allowed; }
+
+    /* ==== 文档导入任务（上传消耗来源） ==== */
+    .import-card {
+      padding: 10px 11px;
+      border: 1px solid var(--border);
+      border-radius: var(--r-lg);
+      background: var(--surface-2);
+    }
+    .import-head { display: flex; align-items: flex-start; gap: 8px; }
+    .import-icon {
+      width: 26px;
+      height: 26px;
+      flex: 0 0 auto;
+      display: grid;
+      place-items: center;
+      border-radius: var(--r-sm);
+      background: var(--accent-soft);
+      color: var(--accent);
+    }
+    .import-icon .icon { width: 14px; height: 14px; }
+    .import-main { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.3; }
+    .import-main strong { font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .import-main span { margin-top: 2px; font-size: 10.5px; color: var(--text-2); }
+    .import-steps { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 4px; }
+    .import-step { display: flex; align-items: center; gap: 7px; font-size: 11.5px; color: var(--text-3); }
+    .import-step .icon { width: 12px; height: 12px; }
+    .import-step.done { color: var(--text-2); }
+    .import-step.done .icon { color: var(--success); }
+    .import-step.running { color: var(--text); font-weight: 550; }
+    .import-step.running .icon { color: var(--accent); }
+    .import-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 7px; font-size: 10px; color: var(--text-3); }
+    .import-foot b { font-family: var(--font-mono); font-weight: 600; color: var(--text-2); }
+    .import-bar { height: 3px; margin-top: 6px; border-radius: var(--r-pill); background: var(--surface-inset); overflow: hidden; }
+    .import-bar span { display: block; height: 100%; border-radius: inherit; background: var(--accent); transition: width .3s; }
+    .import-close {
+      width: 18px;
+      height: 18px;
+      padding: 0;
+      border: 0;
+      border-radius: var(--r-xs);
+      background: transparent;
+      color: var(--text-3);
+      font-size: 12px;
+      line-height: 1;
+    }
+    .import-close:hover { color: var(--text); background: var(--surface-hover); }
 
     /* ==== Toast ==== */
     .toast-host { position: fixed; left: 24px; bottom: 24px; z-index: 100; display: flex; flex-direction: column; gap: 8px; }
@@ -1066,13 +1092,13 @@
           aria-haspopup="dialog"
           aria-expanded="false"
           aria-controls="tokenPanel"
-          title="查看本次会话的 Token 消耗明细"
+          title="浏览器会话 · 查看 Token 消耗明细"
         >
           <span class="token-chip-icon" aria-hidden="true"><svg class="icon"><use href="#i-gauge" /></svg></span>
           <span class="token-chip-main">
-            <span class="token-chip-label"><span class="token-live-dot" aria-hidden="true"></span>本次会话</span>
+            <span class="token-chip-label"><span class="token-live-dot" aria-hidden="true"></span>本次访问</span>
             <span class="token-chip-value">
-              <span class="token-num" id="chipTotal">24,182</span>
+              <span class="token-num" id="chipTotal">35,780</span>
               <span class="token-unit">tokens</span>
             </span>
           </span>
@@ -1086,7 +1112,7 @@
           <div class="tp-head">
             <div class="tp-head-main">
               <strong>Token 消耗</strong>
-              <span class="tp-session" id="tpSession">sess-8f2a1c</span>
+              <span class="tp-session" id="tpSession">浏览器会话 · bsess-8f2a1c</span>
             </div>
             <span class="badge tp-live" id="tpLive"><span class="badge-dot" aria-hidden="true"></span><span id="tpLiveText">已同步</span></span>
             <button class="tp-close" id="tpClose" type="button" aria-label="关闭 Token 明细" title="关闭">
@@ -1094,17 +1120,18 @@
             </button>
           </div>
 
-          <div class="segmented tp-tabs" id="tpTabs" data-tab="current" role="tablist" aria-label="统计范围">
-            <button class="seg-btn active" id="tpTabCurrent" type="button" role="tab" aria-selected="true" aria-controls="tpCurrent" data-tab="current">本次会话</button>
-            <button class="seg-btn" id="tpTabHistory" type="button" role="tab" aria-selected="false" aria-controls="tpHistory" data-tab="history" tabindex="-1">历史会话</button>
+          <div class="segmented tp-tabs" id="tpTabs" data-scope="total" role="tablist" aria-label="统计范围">
+            <button class="seg-btn active" id="tpTabTotal" type="button" role="tab" aria-selected="true" data-scope="total">会话总计</button>
+            <button class="seg-btn" id="tpTabQuery" type="button" role="tab" aria-selected="false" data-scope="query" tabindex="-1">查询消耗</button>
+            <button class="seg-btn" id="tpTabUpload" type="button" role="tab" aria-selected="false" data-scope="upload" tabindex="-1">上传消耗</button>
             <span class="seg-thumb" aria-hidden="true"></span>
           </div>
 
-          <div class="tp-view" id="tpCurrent" role="tabpanel" aria-labelledby="tpTabCurrent">
+          <div class="tp-view" id="tpView" role="tabpanel" aria-labelledby="tpTabTotal">
             <div class="tp-total" id="tpTotalBlock">
               <div class="tp-total-row">
-                <span class="tp-total-label">合计消耗</span>
-                <span class="tp-total-value"><span class="token-num" id="tpTotal">24,182</span><span class="token-unit">tokens</span></span>
+                <span class="tp-total-label" id="tpScopeLabel">会话总计</span>
+                <span class="tp-total-value"><span class="token-num" id="tpTotal">35,780</span><span class="token-unit">tokens</span></span>
               </div>
               <div class="tp-stack" id="tpStack" aria-hidden="true">
                 <span data-kind="llm"></span><span data-kind="vlm"></span><span data-kind="embedding"></span><span data-kind="reranker"></span>
@@ -1113,7 +1140,7 @@
 
             <div class="tp-empty" id="tpEmpty" hidden>
               <svg class="icon" aria-hidden="true"><use href="#i-gauge" /></svg>
-              <span>本次会话还没有消耗 Token，发送消息后会按模型类型实时累计。</span>
+              <span id="tpEmptyText">本次访问还没有消耗 Token，发送消息或上传文档后开始统计。</span>
             </div>
 
             <ul class="tp-rows" id="tpRows">
@@ -1154,21 +1181,13 @@
             <div class="tp-error" id="tpError" hidden>
               <svg class="icon" aria-hidden="true"><use href="#i-alert" /></svg>
               <strong>Token 统计加载失败</strong>
-              <span>无法获取本次会话的消耗数据，请稍后重试。</span>
+              <span>无法获取本次访问的消耗数据，请稍后重试。</span>
               <button class="btn" id="tpRetry" type="button">重试</button>
             </div>
 
             <div class="tp-foot">
-              <span class="tp-updated"><svg class="icon" aria-hidden="true"><use href="#i-clock" /></svg><span id="tpUpdated">20:43:12 更新</span></span>
-              <span>不同会话独立统计</span>
-            </div>
-          </div>
-
-          <div class="tp-view" id="tpHistory" role="tabpanel" aria-labelledby="tpTabHistory" hidden>
-            <div id="tpHist"></div>
-            <div class="tp-foot">
-              <span class="tp-updated"><svg class="icon" aria-hidden="true"><use href="#i-clock" /></svg>最近会话</span>
-              <span>按会话独立统计</span>
+              <span class="tp-updated"><svg class="icon" aria-hidden="true"><use href="#i-clock" /></svg><span id="tpUpdated">20:47:05 更新</span></span>
+              <span>清空聊天不影响统计</span>
             </div>
           </div>
         </div>
@@ -1198,7 +1217,7 @@
                 <button class="tool-pill active" type="button" aria-pressed="true" title="开启后先由模型生成假设性回答，再据此在知识库中检索">HyDE 搜索</button>
                 <div class="composer-actions">
                   <span class="api-status" title="查询服务连接状态"><span class="api-dot ok"></span>服务已连接</span>
-                  <button class="composer-clear" id="clearHistoryBtn" type="button">清空历史会话</button>
+                  <button class="composer-clear" id="clearHistoryBtn" type="button">清空聊天记录</button>
                   <button class="send" id="sendBtn" type="button" aria-label="发送" title="发送（Enter）">
                     <svg class="icon" aria-hidden="true"><use href="#i-arrow-up" /></svg>
                   </button>
@@ -1212,8 +1231,20 @@
 
       <div class="docs-page" id="viewDocs" hidden>
         <aside class="docs-side">
-          <header class="docs-head"><strong>文档管理</strong><span class="muted">3 个文档</span></header>
-          <ul class="doc-list">
+          <header class="docs-head">
+            <div class="docs-head-main">
+              <strong>文档管理</strong>
+              <span class="muted" id="docsCount">3 个文档</span>
+            </div>
+            <button class="btn btn-accent" id="uploadBtn" type="button">上传文档</button>
+          </header>
+          <div class="import-slot" id="importSlot"></div>
+          <ul class="doc-list" id="docList">
+            <li class="doc-item" id="uploadedDoc" hidden>
+              <span class="doc-icon" aria-hidden="true"><svg class="icon"><use href="#i-doc" /></svg></span>
+              <span class="doc-main"><strong>设备接口图解 v2.pdf</strong><span>1.8 MB · 今天 20:46</span></span>
+              <span class="badge is-completed">已完成</span>
+            </li>
             <li class="doc-item is-active">
               <span class="doc-icon" aria-hidden="true"><svg class="icon"><use href="#i-doc" /></svg></span>
               <span class="doc-main"><strong>华为擎云 S520 用户手册.pdf</strong><span>2.4 MB · 今天 20:38</span></span>
@@ -1268,11 +1299,11 @@
 
   <div class="modal-mask" id="confirmMask" hidden>
     <div class="modal" role="dialog" aria-modal="true" aria-labelledby="confirmTitle" aria-describedby="confirmDesc">
-      <h3 id="confirmTitle">清空历史会话？</h3>
-      <p id="confirmDesc">当前会话的消息与 Token 统计会从 0 重新开始；已往会话的消耗记录保留在「历史会话」中，互不合并。</p>
+      <h3 id="confirmTitle">清空聊天记录？</h3>
+      <p id="confirmDesc">仅清空当前聊天消息与查询阶段卡片；Token 统计绑定本次浏览器会话，仍会保留，不会归零。</p>
       <div class="modal-actions">
         <button class="btn" id="confirmCancel" type="button">取消</button>
-        <button class="btn primary" id="confirmOk" type="button">清空</button>
+        <button class="btn primary" id="confirmOk" type="button">清空记录</button>
       </div>
     </div>
   </div>
@@ -1298,18 +1329,18 @@
       var tpLiveText = document.getElementById("tpLiveText");
       var tpTabs = document.getElementById("tpTabs");
       var tpTabButtons = tpTabs.querySelectorAll(".seg-btn");
-      var tpCurrent = document.getElementById("tpCurrent");
-      var tpHistory = document.getElementById("tpHistory");
+      var tpView = document.getElementById("tpView");
       var tpTotal = document.getElementById("tpTotal");
       var tpTotalBlock = document.getElementById("tpTotalBlock");
+      var tpScopeLabel = document.getElementById("tpScopeLabel");
       var tpStack = document.getElementById("tpStack");
       var tpRows = document.getElementById("tpRows");
       var tpEmpty = document.getElementById("tpEmpty");
+      var tpEmptyText = document.getElementById("tpEmptyText");
       var tpSkeleton = document.getElementById("tpSkeleton");
       var tpError = document.getElementById("tpError");
       var tpRetry = document.getElementById("tpRetry");
       var tpUpdated = document.getElementById("tpUpdated");
-      var tpHist = document.getElementById("tpHist");
 
       var chat = document.getElementById("chat");
       var chatInner = document.getElementById("chatInner");
@@ -1322,6 +1353,11 @@
       var viewChat = document.getElementById("viewChat");
       var viewDocs = document.getElementById("viewDocs");
       var pageTabs = document.querySelectorAll(".navbar .tab");
+
+      var docsCount = document.getElementById("docsCount");
+      var uploadBtn = document.getElementById("uploadBtn");
+      var importSlot = document.getElementById("importSlot");
+      var uploadedDoc = document.getElementById("uploadedDoc");
 
       var confirmMask = document.getElementById("confirmMask");
       var confirmCancel = document.getElementById("confirmCancel");
@@ -1341,55 +1377,67 @@
       /* ==== 文案与 mock 数据 ==== */
       var KINDS = ["llm", "vlm", "embedding", "reranker"];
       var SOURCE_LABEL = { llm: "LLM", vlm: "VLM", embedding: "Embedding", reranker: "Reranker" };
+      var SCOPE_LABEL = { total: "会话总计", query: "查询消耗", upload: "上传消耗" };
+      var SCOPE_EMPTY = {
+        total: "本次访问还没有消耗 Token，发送消息或上传文档后开始统计。",
+        query: "本次访问还没有查询消耗，发送一条消息后开始统计。",
+        upload: "本次访问还没有上传消耗，上传文档后开始统计。"
+      };
       var STEPS = ["意图识别", "向量化查询", "互联网搜索", "HyDE 搜索", "融合排序", "答案输出"];
+      var UPLOAD_STEPS = ["解析文档", "识别文档类别", "图片识别", "分块向量化", "写入向量库"];
+      var UPLOAD_FILE = "设备接口图解 v2.pdf";
+      var UPLOAD_FILE_META = "1.8 MB · 导入任务";
       var WELCOME_TEXT = "你好，我是智能知识库小助手。你可以直接提问，我会在“阶段进度”里展示处理过程。";
       var WELCOME_HINT = "提示：可以问“如何使用万用表测量电压？”";
       var PRIOR_Q = "如何用万用表测量电压？";
       var PRIOR_A = "先用万用表确认量程：旋钮拨到直流电压档，选择高于被测电压的档位，例如 20 V 或 200 V。\n\n把黑表笔插入 COM，红表笔插入 VΩ；红笔接触正极、黑笔接触负极，读数稳定后再记录即可。测量时表笔不要滑动，读数稳定后再松开。";
       var QUERY_Q = "说明书里电源接口的示意图标注了什么？";
       var QUERY_A = "说明书第 12 页的电源接口示意图标注了三处接口：DC 电源输入（19V/3.42A）、USB-C 全功能接口和 HDMI 2.0 输出。\n\n图注还标出了接口旁的指示灯：接入电源后由橙色变为白色，表示正在充电；长时间不亮时，可以检查适配器是否插紧。";
-      var STAGE = { llmIntent: 312, embeddingQuery: 146, llmHyde: 1048, embeddingHyde: 486, reranker: 3264, answerLlm: 1286, vlmImage: 689 };
-      var BASE_USAGE = { llm: 16420, vlm: 1906, embedding: 2642, reranker: 3214 };
-      var DONE_USAGE = { llm: 19066, vlm: 2595, embedding: 3274, reranker: 6478 };
-      var LARGE_USAGE = { llm: 1043280, vlm: 62540, embedding: 88214, reranker: 90568 };
-      var HISTORY_FIXED = [
-        { id: "sess-d3c90e", title: "华为擎云 S520 有什么四指手势？", when: "昨天 18:07", usage: { llm: 9320, vlm: 0, embedding: 1186, reranker: 2430 } },
-        { id: "sess-5b71fa", title: "导入的 PDF 支持哪些格式？", when: "10-27 09:12", usage: { llm: 4180, vlm: 689, embedding: 742, reranker: 980 } },
-        { id: "sess-a24b0d", title: "如何重置 MiniRAG 的索引？", when: "10-26 21:04", usage: { llm: 2864, vlm: 0, embedding: 486, reranker: 0 } }
-      ];
+      var STAGE = {
+        llmIntent: 312,
+        embeddingQuery: 146,
+        llmHyde: 1048,
+        embeddingHyde: 486,
+        reranker: 3264,
+        answerLlm: 1286,
+        vlmImage: 689,
+        uploadLlm: 486,
+        uploadVlm: 1264,
+        uploadEmbedding: 3842
+      };
+      var QUERY_BASE = { llm: 16420, vlm: 1906, embedding: 2642, reranker: 3214 };
+      var UPLOAD_BASE = { llm: 1486, vlm: 2264, embedding: 7848, reranker: 0 };
+      var QUERY_DONE = { llm: 19066, vlm: 2595, embedding: 3274, reranker: 6478 };
+      var UPLOAD_DONE = { llm: 1972, vlm: 3528, embedding: 11690, reranker: 0 };
+      var LARGE_QUERY = { llm: 842000, vlm: 52000, embedding: 78000, reranker: 96000 };
+      var LARGE_UPLOAD = { llm: 61280, vlm: 10540, embedding: 144782, reranker: 0 };
       var STATES = [
-        { key: "empty", label: "新会话", title: "清空后的新会话：四类消耗均为 0" },
-        { key: "live", label: "实时累加", title: "发送查询后观察 NavBar 数字随阶段跳变" },
-        { key: "done", label: "已有数据", title: "一次查询结束后的结算状态" },
+        { key: "empty", label: "空统计", title: "模拟新的浏览器会话：查询与上传消耗均为 0" },
+        { key: "live", label: "查询累加", title: "发送查询后观察 NavBar 数字随阶段跳变" },
+        { key: "upload", label: "上传累加", title: "模拟上传文档：LLM / VLM / Embedding 计入「上传消耗」" },
+        { key: "done", label: "已有数据", title: "查询 + 上传后的会话总计，三个口径可切换" },
         { key: "loading", label: "加载中", title: "打开面板首次拉取统计" },
         { key: "error", label: "统计失败", title: "面板展示加载失败与重试" },
         { key: "large", label: "大数值", title: "百万级 Token 的排版" }
       ];
-      var STATE_KEYS = { empty: 1, live: 1, done: 1, loading: 1, error: 1, large: 1 };
-      var BADGE = {
-        empty: { text: "已同步", cls: "is-idle" },
-        live: { text: "实时", cls: "is-processing" },
-        done: { text: "已同步", cls: "is-completed" },
-        loading: { text: "统计中", cls: "is-processing" },
-        error: { text: "同步失败", cls: "is-error" },
-        large: { text: "已同步", cls: "is-completed" }
-      };
-      var NEXT_SESSION_IDS = ["sess-4b7e19", "sess-91c2d0", "sess-77a0f3"];
+      var STATE_KEYS = { empty: 1, live: 1, upload: 1, done: 1, loading: 1, error: 1, large: 1 };
+      var BROWSER_SESSION = "bsess-8f2a1c";
+      var EMPTY_BROWSER_SESSION = "bsess-4b7e19";
       var THEME_KEY = "minicrag-preview-theme";
 
       /* ==== 运行时状态 ==== */
-      var usage = copyUsage(BASE_USAGE);
+      var usage = { query: copyUsage(QUERY_BASE), upload: copyUsage(UPLOAD_BASE) };
+      var browserSession = BROWSER_SESSION;
+      var hasChatHistory = true;
       var state = "done";
       var panelOpen = false;
-      var panelTab = "current";
+      var panelScope = "total";
       var chatMode = "settled";
-      var currentSession = null;
-      var history = [];
       var flow = null;
       var paused = false;
       var streamTimer = 0;
       var timers = [];
-      var sessionSeq = 0;
+      var uploadedDocShown = false;
       var confirmTrigger = null;
       var lastBump = 0;
       var numEls = [];
@@ -1416,8 +1464,27 @@
         return { llm: 0, vlm: 0, embedding: 0, reranker: 0 };
       }
 
+      function addUsage(a, b) {
+        return {
+          llm: a.llm + b.llm,
+          vlm: a.vlm + b.vlm,
+          embedding: a.embedding + b.embedding,
+          reranker: a.reranker + b.reranker
+        };
+      }
+
       function totalOf(u) {
         return u.llm + u.vlm + u.embedding + u.reranker;
+      }
+
+      function scopeUsage(scope) {
+        if (scope === "query") return usage.query;
+        if (scope === "upload") return usage.upload;
+        return addUsage(usage.query, usage.upload);
+      }
+
+      function sessionUsage() {
+        return addUsage(usage.query, usage.upload);
       }
 
       function esc(s) {
@@ -1530,14 +1597,6 @@
         window.setTimeout(function () { el.remove(); }, 2800);
       }
 
-      /* ==== 会话数据 ==== */
-      function standardSession() {
-        currentSession = { id: "sess-8f2a1c", title: PRIOR_Q, when: "今天 20:41", hasPrior: true };
-        history = HISTORY_FIXED.map(function (item) {
-          return { id: item.id, title: item.title, when: item.when, usage: copyUsage(item.usage) };
-        });
-      }
-
       /* ==== 对话渲染 ==== */
       function paragraphHtml(text) {
         return text.split("\n\n").map(function (p) {
@@ -1595,7 +1654,7 @@
         if (chatMode === "welcome") {
           html += welcomeHtml();
         } else {
-          if (currentSession && currentSession.hasPrior) {
+          if (hasChatHistory) {
             html += userHtml(PRIOR_Q, "20:41");
             html += botHtml('<div class="answer">' + paragraphHtml(PRIOR_A) + "</div>", "20:41");
           } else {
@@ -1604,7 +1663,7 @@
           if (chatMode === "settled") {
             html += userHtml(QUERY_Q, "20:43");
             html += botHtml('<div class="answer">' + paragraphHtml(QUERY_A) + "</div>" + figureHtml(false), "20:43");
-          } else if (chatMode === "query" && flow) {
+          } else if (chatMode === "query" && flow && flow.type === "query") {
             html += userHtml(flow.question, "20:43");
             html += liveBotHtml();
           }
@@ -1617,7 +1676,7 @@
         window.requestAnimationFrame(function () { chat.scrollTop = chat.scrollHeight; });
       }
 
-      /* ==== 阶段进度卡片 ==== */
+      /* ==== 查询阶段卡片 ==== */
       function runningStep() {
         if (!flow) return "";
         if (flow.phase === "answer") return "答案输出";
@@ -1630,32 +1689,86 @@
         return '<svg class="icon" aria-hidden="true"><use href="#i-circle" /></svg>';
       }
 
-      function renderTask() {
-        if (!flow) {
-          taskSlot.innerHTML = "";
-          return;
-        }
-        var done = flow.phase === "done";
+      var taskCard = null;
+
+      function stepIconId(kind) {
+        if (kind === "done") return "#i-check";
+        if (kind === "running") return "#i-spinner";
+        return "#i-circle";
+      }
+
+      /** 卡片只建一次，后续只改状态；避免重播 task-in 入场动画、丢失折叠状态 */
+      function buildTaskCard() {
         var items = "";
         for (var i = 0; i < STEPS.length; i++) {
-          var kind = done || i < flow.completed ? "done" : i === flow.completed ? "running" : "pending";
-          var note = i === 5 && flow.vlmAdded ? '<span class="step-note">含说明书插图识别</span>' : "";
-          items += '<li class="step ' + kind + '">' + stepIcon(kind) +
-            "<span>" + STEPS[i] + note + "</span></li>";
+          items += '<li class="step pending">' +
+            '<svg class="icon" aria-hidden="true"><use href="#i-circle" /></svg>' +
+            "<span>" + STEPS[i] +
+            (i === 5 ? '<span class="step-note" hidden>含说明书插图识别</span>' : "") +
+            "</span></li>";
         }
-        taskSlot.innerHTML = '<div class="task-bar' + (done ? " task-bar--closable" : "") + '">' +
+        taskSlot.innerHTML = '<div class="task-bar">' +
           '<details class="progress" open><summary>' +
           '<span class="progress-title">阶段进度</span>' +
-          '<span class="progress-count">' + (done ? "（已完成）" : "（进行中：" + runningStep() + "…）") + "</span>" +
-          "</summary><ul>" + items + "</ul></details>" +
-          (done
-            ? '<button class="task-close" type="button" data-task-close aria-label="关闭任务状态卡片" title="关闭"><svg class="icon" aria-hidden="true"><use href="#i-x" /></svg></button>'
-            : "") +
-          "</div>";
+          '<span class="progress-count"></span>' +
+          "</summary><ul>" + items + "</ul></details></div>";
+        var steps = [];
+        var lis = taskSlot.querySelectorAll(".step");
+        for (var j = 0; j < lis.length; j++) {
+          steps.push({
+            li: lis[j],
+            svg: lis[j].querySelector("svg"),
+            use: lis[j].querySelector("use"),
+            note: lis[j].querySelector(".step-note")
+          });
+        }
+        taskCard = {
+          flow: flow,
+          bar: taskSlot.querySelector(".task-bar"),
+          status: taskSlot.querySelector(".progress-count"),
+          steps: steps,
+          close: null
+        };
+        var bar = taskCard.bar;
+        window.setTimeout(function () {
+          if (taskCard && taskCard.bar === bar) bar.classList.add("is-entered");
+        }, 280);
+      }
+
+      function renderTask() {
+        if (!flow || flow.type !== "query") {
+          taskSlot.innerHTML = "";
+          taskCard = null;
+          return;
+        }
+        if (!taskCard || taskCard.flow !== flow) buildTaskCard();
+        var done = flow.phase === "done";
+        taskCard.bar.classList.toggle("task-bar--closable", done);
+        taskCard.status.textContent = done ? "（已完成）" : "（进行中：" + runningStep() + "…）";
+        for (var i = 0; i < STEPS.length; i++) {
+          var kind = done || i < flow.completed ? "done" : i === flow.completed ? "running" : "pending";
+          var item = taskCard.steps[i];
+          item.li.className = "step " + kind;
+          item.use.setAttribute("href", stepIconId(kind));
+          item.svg.classList.toggle("spin", kind === "running");
+          if (item.note) item.note.hidden = !flow.vlmAdded;
+        }
+        if (done && !taskCard.close) {
+          var btn = document.createElement("button");
+          btn.type = "button";
+          btn.className = "task-close";
+          btn.setAttribute("data-task-close", "");
+          btn.setAttribute("aria-label", "关闭任务状态卡片");
+          btn.title = "关闭";
+          btn.innerHTML = '<svg class="icon" aria-hidden="true"><use href="#i-x" /></svg>';
+          taskCard.bar.appendChild(btn);
+          taskCard.close = btn;
+        }
       }
 
       function clearTask() {
         taskSlot.innerHTML = "";
+        taskCard = null;
       }
 
       taskSlot.addEventListener("click", function (e) {
@@ -1663,13 +1776,82 @@
         if (btn) clearTask();
       });
 
-      /* ==== 流程节奏 ==== */
+      /* ==== 文档导入（上传消耗来源） ==== */
+      function renderDocs() {
+        uploadedDoc.hidden = !uploadedDocShown;
+        docsCount.textContent = (3 + (uploadedDocShown ? 1 : 0)) + " 个文档";
+      }
+
+      function updateUploadButton() {
+        if (flowRunning() && flow.type === "upload") {
+          uploadBtn.disabled = true;
+          uploadBtn.textContent = "上传中…";
+          return;
+        }
+        if (uploadedDocShown) {
+          uploadBtn.disabled = true;
+          uploadBtn.textContent = "已上传";
+          return;
+        }
+        if (flowRunning()) {
+          uploadBtn.disabled = true;
+          uploadBtn.textContent = "查询中…";
+          return;
+        }
+        uploadBtn.disabled = false;
+        uploadBtn.textContent = "上传文档";
+      }
+
+      function importRunningLabel() {
+        if (!flow || flow.type !== "upload") return "";
+        if (flow.phase === "done") return "已完成";
+        return UPLOAD_STEPS[Math.min(flow.step, UPLOAD_STEPS.length - 1)] + "…";
+      }
+
+      function importProgress() {
+        if (!flow) return 0;
+        if (flow.phase === "done") return 100;
+        return [8, 30, 52, 78, 94][Math.min(flow.step, 4)];
+      }
+
+      function renderImport() {
+        if (!flow || flow.type !== "upload") {
+          importSlot.innerHTML = "";
+          return;
+        }
+        var done = flow.phase === "done";
+        var items = "";
+        for (var i = 0; i < UPLOAD_STEPS.length; i++) {
+          var kind = done || i < flow.step ? "done" : i === flow.step ? "running" : "pending";
+          items += '<li class="import-step ' + kind + '">' + stepIcon(kind) + "<span>" + UPLOAD_STEPS[i] + "</span></li>";
+        }
+        importSlot.innerHTML = '<div class="import-card">' +
+          '<div class="import-head">' +
+          '<span class="import-icon" aria-hidden="true"><svg class="icon"><use href="#i-doc" /></svg></span>' +
+          '<span class="import-main"><strong>' + esc(UPLOAD_FILE) + "</strong><span>" + esc(UPLOAD_FILE_META) + "</span></span>" +
+          '<span class="badge ' + (done ? "is-completed" : "is-processing") + '"><span class="badge-dot" aria-hidden="true"></span>' +
+          (done ? "已完成" : "处理中") + "</span>" +
+          (done ? '<button class="import-close" type="button" data-import-close aria-label="关闭导入任务" title="关闭">×</button>' : "") +
+          "</div>" +
+          '<ol class="import-steps">' + items + "</ol>" +
+          '<div class="import-foot"><span>本次上传 <b>+' + fmt(flow.added) + "</b> tokens</span><span>" + importRunningLabel() + "</span></div>" +
+          '<div class="import-bar"><span style="width: ' + importProgress() + '%"></span></div>' +
+          "</div>";
+      }
+
+      importSlot.addEventListener("click", function (e) {
+        var btn = e.target.closest ? e.target.closest("[data-import-close]") : null;
+        if (btn) importSlot.innerHTML = "";
+      });
+
+      /* ==== 流程 ==== */
       function manualAnswer(question) {
         return "关于「" + question + "」：知识库中匹配到 3 篇相关文档。建议先确认设备型号与固件版本，再按说明书对应章节操作；如果涉及接口或屏幕画面，可以补充图片后再提问，系统会结合插图给出更准确的说明。";
       }
 
-      function makeFlow(question, hasImage) {
+      function makeQueryFlow(question, hasImage) {
         return {
+          type: "query",
           question: question,
           answer: hasImage ? QUERY_A : manualAnswer(question),
           hasImage: !!hasImage,
@@ -1690,8 +1872,33 @@
         };
       }
 
+      function makeUploadFlow() {
+        return {
+          type: "upload",
+          beats: [
+            { delay: 520, step: 1, add: null },
+            { delay: 640, step: 2, add: { llm: STAGE.uploadLlm } },
+            { delay: 720, step: 3, add: { vlm: STAGE.uploadVlm } },
+            { delay: 760, step: 4, add: { embedding: STAGE.uploadEmbedding } },
+            { delay: 520, step: 5, add: null, finish: true }
+          ],
+          index: 0,
+          step: 0,
+          added: 0,
+          phase: "steps"
+        };
+      }
+
+      function staticDoneFlow() {
+        var f = makeQueryFlow(QUERY_Q, true);
+        f.phase = "done";
+        f.completed = STEPS.length;
+        f.vlmAdded = true;
+        return f;
+      }
+
       function flowRunning() {
-        return state === "live" && !!flow && flow.phase !== "done";
+        return (state === "live" || state === "upload") && !!flow && flow.phase !== "done";
       }
 
       function bumpChip() {
@@ -1731,8 +1938,9 @@
         });
       }
 
-      function applyAdd(add, showDeltaBubble) {
+      function applyAdd(scope, add, opts) {
         if (!add) return;
+        opts = opts || {};
         var kinds = [];
         var amount = 0;
         KINDS.forEach(function (kind) {
@@ -1740,19 +1948,19 @@
           if (v > 0) {
             kinds.push(kind);
             amount += v;
-            usage[kind] += v;
+            usage[scope][kind] += v;
           }
         });
         if (!kinds.length) return;
+        if (flow && flow.type === "upload" && scope === "upload") flow.added += amount;
         bumpChip();
         renderChip(true);
         if (panelOpen) {
           renderPanelNumbers(true);
-          flashRows(kinds);
-        } else if (showDeltaBubble) {
+          if (opts.flash !== false && (panelScope === "total" || panelScope === scope)) flashRows(kinds);
+        } else if (opts.delta !== false) {
           showDelta(kinds, amount);
         }
-        syncHistoryCurrent();
       }
 
       function scheduleBeat() {
@@ -1761,15 +1969,25 @@
         later(function () {
           if (!flow || flow.phase !== "steps") return;
           flow.index += 1;
-          flow.completed = beat.done;
-          applyAdd(beat.add, true);
+          if (beat.done != null) flow.completed = beat.done;
+          if (beat.step != null) flow.step = beat.step;
+          if (beat.add) applyAdd(flow.type, beat.add, { delta: true, flash: true });
           if (beat.answer) {
             flow.phase = "answer";
             renderTask();
             startStream();
             return;
           }
-          renderTask();
+          if (beat.finish) {
+            finishUpload();
+            return;
+          }
+          if (flow.type === "upload") {
+            renderImport();
+            updateUploadButton();
+          } else {
+            renderTask();
+          }
           scheduleBeat();
         }, beat.delay);
       }
@@ -1800,12 +2018,8 @@
         if (chat.scrollHeight - chat.scrollTop - chat.clientHeight < 80) chat.scrollTop = chat.scrollHeight;
         var target = Math.round(STAGE.answerLlm * flow.streamPos / chars.length);
         if (target > flow.streamAdded) {
-          usage.llm += target - flow.streamAdded;
+          applyAdd("query", { llm: target - flow.streamAdded }, { delta: false, flash: false });
           flow.streamAdded = target;
-          bumpChip();
-          renderChip(true);
-          if (panelOpen) renderPanelNumbers(true);
-          syncHistoryCurrent();
         }
         if (flow.streamPos >= chars.length) {
           stopStreamTimer();
@@ -1819,29 +2033,32 @@
         if (answer) answer.classList.remove("is-streaming", "is-paused");
         if (flow.hasImage && !flow.vlmAdded) {
           flow.vlmAdded = true;
-          usage.vlm += STAGE.vlmImage;
-          bumpChip();
-          renderChip(true);
-          if (panelOpen) {
-            renderPanelNumbers(true);
-            flashRows(["vlm"]);
-          } else {
-            showDelta(["vlm"], STAGE.vlmImage);
-          }
+          applyAdd("query", { vlm: STAGE.vlmImage }, { delta: true, flash: true });
           var figure = document.getElementById("liveFigure");
           if (figure) figure.hidden = false;
-          syncHistoryCurrent();
         }
         var meta = document.getElementById("liveMeta");
         if (meta) meta.textContent = "20:43";
         flow.phase = "done";
         paused = false;
-        state = "done";
         renderTask();
         renderAll(false);
         if (panelOpen) renderPanel();
         updateSendState();
         scrollChat();
+      }
+
+      function finishUpload() {
+        if (!flow || flow.type !== "upload") return;
+        flow.phase = "done";
+        flow.step = UPLOAD_STEPS.length;
+        uploadedDocShown = true;
+        renderDocs();
+        renderImport();
+        updateUploadButton();
+        renderAll(false);
+        if (panelOpen) renderPanel();
+        toast("《" + UPLOAD_FILE + "》已入库 · 本次上传消耗 " + fmt(flow.added) + " tokens", "success");
       }
 
       function pauseFlow() {
@@ -1856,7 +2073,7 @@
       }
 
       function resumeFlow() {
-        if (state !== "live" || !flow || flow.phase === "done") return;
+        if (!flowRunning()) return;
         paused = false;
         var answer = document.getElementById("liveAnswer");
         if (answer) answer.classList.remove("is-paused");
@@ -1865,25 +2082,36 @@
         else scheduleBeat();
       }
 
-      function startFlow(question, hasImage) {
-        flow = makeFlow(question, hasImage);
+      function startQueryFlow(question, hasImage) {
+        flow = makeQueryFlow(question, hasImage);
         chatMode = "query";
         renderChat();
         renderTask();
+        scheduleBeat();
+        updateSendState();
+      }
+
+      function startUploadFlow() {
+        flow = makeUploadFlow();
+        state = "upload";
+        renderImport();
+        updateUploadButton();
+        renderAll(false);
+        if (panelOpen) renderPanel();
         scheduleBeat();
       }
 
       function freezeLive() {
         paused = true;
-        flow = makeFlow(QUERY_Q, true);
+        flow = makeQueryFlow(QUERY_Q, true);
         flow.completed = 5;
         flow.phase = "answer";
         flow.streamPos = 46;
         flow.streamAdded = Math.round(STAGE.answerLlm * flow.streamPos / Array.from(flow.answer).length);
-        usage = copyUsage(BASE_USAGE);
-        usage.llm += STAGE.llmIntent + STAGE.llmHyde + flow.streamAdded;
-        usage.embedding += STAGE.embeddingQuery + STAGE.embeddingHyde;
-        usage.reranker += STAGE.reranker;
+        usage.query = copyUsage(QUERY_BASE);
+        usage.query.llm += STAGE.llmIntent + STAGE.llmHyde + flow.streamAdded;
+        usage.query.embedding += STAGE.embeddingQuery + STAGE.embeddingHyde;
+        usage.query.reranker += STAGE.reranker;
         chatMode = "query";
         renderChat();
         var typing = document.getElementById("liveTyping");
@@ -1900,6 +2128,23 @@
         updateSendState();
       }
 
+      function freezeUpload() {
+        paused = true;
+        state = "upload";
+        flow = makeUploadFlow();
+        flow.step = 3;
+        flow.index = 3;
+        flow.added = STAGE.uploadLlm + STAGE.uploadVlm;
+        usage.upload = copyUsage(UPLOAD_BASE);
+        usage.upload.llm += STAGE.uploadLlm;
+        usage.upload.vlm += STAGE.uploadVlm;
+        switchPage("docs");
+        renderImport();
+        updateUploadButton();
+        renderAll(false);
+        if (panelOpen) renderPanel();
+      }
+
       /* ==== NavBar 指示器 ==== */
       function renderChip(animate) {
         var unknown = state === "loading" || state === "error";
@@ -1911,11 +2156,11 @@
           chipTotal._num = undefined;
           chipTotal.textContent = "—";
         } else {
-          setNumber(chipTotal, totalOf(usage), animate);
+          setNumber(chipTotal, totalOf(sessionUsage()), animate);
         }
-        renderBar(chipSpark, usage);
+        renderBar(chipSpark, sessionUsage());
         chip.classList.toggle("is-live", flowRunning());
-        var label = unknown ? "本次会话 Token 统计不可用" : "本次会话 Token 消耗 " + fmt(totalOf(usage));
+        var label = unknown ? "本次访问 Token 统计不可用" : "本次访问 Token 消耗 " + fmt(totalOf(sessionUsage()));
         chip.setAttribute("aria-label", label + "，点击查看明细");
       }
 
@@ -1933,21 +2178,24 @@
       }
 
       function badgeMeta() {
-        return BADGE[state] || BADGE.done;
+        if (state === "loading") return { text: "统计中", cls: "is-processing" };
+        if (state === "error") return { text: "同步失败", cls: "is-error" };
+        if (flowRunning()) return { text: "实时", cls: "is-processing" };
+        return { text: "已同步", cls: "is-completed" };
       }
 
       function updatedCopy() {
         if (state === "loading") return "正在统计…";
-        if (state === "error") return "上次同步 20:43:12";
+        if (state === "error") return "上次同步 20:47:05";
         if (state === "empty") return "刚刚更新";
-        if (state === "live") return "正在更新…";
-        return "20:43:12 更新";
+        if (flowRunning()) return "正在更新…";
+        return "20:47:05 更新";
       }
 
-      function renderRows(animate) {
-        var total = totalOf(usage);
+      function renderRows(scoped, animate) {
+        var total = totalOf(scoped);
         KINDS.forEach(function (kind) {
-          var v = usage[kind];
+          var v = scoped[kind];
           var pct = total > 0 ? (v / total) * 100 : 0;
           setNumber(rowVals[kind], v, animate);
           rowPcts[kind].textContent = pct.toFixed(1) + "%";
@@ -1956,33 +2204,42 @@
       }
 
       function renderPanelNumbers(animate) {
-        setNumber(tpTotal, totalOf(usage), animate);
-        renderBar(tpStack, usage);
-        renderRows(animate);
+        if (!panelOpen) return;
+        if (state === "loading" || state === "error") return;
+        var scoped = scopeUsage(panelScope);
+        var total = totalOf(scoped);
+        setNumber(tpTotal, total, animate);
+        renderBar(tpStack, scoped);
+        renderRows(scoped, animate);
+        tpScopeLabel.textContent = SCOPE_LABEL[panelScope];
+        tpEmpty.hidden = total !== 0;
+        tpEmptyText.textContent = SCOPE_EMPTY[panelScope];
       }
 
       function renderPanel() {
         if (!panelOpen) return;
-        tpSession.textContent = currentSession ? currentSession.id : "—";
+        tpSession.textContent = "浏览器会话 · " + browserSession;
         var meta = badgeMeta();
         tpLive.className = "badge tp-live " + meta.cls;
         tpLiveText.textContent = meta.text;
         var loading = state === "loading";
         var failed = state === "error";
-        var total = totalOf(usage);
+        var scoped = scopeUsage(panelScope);
+        var total = totalOf(scoped);
         var empty = !loading && !failed && total === 0;
         tpSkeleton.hidden = !loading;
         tpError.hidden = !failed;
         tpTotalBlock.hidden = loading || failed;
         tpRows.hidden = loading || failed;
         tpEmpty.hidden = !empty;
+        tpScopeLabel.textContent = SCOPE_LABEL[panelScope];
+        tpEmptyText.textContent = SCOPE_EMPTY[panelScope];
         if (!loading && !failed) {
           setNumber(tpTotal, total, false);
-          renderBar(tpStack, usage);
-          renderRows(false);
+          renderBar(tpStack, scoped);
+          renderRows(scoped, false);
         }
         tpUpdated.textContent = updatedCopy();
-        if (panelTab === "history") renderHistory();
       }
 
       function openPanel() {
@@ -2005,6 +2262,20 @@
         if (refocus) chip.focus();
       }
 
+      function syncScopeTabs() {
+        tpTabs.setAttribute("data-scope", panelScope);
+        var labelledBy = "tpTabTotal";
+        for (var i = 0; i < tpTabButtons.length; i++) {
+          var btn = tpTabButtons[i];
+          var on = btn.getAttribute("data-scope") === panelScope;
+          btn.classList.toggle("active", on);
+          btn.setAttribute("aria-selected", String(on));
+          btn.tabIndex = on ? 0 : -1;
+          if (on) labelledBy = btn.id;
+        }
+        tpView.setAttribute("aria-labelledby", labelledBy);
+      }
+
       chip.addEventListener("click", function () {
         if (panelOpen) closePanel(false);
         else openPanel();
@@ -2012,19 +2283,12 @@
 
       tpClose.addEventListener("click", function () { closePanel(true); });
 
-      tpRetry.addEventListener("click", function () {
-        if (state !== "error") return;
-        clearTimers();
-        state = "loading";
-        renderAll(false);
-        renderPanel();
-        toast("正在重新统计本次会话…");
-        later(function () {
-          state = "done";
-          renderAll(false);
-          if (panelOpen) renderPanel();
-          toast("Token 统计已恢复", "success");
-        }, 1100);
+      tpTabButtons.forEach(function (btn) {
+        btn.addEventListener("click", function () {
+          panelScope = btn.getAttribute("data-scope");
+          syncScopeTabs();
+          renderPanel();
+        });
       });
 
       document.addEventListener("pointerdown", function (e) {
@@ -2036,86 +2300,19 @@
         if (panelOpen) positionPanel();
       });
 
-      tpTabButtons.forEach(function (btn) {
-        btn.addEventListener("click", function () {
-          panelTab = btn.getAttribute("data-tab");
-          syncTabs();
-          renderPanel();
-        });
-      });
-
-      function syncTabs() {
-        tpTabs.setAttribute("data-tab", panelTab);
-        for (var i = 0; i < tpTabButtons.length; i++) {
-          var btn = tpTabButtons[i];
-          var on = btn.getAttribute("data-tab") === panelTab;
-          btn.classList.toggle("active", on);
-          btn.setAttribute("aria-selected", String(on));
-          btn.tabIndex = on ? 0 : -1;
-        }
-        tpCurrent.hidden = panelTab !== "current";
-        tpHistory.hidden = panelTab !== "history";
-      }
-
-      /* ==== 历史会话 ==== */
-      function histGridHtml(u) {
-        return '<div class="tp-hist-grid">' + KINDS.map(function (kind) {
-          return "<span>" + SOURCE_LABEL[kind] + "<strong>" + fmt(u[kind]) + "</strong></span>";
-        }).join("") + "</div>";
-      }
-
-      function fillHistGrid(el, u) {
-        el.innerHTML = histGridHtml(u);
-      }
-
-      function renderHistory() {
-        var items = [{
-          current: true,
-          id: currentSession ? currentSession.id : "—",
-          title: currentSession ? currentSession.title : "—",
-          when: "今天 20:43",
-          usage: usage
-        }].concat(history);
-        var html = '<p class="tp-hist-hint">每个会话独立统计，互不合并；点击会话查看四类消耗。</p><ul class="tp-hist">';
-        items.forEach(function (item, idx) {
-          var u = item.usage || zeroUsage();
-          html += '<li class="tp-hist-item' + (item.current ? " is-current" : "") + '"' +
-            (item.current ? ' data-current="1"' : "") + ' data-hist="' + idx + '">' +
-            '<button class="tp-hist-head" type="button" aria-expanded="false">' +
-            '<span class="tp-hist-main">' +
-            '<span class="tp-hist-title"><span class="tp-hist-text">' + esc(item.title) + "</span>" +
-            (item.current ? '<span class="badge is-processing tp-current-badge">当前</span>' : "") +
-            "</span>" +
-            '<span class="tp-hist-meta">' + esc(item.id) + " · " + esc(item.when) + "</span>" +
-            "</span>" +
-            '<span class="tp-hist-total token-num">' + fmt(totalOf(u)) + "</span>" +
-            '<svg class="icon tp-hist-caret" aria-hidden="true"><use href="#i-chevron" /></svg>' +
-            "</button>" +
-            '<div class="tp-hist-detail" hidden>' + histGridHtml(u) + "</div>" +
-            "</li>";
-        });
-        html += "</ul>";
-        tpHist.innerHTML = html;
-      }
-
-      function syncHistoryCurrent() {
-        if (!panelOpen || panelTab !== "history") return;
-        var item = tpHist.querySelector('[data-current="1"]');
-        if (!item) return;
-        var totalEl = item.querySelector(".tp-hist-total");
-        if (totalEl) totalEl.textContent = fmt(totalOf(usage));
-        var detail = item.querySelector(".tp-hist-detail");
-        if (detail && !detail.hidden) fillHistGrid(detail, usage);
-      }
-
-      tpHist.addEventListener("click", function (e) {
-        var head = e.target.closest ? e.target.closest(".tp-hist-head") : null;
-        if (!head) return;
-        var item = head.parentNode;
-        var open = item.classList.toggle("is-open");
-        head.setAttribute("aria-expanded", String(open));
-        var detail = item.querySelector(".tp-hist-detail");
-        if (detail) detail.hidden = !open;
+      tpRetry.addEventListener("click", function () {
+        if (state !== "error") return;
+        clearTimers();
+        state = "loading";
+        renderAll(false);
+        renderPanel();
+        toast("正在重新统计本次访问…");
+        later(function () {
+          state = "done";
+          renderAll(false);
+          if (panelOpen) renderPanel();
+          toast("Token 统计已恢复", "success");
+        }, 1100);
       });
 
       /* ==== 演示状态 ==== */
@@ -2124,6 +2321,7 @@
         updateDemoActive();
         updateAutoBtn();
         updateSendState();
+        updateUploadButton();
       }
 
       function updateDemoActive() {
@@ -2136,13 +2334,30 @@
       function updateAutoBtn() {
         autoBtn.textContent = paused ? "自动播放" : "暂停";
         autoBtn.setAttribute("aria-pressed", String(!paused));
-        autoBtn.disabled = state !== "live" || !flow || flow.phase === "done";
+        autoBtn.disabled = !flowRunning();
       }
 
       function updateSendState() {
         var busy = flowRunning();
         sendBtn.disabled = busy;
-        sendBtn.title = busy ? "生成中…" : "发送（Enter）";
+        sendBtn.title = busy ? "处理中…" : "发送（Enter）";
+      }
+
+      function clearChatHistory() {
+        var uploadRunning = flow && flow.type === "upload" && flow.phase !== "done";
+        if (!uploadRunning) {
+          clearTimers();
+          stopStreamTimer();
+          flow = null;
+          paused = false;
+        }
+        hasChatHistory = false;
+        chatMode = "welcome";
+        renderChat();
+        clearTask();
+        renderAll(false);
+        if (panelOpen) renderPanel();
+        toast("已清空聊天记录，Token 统计保留在本次浏览器会话中", "success");
       }
 
       function applyState(key, opts) {
@@ -2153,42 +2368,47 @@
         flow = null;
         paused = false;
         state = key;
-        panelTab = "current";
+        panelScope = "total";
         chip.classList.remove("is-bump");
         chatMode = "settled";
+        hasChatHistory = true;
+        browserSession = BROWSER_SESSION;
+        uploadedDocShown = false;
 
         if (key === "empty") {
-          standardSession();
-          history = [{ id: currentSession.id, title: currentSession.title, when: "今天 20:43", usage: copyUsage(BASE_USAGE) }].concat(history);
-          currentSession = { id: NEXT_SESSION_IDS[0], title: "新的会话", when: "今天 20:44", hasPrior: false };
-          usage = zeroUsage();
+          usage = { query: zeroUsage(), upload: zeroUsage() };
+          browserSession = EMPTY_BROWSER_SESSION;
           chatMode = "welcome";
+          hasChatHistory = false;
           clearTask();
         } else if (key === "live") {
-          standardSession();
-          usage = copyUsage(BASE_USAGE);
+          usage = { query: copyUsage(QUERY_BASE), upload: copyUsage(UPLOAD_BASE) };
           chatMode = "prior";
           clearTask();
-        } else if (key === "large") {
-          standardSession();
-          usage = copyUsage(LARGE_USAGE);
+        } else if (key === "upload") {
+          usage = { query: copyUsage(QUERY_DONE), upload: copyUsage(UPLOAD_BASE) };
+          chatMode = "settled";
           clearTask();
-        } else if (key === "loading" || key === "error") {
-          standardSession();
-          usage = copyUsage(DONE_USAGE);
+        } else if (key === "done") {
+          usage = { query: copyUsage(QUERY_DONE), upload: copyUsage(UPLOAD_DONE) };
+          uploadedDocShown = true;
+          flow = staticDoneFlow();
+          renderTask();
+        } else if (key === "large") {
+          usage = { query: copyUsage(LARGE_QUERY), upload: copyUsage(LARGE_UPLOAD) };
+          uploadedDocShown = true;
           clearTask();
         } else {
-          standardSession();
-          usage = copyUsage(DONE_USAGE);
-          flow = makeFlow(QUERY_Q, true);
-          flow.phase = "done";
-          flow.completed = STEPS.length;
-          flow.vlmAdded = true;
-          renderTask();
+          usage = { query: copyUsage(QUERY_DONE), upload: copyUsage(UPLOAD_DONE) };
+          uploadedDocShown = true;
+          clearTask();
         }
 
+        renderDocs();
         renderChat();
-        syncTabs();
+        renderImport();
+        syncScopeTabs();
+        updateUploadButton();
 
         var wantPanel = key === "empty" || key === "loading" || key === "error";
         panelOpen = wantPanel;
@@ -2199,12 +2419,21 @@
         renderAll(false);
         if (panelOpen) renderPanel();
 
+        if (opts.switchPage !== false) switchPage(key === "upload" ? "docs" : "chat");
+
         if (key === "live") {
           if (opts.autoLive === false) {
             freezeLive();
           } else {
-            startFlow(QUERY_Q, true);
+            startQueryFlow(QUERY_Q, true);
             renderAll(false);
+          }
+        }
+        if (key === "upload") {
+          if (opts.autoLive === false) {
+            freezeUpload();
+          } else {
+            startUploadFlow();
           }
         }
         updateSendState();
@@ -2221,18 +2450,16 @@
         var text = composerInput.value.trim();
         if (!text) return;
         if (flowRunning()) {
-          toast("正在生成中，请稍候");
+          toast("正在处理中，请稍候");
           return;
         }
         composerInput.value = "";
         resizeComposer();
-        if (currentSession && currentSession.title === "新的会话") currentSession.title = text;
         clearTimers();
         stopStreamTimer();
         state = "live";
         paused = false;
-        chatMode = "query";
-        startFlow(text, false);
+        startQueryFlow(text, false);
         renderAll(false);
         if (panelOpen) renderPanel();
         updateSendState();
@@ -2247,7 +2474,21 @@
       });
       sendBtn.addEventListener("click", sendMessage);
 
-      /* ==== 清空历史会话 ==== */
+      /* ==== 上传文档（手动触发，追加到当前浏览器会话） ==== */
+      uploadBtn.addEventListener("click", function () {
+        if (flowRunning() || uploadedDocShown) return;
+        clearTimers();
+        stopStreamTimer();
+        flow = null;
+        state = "upload";
+        paused = false;
+        renderImport();
+        updateUploadButton();
+        renderAll(false);
+        startUploadFlow();
+      });
+
+      /* ==== 清空聊天记录（不影响 Token 统计） ==== */
       function openConfirm(trigger) {
         confirmTrigger = trigger || null;
         confirmMask.hidden = false;
@@ -2268,41 +2509,8 @@
       });
       confirmOk.addEventListener("click", function () {
         closeConfirm(true);
-        clearSession();
+        clearChatHistory();
       });
-
-      function clearSession() {
-        clearTimers();
-        stopStreamTimer();
-        cancelTweens();
-        flow = null;
-        paused = true;
-        chip.classList.remove("is-bump");
-        if (currentSession && totalOf(usage) > 0) {
-          history.unshift({ id: currentSession.id, title: currentSession.title, when: "今天 20:43", usage: copyUsage(usage) });
-        }
-        currentSession = {
-          id: NEXT_SESSION_IDS[sessionSeq++ % NEXT_SESSION_IDS.length],
-          title: "新的会话",
-          when: "今天 20:44",
-          hasPrior: false
-        };
-        usage = zeroUsage();
-        state = "empty";
-        chatMode = "welcome";
-        renderChat();
-        clearTask();
-        panelTab = "current";
-        syncTabs();
-        panelOpen = true;
-        panel.hidden = false;
-        chip.setAttribute("aria-expanded", "true");
-        positionPanel();
-        renderAll(false);
-        renderPanel();
-        updateSendState();
-        toast("已清空历史会话，Token 统计已重置", "success");
-      }
 
       /* ==== 页面切换 ==== */
       function switchPage(page) {
@@ -2387,7 +2595,6 @@
       } else {
         document.body.classList.add("has-demo-controls");
       }
-      switchPage(params.get("page") === "docs" ? "docs" : "chat");
 
       var stateParam = params.get("state");
       var docsParam = params.get("page") === "docs";
@@ -2395,6 +2602,10 @@
       var initial = params.has("static") || docsParam ? "done" : "live";
       if (stateParam && STATE_KEYS[stateParam]) initial = stateParam;
       applyState(initial, { autoLive: autoLive });
+
+      var pageParam = params.get("page");
+      if (pageParam === "docs") switchPage("docs");
+      else if (pageParam === "chat") switchPage("chat");
     })();
   </script>
 </body>
