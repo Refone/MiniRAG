@@ -16,7 +16,10 @@ def _push_parent_progress(task_id: str) -> None:
 def _flush_token_usage(
     task_id: str, session_id: str, user_ip: str, usage: TokenUsage
 ) -> None:
-    """流结束统一 flush: 落库 + 推 usage 帧（计量失败只告警，不阻塞主流程）。"""
+    """请求结束统一 flush: 落库 + 推一帧 usage（有消耗才推）。
+
+    计量失败只告警，不阻塞主流程。
+    """
     if not session_id or not usage or not any(usage.values()):
         return
 
@@ -48,8 +51,8 @@ async def arun_import(
     - 本函数在任务结束时推送父任务终态与关闭信号。
 
     Token 计量: 节点把本节点增量写入 token_meter 通道 (sum reducer 累加),
-    zip 分支增量回归父图时自动折叠; 流结束 (成功) 在本函数统一 flush
-    并推 usage 帧。
+    zip 分支增量回归父图时自动折叠; 推送粒度为逐请求 —— 请求返回 (成功)
+    统一 flush, 有消耗就推一帧 usage。
     """
     TASK_MANAGER.clear(task_id)
     TASK_MANAGER.set_status(task_id, TaskStatus.PROCESSING)

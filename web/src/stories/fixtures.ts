@@ -382,3 +382,29 @@ export const largeTokenUsage: TokenUsageSnapshot = {
     total_tokens: 216602,
   },
 };
+
+/** Token 统计快照：相对 mockTokenUsage 的增量（llm +300 / embedding +200 / reranker +300），验证按模型拆分的气泡 */
+export const tokenUsageAfterDelta: TokenUsageSnapshot = {
+  session_id: "sess-demo-token",
+  user_ip: "127.0.0.1",
+  updated_at: Math.floor(Date.now() / 1000),
+  llm_tokens: 1406,
+  vlm_tokens: 1264,
+  embedding_tokens: 1995,
+  reranker_tokens: 650,
+  total_tokens: 5315,
+  query: {
+    llm_tokens: 920,
+    vlm_tokens: 0,
+    embedding_tokens: 1105,
+    reranker_tokens: 650,
+    total_tokens: 2675,
+  },
+  upload: {
+    llm_tokens: 486,
+    vlm_tokens: 1264,
+    embedding_tokens: 890,
+    reranker_tokens: 0,
+    total_tokens: 2640,
+  },
+};

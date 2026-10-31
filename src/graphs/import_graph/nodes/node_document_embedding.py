@@ -5,6 +5,7 @@ from typing import Any
 
 from common.config.app_config import APP_CONFIG
 from common.config.env_config import ENV_CONFIG
+from common.events.metering import push_usage_delta
 from common.events.tracing import step_log, trace_node
 from common.logging import logger
 from common.model import EMBEDDING, LLM
@@ -298,6 +299,7 @@ def node_document_embedding(state: ImportGraphState) -> ImportGraphState:
     keywords, abstract, llm_tokens = step_4_generate_keywords_abstract(
         file_title, md_content
     )
+    push_usage_delta(task_id, "llm", llm_tokens)
 
     # 5. 向量化 (docs 元数据 + chunks)
     chunks_list = list(
@@ -309,6 +311,7 @@ def node_document_embedding(state: ImportGraphState) -> ImportGraphState:
     keywords_sparse, abstract_dense, embedded, embedding_tokens = step_5_vectorize(
         keywords, abstract, chunks_list
     )
+    push_usage_delta(task_id, "embedding", embedding_tokens)
 
     # 6. 写入 docs 并查回 doc_id
     doc_id = step_6_insert_docs_and_query_id(

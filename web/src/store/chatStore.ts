@@ -244,6 +244,11 @@ export const useChatStore = create<ChatStoreState>()((set, get) => ({
             useTokenUsageStore.getState().applySnapshot(d, "query");
           },
 
+          // 单次模型调用增量帧（调用返回即推送，TokenMeter 即时弹气泡）
+          onUsageDelta: (kind, tokens) => {
+            useTokenUsageStore.getState().applyDelta(kind, tokens, "query");
+          },
+
           // 不在 final 时关流, 等收到服务端 __close__ 信号再关闭连接
           onServerClose: () => {
             console.log(`[chat] SSE 收到 __close__，关闭连接`);

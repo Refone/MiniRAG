@@ -445,6 +445,11 @@ export const useDocsStore = create<DocsStoreState>()((set, get) => ({
                 useTokenUsageStore.getState().applySnapshot(d, "upload");
               },
 
+              // 单次模型调用增量帧（调用返回即推送，TokenMeter 即时弹气泡）
+              onUsageDelta: (kind, tokens) => {
+                useTokenUsageStore.getState().applyDelta(kind, tokens, "upload");
+              },
+
               // 不在终态事件时关流, 等收到服务端 __close__ 信号再关闭连接
               onServerClose: () => {
                 console.log(

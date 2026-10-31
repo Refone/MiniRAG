@@ -24,8 +24,10 @@ export interface SseHandlers {
   onDelta?: (delta: string) => void;
   /** final 事件（data 可能为 null，透传原样） */
   onFinal?: (data: StatusResponse | null) => void;
-  /** usage 事件（流结束前的 Token 统计快照；data 解析失败时为 null） */
+  /** usage 事件（请求结束前的 Token 统计快照；data 解析失败时为 null） */
   onUsage?: (data: TokenUsageSnapshot | null) => void;
+  /** usage-delta 事件（单次模型调用的 Token 增量，调用返回即推送） */
+  onUsageDelta?: (kind: string, tokens: number) => void;
   /** 连接中断/失败（消息已提取） */
   onError?: (message: string) => void;
   /** 收到服务端 __close__ 信号 */
@@ -86,6 +88,15 @@ export function openStatusSse(url: string, handlers: SseHandlers): SseHandle {
   es.addEventListener("usage", (e) => {
     const d = parseEventData<TokenUsageSnapshot>((e as MessageEvent).data);
     handlers.onUsage?.(d);
+  });
+
+  es.addEventListener("usage-delta", (e) => {
+    const d = parseEventData<{ kind?: string; tokens?: number }>(
+      (e as MessageEvent).data,
+    );
+    if (d?.kind && typeof d.tokens === "number" && d.tokens > 0) {
+      handlers.onUsageDelta?.(d.kind, d.tokens);
+    }
   });
 
   es.addEventListener("__close__", () => {

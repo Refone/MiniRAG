@@ -7,7 +7,10 @@ from graphs.query_graph.query_graph_state import create_state
 
 
 def _flush_token_usage(session_id: str, user_ip: str, usage: TokenUsage) -> None:
-    """流结束统一 flush: 落库 + 推 usage 帧（计量失败只告警，不阻塞主流程）。"""
+    """请求结束统一 flush: 落库 + 推一帧 usage（有消耗才推）。
+
+    计量失败只告警，不阻塞主流程。
+    """
     if not session_id or not usage or not any(usage.values()):
         return
 
@@ -38,7 +41,8 @@ async def arun_query(
         )
         end_state = await query_graph.ainvoke(start_state)
 
-        # token_meter 通道经 sum_token_usage reducer 累计本流全部节点增量
+        # token_meter 通道经 sum_token_usage reducer 累计本流全部节点增量;
+        # 推送粒度为逐请求: 请求返回后统一 flush, 有消耗就推一帧 usage
         _flush_token_usage(session_id, user_ip, end_state.get("token_meter") or {})
 
         EVENT_BUS.push(session_id, SSEEvent.CLOSE, {})

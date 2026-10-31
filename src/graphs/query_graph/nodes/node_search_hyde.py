@@ -1,5 +1,6 @@
 from common.client import MILVUS_CLIENT
 from common.client.milvus_client import MilvusChunksRecall
+from common.events.metering import push_usage_delta
 from common.events.tracing import step_log, trace_node
 from common.logging import logger
 from common.model import LLM
@@ -64,9 +65,11 @@ def node_search_hyde(state: QueryGraphState) -> QueryGraphState:
         return {"hyde_recalls": []}
 
     hypo_answer, hypo_tokens = step_2_generate_hypothetical_answer(rewritten_query)
+    push_usage_delta(state.get("session_id") or "", "llm", hypo_tokens)
     logger.info(f"生成的假设性回答: {hypo_answer}")
 
     hyde_recalls, embedding_tokens = step_3_hypo_match_in_milvus(doc_ids, hypo_answer)
+    push_usage_delta(state.get("session_id") or "", "embedding", embedding_tokens)
     logger.info(f"匹配到的文档块: {brief(hyde_recalls)}")
 
     return {

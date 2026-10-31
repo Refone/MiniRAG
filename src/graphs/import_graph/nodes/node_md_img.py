@@ -9,6 +9,7 @@ from langchain.messages import HumanMessage
 from common.client import MINIO_CLIENT
 from common.config.app_config import APP_CONFIG
 from common.config.env_config import ENV_CONFIG
+from common.events.metering import push_usage_delta
 from common.events.tracing import step_log, trace_node
 from common.logging import logger
 from common.model import VLM
@@ -156,6 +157,7 @@ def step_2_scan_images(
 
 @step_log(desc="并发请求 VLM 获取图像摘要")
 def step_3_image_summary(
+    task_id: str,
     file_title: str,
     image_info_list: list[ImageInfo],
 ) -> tuple[dict[str, str], int]:
@@ -202,6 +204,7 @@ def step_3_image_summary(
         tokens = message_usage_tokens(description)
         if not tokens:
             logger.warning(f"图片 {image_path} VLM 未返回 usage, 不计入统计")
+        push_usage_delta(task_id, "vlm", tokens)
         description = description.content
         logger.debug(f"{image_path} 图片摘要: {description}")
         return image_info["name"], description, tokens
@@ -352,7 +355,9 @@ def node_md_img(state: ImportGraphState) -> ImportGraphState:
 
     # 3. 请求 VLM 获取图片摘要
     # {"<图片名>" : "<摘要>"}
-    summary_dict, vlm_tokens = step_3_image_summary(file_title, image_info_list)
+    summary_dict, vlm_tokens = step_3_image_summary(
+        state.get("task_id") or "", file_title, image_info_list
+    )
 
     # 4. 上传图片至 MinIO 并获取 URL (云端按出现顺序重命名为 1.<后缀>, 2.<后缀> ...)
     # {"<原始图片名>" : "<URL>"}

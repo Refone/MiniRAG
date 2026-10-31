@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
+import { useEffect } from "react";
 import { TokenMeter } from "./TokenMeter";
 import { useChatStore } from "@/store/chatStore";
 import { useTokenUsageStore } from "@/store/tokenUsageStore";
@@ -6,6 +7,7 @@ import {
   emptyTokenUsage,
   largeTokenUsage,
   mockTokenUsage,
+  tokenUsageAfterDelta,
 } from "@/stories/fixtures";
 import type { TokenLoadStatus, TokenUsageSnapshot } from "@/types/tokenUsage";
 
@@ -24,6 +26,52 @@ function seedTokenMeter(
     useChatStore.setState({ sending });
     return {};
   };
+}
+
+/** 挂载后按真实时序注入：三次模型调用增量（usage-delta）+ 请求结束快照帧，验证气泡队列 */
+function DeltaPlayer() {
+  useEffect(() => {
+    const timers = [
+      window.setTimeout(
+        () => useTokenUsageStore.getState().applyDelta("llm", 300, "query"),
+        900,
+      ),
+      window.setTimeout(
+        () => useTokenUsageStore.getState().applyDelta("embedding", 200, "query"),
+        1900,
+      ),
+      window.setTimeout(
+        () => useTokenUsageStore.getState().applyDelta("reranker", 300, "query"),
+        2900,
+      ),
+      window.setTimeout(
+        () =>
+          useTokenUsageStore.setState({
+            snapshot: tokenUsageAfterDelta,
+            status: "ready",
+            lastSource: "query",
+          }),
+        3900,
+      ),
+    ];
+    return () => timers.forEach((timer) => window.clearTimeout(timer));
+  }, []);
+  return <TokenMeter />;
+}
+
+/** 挂载 6s 后只应用请求结束快照（无 usage-delta）：仅弹「+N tokens」总气泡 */
+function TotalPlayer() {
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      useTokenUsageStore.setState({
+        snapshot: tokenUsageAfterDelta,
+        status: "ready",
+        lastSource: "query",
+      });
+    }, 6000);
+    return () => window.clearTimeout(timer);
+  }, []);
+  return <TokenMeter />;
 }
 
 const meta = {
@@ -50,4 +98,14 @@ export const Large: Story = {
 
 export const Live: Story = {
   loaders: [seedTokenMeter(mockTokenUsage, "ready", true)],
+};
+
+export const DeltaBubbles: Story = {
+  loaders: [seedTokenMeter(mockTokenUsage, "ready")],
+  render: () => <DeltaPlayer />,
+};
+
+export const TotalBubble: Story = {
+  loaders: [seedTokenMeter(mockTokenUsage, "ready")],
+  render: () => <TotalPlayer />,
 };

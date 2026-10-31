@@ -1,6 +1,7 @@
 from common.client.milvus_client import MilvusChunksRecall
 from common.config.app_config import APP_CONFIG
 from common.config.env_config import ENV_CONFIG
+from common.events.metering import push_usage_delta
 from common.events.tracing import step_log, trace_node
 from common.logging import logger
 from common.model import LLM, RERANKER
@@ -111,6 +112,7 @@ def _ensure_answer_token_limit(question: str, answer: str) -> tuple[str, int]:
 
 @step_log(desc="重排序")
 def step_3_rerank(
+    session_id: str,
     rewritten_query: str,
     fused_results: list[MilvusChunksRecall],
     web_matches: list[WebSearchResult],
@@ -127,6 +129,7 @@ def step_3_rerank(
             question, chunk.get("chunk_content", "")
         )
         refine_tokens += tokens
+        push_usage_delta(session_id, "llm", tokens)
         candidates.append((answer, DataFrom.MILVUS))
 
     for web_page in web_matches:
@@ -134,6 +137,7 @@ def step_3_rerank(
             question, web_page.get("snippet", "")
         )
         refine_tokens += tokens
+        push_usage_delta(session_id, "llm", tokens)
         candidates.append((answer, DataFrom.WEB))
 
     documents = [answer for answer, _ in candidates]
@@ -146,6 +150,7 @@ def step_3_rerank(
         documents=documents,
         return_documents=True,
     )
+    push_usage_delta(session_id, "reranker", rerank_tokens)
 
     # 将 rerank 结果映射回 RerankResult: 通过 index 找回原文与来源, 得分取相关性得分
     rerank_results: list[RerankResult] = []
@@ -244,7 +249,7 @@ def node_rrf_and_rerank(state: QueryGraphState) -> QueryGraphState:
     logger.info(f"最终融合切片数量: {len(fused_results)}")
 
     rerank_results, refine_tokens, rerank_tokens = step_3_rerank(
-        rewritten_query, fused_results, web_matches
+        state.get("session_id") or "", rewritten_query, fused_results, web_matches
     )
     logger.info(f"重排序结果: {rerank_results}")
     logger.info(f"重排序结果数量: {len(rerank_results)}")

@@ -1,6 +1,7 @@
 from common.client import MILVUS_CLIENT
 from common.client.milvus_client import MilvusDocsRecall
 from common.config.app_config import APP_CONFIG
+from common.events.metering import push_usage_delta
 from common.events.tracing import step_log, trace_node
 from common.logging import logger
 from common.model import LLM
@@ -137,10 +138,12 @@ def node_intent_recognize(state: QueryGraphState) -> QueryGraphState:
     rewritten_query, rewrite_tokens = step_3_rewrite_query(
         history_summary, original_query
     )
+    push_usage_delta(session_id, "llm", rewrite_tokens)
     state["rewritten_query"] = rewritten_query if rewritten_query else original_query
     logger.info(f"重写后的查询: {state['rewritten_query']}")
 
     hits, embedding_tokens = step_4_select_docs_from_milvus(state["rewritten_query"])
+    push_usage_delta(session_id, "embedding", embedding_tokens)
     logger.info(f"从 Milvus 中选取的结果: {hits}")
 
     confirm_list, suspect_list, doc_titles = step_5_docs_match_results(hits)

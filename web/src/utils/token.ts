@@ -48,22 +48,22 @@ export function kindTotal(u: KindUsage): number {
 }
 
 /**
- * next 相对 prev 的增量：返回有增量的模型维度与增量总和。
- * prev 为 null（首帧）或没有增量时 kinds 为空。
+ * next 相对 prev 的逐模型增量（负值视为 0；prev 为 null（首帧）时全 0）。
+ * TokenMeter 按模型拆分增量气泡用。
  */
-export function usageIncreases(
+export function usageKindIncreases(
   next: KindUsage,
   prev: KindUsage | null,
-): { kinds: TokenKind[]; amount: number } {
-  const kinds: TokenKind[] = [];
-  let amount = 0;
-  if (!prev) return { kinds, amount };
+): Record<TokenKind, number> {
+  const increases: Record<TokenKind, number> = {
+    llm: 0,
+    vlm: 0,
+    embedding: 0,
+    reranker: 0,
+  };
+  if (!prev) return increases;
   for (const kind of TOKEN_KIND_KEYS) {
-    const diff = next[kind] - prev[kind];
-    if (diff > 0) {
-      kinds.push(kind);
-      amount += diff;
-    }
+    increases[kind] = Math.max(0, next[kind] - prev[kind]);
   }
-  return { kinds, amount };
+  return increases;
 }

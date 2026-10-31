@@ -1,5 +1,6 @@
 from common.client import MILVUS_CLIENT
 from common.client.milvus_client import MilvusChunksRecall
+from common.events.metering import push_usage_delta
 from common.events.tracing import step_log, trace_node
 from common.logging import logger
 from common.schema.token_usage import TokenUsage
@@ -47,6 +48,7 @@ def node_search_embedding(state: QueryGraphState) -> QueryGraphState:
         rewritten_query,
         doc_ids,
     )
+    push_usage_delta(state.get("session_id") or "", "embedding", embedding_tokens)
 
     return {
         "embedding_recalls": embedding_recalls,

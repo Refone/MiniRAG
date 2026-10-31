@@ -1,4 +1,5 @@
 from common.events import EVENT_BUS, SSEEvent
+from common.events.metering import push_usage_delta
 from common.events.tracing import trace_node
 from common.logging import logger
 from common.model import LLM
@@ -43,10 +44,13 @@ def step_3_call_llm_generate_answer(
     session_id: str, answer_prompt: str
 ) -> tuple[str, int]:
     answer = ""
-    last_chunk = None
+    usage_chunk = None
 
     for chunk in LLM.stream(answer_prompt):
-        last_chunk = chunk
+        # stream_usage=True 时 usage 出现在末段带 usage_metadata 的 chunk 上,
+        # 其后可能还有不带 usage 的空尾帧, 故记录"最后一个携带 usage 的 chunk"
+        if message_usage_tokens(chunk):
+            usage_chunk = chunk
         chunk_str = chunk.content
         EVENT_BUS.push(
             session_id,
@@ -57,8 +61,7 @@ def step_3_call_llm_generate_answer(
         )
         answer += chunk_str
 
-    # stream_usage=True 时 usage 只出现在末段 chunk
-    tokens = message_usage_tokens(last_chunk) if last_chunk is not None else 0
+    tokens = message_usage_tokens(usage_chunk) if usage_chunk is not None else 0
     if not tokens:
         logger.warning("答案生成 LLM 流式调用未返回 usage, 本次调用不计入统计")
 
@@ -105,6 +108,7 @@ def node_answer_output(state: QueryGraphState) -> QueryGraphState:
         answer, answer_tokens = step_3_call_llm_generate_answer(
             session_id, answer_prompt
         )
+        push_usage_delta(session_id, "llm", answer_tokens)
         logger.info(f"最终答案: {answer}")
 
         step_4_save_message_and_push_final(session_id, answer)

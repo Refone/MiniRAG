@@ -1,7 +1,9 @@
 /**
  * NavBar Token 指示器（demo 契约）：
  * - chip：图标 + 「本次访问」标签 + 总量补间数字 + 四模型占比条 + 实时圆点；
- * - 快照增量时 chip 边框 bump（420ms 节流）、面板关闭时数字下方浮动 +N 增量；
+ * - 气泡（面板关闭时）：单次模型调用结束（SSE usage-delta）→ 立即弹「+N 模型」
+ *   彩色气泡；请求结束（SSE usage 快照帧）→ 弹「+N tokens」总气泡；
+ *   多个气泡按到达顺序排队逐个浮现（每个 1.1s），每次弹泡伴随 chip bump；
  * - 面板：TokenPanel 内容，固定定位在 chip 下方、点击外部 / 关闭按钮收起；
  * - 打开面板静默刷新、加载失败可重试（重试 toast 与 demo 文案一致）。
  */
@@ -15,7 +17,7 @@ import { useDocsStore } from "@/store/docsStore";
 import { useTokenUsageStore } from "@/store/tokenUsageStore";
 import { getBrowserSessionId } from "@/utils/session";
 import { formatThousands } from "@/utils/text";
-import { kindTotal, scopeUsage, usageIncreases } from "@/utils/token";
+import { kindTotal, scopeUsage, usageKindIncreases } from "@/utils/token";
 import type { TokenKind, TokenScope } from "@/types/tokenUsage";
 
 /** 面板最大宽度（demo 契约） */
@@ -27,9 +29,17 @@ const KIND_LABELS: Record<TokenKind, string> = Object.fromEntries(
   TOKEN_KINDS.map((k) => [k.key, k.label]),
 ) as Record<TokenKind, string>;
 
+/** 气泡队列单元：kind 为 null 表示请求结束的总气泡（accent 色） */
+interface DeltaBeat {
+  id: number;
+  text: string;
+  kind: TokenKind | null;
+}
+
 export function TokenMeter() {
   const snapshot = useTokenUsageStore((s) => s.snapshot);
   const status = useTokenUsageStore((s) => s.status);
+  const lastDelta = useTokenUsageStore((s) => s.lastDelta);
   const sending = useChatStore((s) => s.sending);
   const importing = useDocsStore((s) =>
     s.files.some((f) => f.status === "uploading" || f.status === "processing"),
@@ -39,10 +49,7 @@ export function TokenMeter() {
   const [open, setOpen] = useState(false);
   const [scope, setScope] = useState<TokenScope>("total");
   const [bump, setBump] = useState(false);
-  const [delta, setDelta] = useState<{
-    text: string;
-    kind: TokenKind | null;
-  } | null>(null);
+  const [beats, setBeats] = useState<DeltaBeat[]>([]);
   const [flashKinds, setFlashKinds] = useState<TokenKind[]>([]);
 
   const meterRef = useRef<HTMLDivElement>(null);
@@ -50,7 +57,7 @@ export function TokenMeter() {
   const panelRef = useRef<HTMLDivElement>(null);
   const prevSnapshotRef = useRef(snapshot);
   const lastBumpAtRef = useRef(0);
-  const deltaSeqRef = useRef(0);
+  const beatSeqRef = useRef(0);
   const openRef = useRef(open);
   const scopeRef = useRef(scope);
   openRef.current = open;
@@ -69,40 +76,87 @@ export function TokenMeter() {
     if (state.status === "idle") void state.refresh();
   }, []);
 
-  /* ---- 快照增量 → bump / 行闪烁 / 浮动增量（demo applyAdd 语义） ---- */
+  /* ---- chip bump（420ms 节流，气泡 / 快照共用） ---- */
+  const triggerBump = useCallback(() => {
+    const now = Date.now();
+    if (now - lastBumpAtRef.current < BUMP_THROTTLE_MS) return;
+    lastBumpAtRef.current = now;
+    setBump(true);
+  }, []);
+
+  /* ---- 面板口径是否命中（行闪烁 / 气泡分支判断用） ---- */
+  const scopeMatches = useCallback((source: TokenScope | null) => {
+    return scopeRef.current === "total" || scopeRef.current === source;
+  }, []);
+
+  /* ---- 单次模型调用增量（SSE usage-delta）：立即弹「+N 模型」气泡 ---- */
+  useEffect(() => {
+    if (!lastDelta) return;
+    triggerBump();
+    if (openRef.current) {
+      if (scopeMatches(lastDelta.source)) {
+        setFlashKinds((kinds) =>
+          kinds.includes(lastDelta.kind) ? kinds : [...kinds, lastDelta.kind],
+        );
+      }
+      return;
+    }
+    beatSeqRef.current += 1;
+    setBeats((queue) => [
+      ...queue,
+      {
+        id: beatSeqRef.current,
+        text: `+${formatThousands(lastDelta.tokens)} ${KIND_LABELS[lastDelta.kind]}`,
+        kind: lastDelta.kind,
+      },
+    ]);
+  }, [lastDelta, triggerBump, scopeMatches]);
+
+  /* ---- 快照增量（请求结束的权威帧）：弹「+N tokens」总气泡 + 行闪烁 ---- */
   useEffect(() => {
     const prev = prevSnapshotRef.current;
     prevSnapshotRef.current = snapshot;
     if (!snapshot || !prev) return;
-    const { kinds, amount } = usageIncreases(
+    const increases = usageKindIncreases(
       scopeUsage(snapshot, "total"),
       scopeUsage(prev, "total"),
     );
-    if (amount <= 0) return;
+    const kinds = TOKEN_KINDS.map((k) => k.key).filter(
+      (kind) => increases[kind] > 0,
+    );
+    const totalDelta = kinds.reduce((sum, kind) => sum + increases[kind], 0);
+    if (totalDelta <= 0) return;
 
-    const now = Date.now();
-    if (now - lastBumpAtRef.current >= BUMP_THROTTLE_MS) {
-      lastBumpAtRef.current = now;
-      setBump(true);
-    }
+    triggerBump();
 
     if (openRef.current) {
       const source = useTokenUsageStore.getState().lastSource;
-      if (scopeRef.current === "total" || scopeRef.current === source) {
-        setFlashKinds(kinds);
-      }
-    } else {
-      deltaSeqRef.current += 1;
-      setDelta(
-        kinds.length === 1
-          ? {
-              text: `+${formatThousands(amount)} ${KIND_LABELS[kinds[0]]}`,
-              kind: kinds[0],
-            }
-          : { text: `+${formatThousands(amount)} tokens`, kind: null },
-      );
+      if (scopeMatches(source)) setFlashKinds(kinds);
+      return;
     }
-  }, [snapshot]);
+
+    beatSeqRef.current += 1;
+    setBeats((queue) => [
+      ...queue,
+      {
+        id: beatSeqRef.current,
+        text: `+${formatThousands(totalDelta)} tokens`,
+        kind: null,
+      },
+    ]);
+  }, [snapshot, triggerBump, scopeMatches]);
+
+  /* ---- 气泡出队: 当前气泡动画结束后播放下一个 (同时 bump) ---- */
+  const handleBeatEnd = useCallback(() => {
+    setBeats((queue) => queue.slice(1));
+    triggerBump();
+  }, [triggerBump]);
+
+  /* ---- 面板打开即中止气泡队列 (改行闪烁呈现) ---- */
+  useEffect(() => {
+    if (!open) return;
+    setBeats((queue) => (queue.length > 0 ? [] : queue));
+  }, [open]);
 
   /* ---- 面板定位（demo positionPanel） ---- */
   const positionPanel = useCallback(() => {
@@ -249,21 +303,23 @@ export function TokenMeter() {
         </div>
       )}
 
-      <span
-        key={deltaSeqRef.current}
-        className={`token-delta${delta ? " show" : ""}`}
-        aria-hidden="true"
-        style={{
-          color: delta?.kind
-            ? `var(--c-${delta.kind})`
-            : "var(--accent)",
-        }}
-        onAnimationEnd={(e) => {
-          if (e.animationName === "delta-float") setDelta(null);
-        }}
-      >
-        {delta?.text ?? ""}
-      </span>
+      {beats.length > 0 && (
+        <span
+          key={beats[0].id}
+          className="token-delta show"
+          aria-hidden="true"
+          style={{
+            color: beats[0].kind
+              ? `var(--c-${beats[0].kind})`
+              : "var(--accent)",
+          }}
+          onAnimationEnd={(e) => {
+            if (e.animationName === "delta-float") handleBeatEnd();
+          }}
+        >
+          {beats[0].text}
+        </span>
+      )}
     </div>
   );
 }
