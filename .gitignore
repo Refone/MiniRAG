@@ -6,3 +6,4 @@ docker/volumes/
 __pycache__/
 */__pycache__/
 var/
+*.swp
