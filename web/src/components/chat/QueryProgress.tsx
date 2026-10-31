@@ -6,13 +6,14 @@ import type { ProgressView } from "@/types/app";
  * 查询任务进度（输入框上方唯一卡片的内容）。
  * 摘要行拆成「标题 + 状态」两个节点：窄屏时标题保持单行、状态整体换行，
  * 避免「阶段 / 进度」被从中间拆开；仅运行步骤摘要（--steps）独占一行。
+ * 默认收起，由用户点击摘要开合；应用内不传 open（受控展开态仅 Storybook 预览用）。
  */
 export function QueryProgress({
   progress,
   open,
 }: {
   progress: ProgressView;
-  open: boolean;
+  open?: boolean;
 }) {
   const lines: StatusLogLine[] = [
     ...progress.done.map((text) => ({ kind: "done" as const, text })),

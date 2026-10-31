@@ -34,7 +34,7 @@ export function StatusLog({
   className = "progress",
   listClassName,
 }: StatusLogProps) {
-  // open 为 undefined 时不接管 DOM: 子任务卡由用户手动开合
+  // open 为 undefined 时不接管 DOM: 查询卡片 / 子任务卡由用户手动开合
   return (
     <details
       className={className}

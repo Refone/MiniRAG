@@ -7,6 +7,11 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  /* 收起态任务卡片占位（卡片 35px + 8px 间距）；展开时卡片向上溢出，
+     不改变占位高度。窄屏摘要换行时由媒体查询放宽。 */
+  --task-slot-h: 43px;
+  /* 输入卡高度：ChatComposer 量测后写回，初始值仅作首帧兜底 */
+  --composer-h: 114px;
 }
 
 /* 背景板：无边框、无卡片，纯滚动区域。
@@ -18,8 +23,8 @@
   overflow-x: hidden;
   overscroll-behavior: contain;
   width: 100%;
-  /* 底部留白：给悬浮输入卡片腾出空间 */
-  padding: 0 0 190px;
+  /* 底部留白只跟随输入卡 + 固定的收起态卡片占位，与任务卡片开合无关 */
+  padding: 0 0 calc(var(--composer-h) + var(--task-slot-h) + 28px);
 }
 
 .chat-inner {
@@ -249,11 +254,12 @@
   font-weight: 600;
 }
 
+/* 内边距下放到摘要行与列表：收起态整张卡片都可点击开合，
+   不再只有 17px 高的摘要文字是可点区域 */
 details.progress {
   margin-top: 10px;
   border: 1px solid var(--border);
   border-radius: var(--r-lg);
-  padding: 8px 12px;
   background: var(--surface-2);
 }
 
@@ -261,15 +267,23 @@ details.progress summary {
   display: flex;
   align-items: center;
   gap: 6px;
+  padding: 8px 12px;
   cursor: pointer;
   user-select: none;
   color: var(--text-2);
   font-size: 12px;
   list-style: none;
+  border-radius: inherit;
 }
 
 details.progress summary::-webkit-details-marker {
   display: none;
+}
+
+/* 摘要行是收起态唯一可见的控件：键盘聚焦时给整行明确焦点环 */
+details.progress summary:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
 }
 
 details.progress summary::before {
@@ -288,8 +302,8 @@ details.progress[open] summary::before {
 }
 
 .progress ul {
-  margin: 8px 0 0 18px;
-  padding: 0;
+  margin: 0;
+  padding: 0 12px 8px 30px;
 }
 
 .progress li {
@@ -448,10 +462,13 @@ details.progress[open] summary::before {
   flex-direction: column;
 }
 
-/* 查询任务卡片槽位：flow-root 撑住 .task-bar 的 8px 下边距，
-   使槽位高度 = 卡片高度 + 8，供高度上报计算 cardH */
+/* 查询任务卡片槽位：固定高度 = 收起态卡片 + 8px 下边距。
+   卡片展开时从槽位底部向上溢出，槽位高度、会话留白、贴底位置都不变。 */
 .task-slot {
-  display: flow-root;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  height: var(--task-slot-h);
 }
 
 /* 吸底按钮的定位上下文：按钮固定在输入卡右上角，不被任务卡片顶上去 */
@@ -484,6 +501,10 @@ details.progress[open] summary::before {
   margin-right: 6px;
 }
 
+.task-bar details.progress summary:hover {
+  color: var(--text);
+}
+
 /* 摘要标题保持单行；窄屏时运行步骤摘要整体换行（见媒体查询） */
 .progress-title {
   white-space: nowrap;
@@ -498,7 +519,7 @@ details.progress[open] summary::before {
 
 /* 终态关闭按钮：卡片右上角，点击移除任务卡片 */
 .task-bar--closable details.progress summary {
-  padding-right: 24px;
+  padding-right: 36px;
 }
 
 .task-close {
@@ -777,8 +798,9 @@ details.progress[open] summary::before {
 
 /* ---- 响应式（chat） ---- */
 @media (max-width: 720px) {
-  .chat {
-    padding: 0 0 180px;
+  /* 窄屏运行中摘要换行，收起态卡片高 52px：占位同步放宽到 60px */
+  .chat-page {
+    --task-slot-h: 60px;
   }
 
   .chat-inner {

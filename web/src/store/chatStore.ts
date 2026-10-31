@@ -154,7 +154,7 @@ export const useChatStore = create<ChatStoreState>()((set, get) => ({
       error: null,
     };
 
-    /* 任务实例：新查询原地顶替旧卡片并重新展开；progress 不再写 messages */
+    /* 任务实例：新查询原地顶替旧卡片并回到收起态；progress 不再写 messages */
     const taskId = makeId("task");
     const task: QueryTaskView = {
       id: taskId,
@@ -182,7 +182,7 @@ export const useChatStore = create<ChatStoreState>()((set, get) => ({
         return { queryTask: { ...s.queryTask, progress } };
       });
 
-    /** 终态归一：complete / failed，供卡片自动收起；任务本身保留 */
+    /** 终态归一：complete / failed，供卡片显示终态并出现关闭按钮；任务本身保留 */
     const finishTask = (status: "complete" | "failed") =>
       set((s) => {
         if (s.queryTask?.id !== taskId) return s;

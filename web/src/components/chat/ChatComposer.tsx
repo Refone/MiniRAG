@@ -27,11 +27,10 @@ interface ChatComposerProps {
   /** 输入卡上方的任务状态卡片（无任务时为空） */
   statusSlot?: ReactNode;
   /**
-   * 停靠区高度变化回调（页面据此设置会话区 paddingBottom）。
-   * anchorH=停靠区总高，cardH=任务卡片高度（含 8px 间距），
-   * follow 仅当输入卡自身高度变化时为 true —— 卡片展开/收起不触发贴底。
+   * 输入卡自身高度变化回调（页面据此在贴底时跟随）。
+   * 与任务卡片无关：卡片开合不会触发。
    */
-  onHeightChange?: (anchorH: number, cardH: number, follow: boolean) => void;
+  onComposerResize?: () => void;
 }
 
 /**
@@ -39,6 +38,7 @@ interface ChatComposerProps {
  * - textarea 高度随内容动态伸缩（上限 = 页面高度 50% - 卡内固定开销）
  * - 挂载自动聚焦；Enter 发送 / Shift+Enter 换行
  * - 工具开关（网络搜索 / HyDE）、服务状态点、清空历史、发送按钮
+ * - .task-slot 为固定高度占位：任务卡片展开时向上溢出，不撑高停靠区
  */
 export function ChatComposer({
   value,
@@ -55,16 +55,11 @@ export function ChatComposer({
   onScrollToBottom,
   containerRef,
   statusSlot,
-  onHeightChange,
+  onComposerResize,
 }: ChatComposerProps) {
   const inputRef = useRef<HTMLTextAreaElement>(null);
   /** 卡片自身：测量 footer 等固定开销 */
   const composerRef = useRef<HTMLDivElement>(null);
-  /** 停靠区（卡片槽位 + 输入卡）与卡片槽位：分别测量总高 / 卡片高 */
-  const anchorRef = useRef<HTMLDivElement>(null);
-  const taskSlotRef = useRef<HTMLDivElement>(null);
-  /** 上一次输入卡高度：用于区分「输入卡变化」与「卡片变化」 */
-  const lastComposerHRef = useRef<number | null>(null);
 
   // 自动聚焦输入框（原 ChatPage effect 平移）
   useEffect(() => {
@@ -96,31 +91,23 @@ export function ChatComposer({
     return () => window.removeEventListener("resize", autoResize);
   }, [autoResize]);
 
-  // 停靠区高度上报（页面据此设置会话区 paddingBottom，保证最后一条消息可滚到输入框上方）：
-  // 卡片槽位（display:flow-root）高度含卡片 8px 下边距，anchorH - cardH 即输入卡高度。
-  // 只有输入卡自身高度变化才 follow → 贴底；任务卡片展开/收起只更新留白，不滚动消息区。
+  // 输入卡高度写入页面级 CSS 变量：会话区底部留白只跟随输入卡，
+  // 任务卡片开合 / 存在与否都不参与计算（见 chat.css .chat / .task-slot）。
   useEffect(() => {
-    const anchor = anchorRef.current;
-    if (!anchor || !onHeightChange) return;
+    const composer = composerRef.current;
+    const page = containerRef.current;
+    if (!composer || !page) return;
 
     const emit = () => {
-      const anchorH = anchor.offsetHeight;
-      const cardH = taskSlotRef.current?.offsetHeight ?? 0;
-      const composerH = Math.max(0, anchorH - cardH);
-      const follow =
-        lastComposerHRef.current !== null &&
-        lastComposerHRef.current !== composerH;
-      lastComposerHRef.current = composerH;
-      onHeightChange(anchorH, cardH, follow);
+      page.style.setProperty("--composer-h", `${composer.offsetHeight}px`);
+      onComposerResize?.();
     };
 
     emit();
     const ro = new ResizeObserver(emit);
-    ro.observe(anchor);
-    if (taskSlotRef.current) ro.observe(taskSlotRef.current);
-    if (composerRef.current) ro.observe(composerRef.current);
+    ro.observe(composer);
     return () => ro.disconnect();
-  }, [onHeightChange]);
+  }, [containerRef, onComposerResize]);
 
   const onKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -131,10 +118,8 @@ export function ChatComposer({
 
   return (
     <div className="composer-wrap">
-      <div className="composer-anchor" ref={anchorRef}>
-        <div className="task-slot" ref={taskSlotRef}>
-          {statusSlot}
-        </div>
+      <div className="composer-anchor">
+        <div className="task-slot">{statusSlot}</div>
 
         <div className="composer-dock">
           <button

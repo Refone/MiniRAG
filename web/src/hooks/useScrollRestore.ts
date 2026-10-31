@@ -1,5 +1,8 @@
 import { useEffect, useLayoutEffect, useRef, type RefObject } from "react";
 
+/** 距底部小于该值视为贴底（px）：切回会话时按贴底位置恢复 */
+const PIN_THRESHOLD = 80;
+
 export interface ScrollRestoreOptions {
   /** 贴底跟随模式: 切回时若此前处于底部附近则滚到底, 否则恢复原位置 */
   followBottom?: boolean;
@@ -24,13 +27,13 @@ export interface ScrollRestoreOptions {
  * scroll 事件反向污染 savedRef, 导致切回旧内容时恢复错误偏移。因此键变化
  * 时偏移归 0, 保证偏移只对当前内容有效 (切 Tab 键不变, 照常恢复)。
  *
- * followBottom 模式 (会话列表): 同时返回 pinnedRef 供"消息变化时贴底跟随"
- * 逻辑复用 —— 贴底时跟随到底, 用户上翻阅读后切回保持原位置。
+ * followBottom 模式 (会话列表): 切回时若此前处于底部附近则滚到底,
+ * 否则恢复原位置; 贴底判定只在内部使用。
  */
 export function useScrollRestore<T extends HTMLElement>(
   ref: RefObject<T | null>,
   options: ScrollRestoreOptions = {},
-): { pinnedRef: RefObject<boolean> } {
+): void {
   const { followBottom = false, resetKey } = options;
   const savedRef = useRef(0);
   const pinnedRef = useRef(followBottom);
@@ -45,7 +48,7 @@ export function useScrollRestore<T extends HTMLElement>(
       savedRef.current = el.scrollTop;
       if (followBottom) {
         pinnedRef.current =
-          el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+          el.scrollHeight - el.scrollTop - el.clientHeight < PIN_THRESHOLD;
       }
     };
     el.addEventListener("scroll", onScroll, { passive: true });
@@ -71,6 +74,4 @@ export function useScrollRestore<T extends HTMLElement>(
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resetKey, followBottom]);
-
-  return { pinnedRef };
 }
