@@ -8,10 +8,12 @@ from common.config.env_config import ENV_CONFIG
 from common.events.tracing import step_log, trace_node
 from common.logging import logger
 from common.model import EMBEDDING, LLM
+from common.model.metering import message_usage_tokens
 from common.prompt.prompt_doc_keywords_abstract import (
     DocKeywordsAbstractPydantic,
     PromptDocKeywordsAbstract,
 )
+from common.schema.token_usage import TokenUsage
 from common.store import DOCUMENT_REPO
 from common.store.document_repo import DocumentArtifacts
 from common.utils.markdown_splitter import Chunk
@@ -109,24 +111,37 @@ def step_3_upload_artifacts(
 @step_log(desc="LLM 生成文档关键词与摘要")
 def step_4_generate_keywords_abstract(
     file_title: str, md_content: str
-) -> tuple[str, str]:
+) -> tuple[str, str, int]:
     """LLM 生成 docs_keywords / docs_abstract, 失败时回退兜底。
 
     keywords 的收敛只靠 prompt 约束 (文档指纹原则, 无黑名单后处理);
-    LLM 输出为空时回退 file_title。
+    LLM 输出为空时回退 file_title。include_raw=True 让返回结构同时携带
+    原始消息, usage 直接取自 raw 消息的 usage_metadata。
     """
     prompt = PromptDocKeywordsAbstract(
         file_title=file_title, md_content=md_content
     ).prompt
 
     keywords, abstract = "", ""
+    llm_tokens = 0
     try:
         logger.info("LLM 根据整篇文档生成关键词/摘要，耗时操作...")
-        response = LLM.with_structured_output(DocKeywordsAbstractPydantic).invoke(
-            prompt
-        )
-        keywords = (response.keywords or "").strip()
-        abstract = (response.abstract or "").strip()
+        raw_result = LLM.with_structured_output(
+            DocKeywordsAbstractPydantic, include_raw=True
+        ).invoke(prompt)
+        llm_tokens = message_usage_tokens(raw_result["raw"])
+        if not llm_tokens:
+            logger.warning("关键词/摘要 LLM 未返回 usage, 本次调用不计入统计")
+
+        response = raw_result["parsed"]
+        if response is None:
+            logger.warning(
+                f"关键词/摘要结构化解析失败, 使用兜底值: "
+                f"{raw_result.get('parsing_error')}"
+            )
+        else:
+            keywords = (response.keywords or "").strip()
+            abstract = (response.abstract or "").strip()
     except Exception as e:
         logger.warning(f"LLM 生成关键词/摘要失败, 使用兜底值: {e}")
 
@@ -136,7 +151,7 @@ def step_4_generate_keywords_abstract(
         abstract = md_content[:200]
 
     logger.info(f"文档元数据: keywords=[{keywords}], abstract=[{abstract}]")
-    return keywords, abstract
+    return keywords, abstract, llm_tokens
 
 
 def _format_chunk_content(chunk: Chunk) -> str:
@@ -161,17 +176,19 @@ def _format_chunk_content(chunk: Chunk) -> str:
     return "\n".join(lines)
 
 
-def _vectorize_chunks(chunks_list: list[Chunk]) -> list[dict[str, Any]]:
+def _vectorize_chunks(
+    chunks_list: list[Chunk],
+) -> tuple[list[dict[str, Any]], int]:
     """
-    对文档切片进行向量化
+    对文档切片进行向量化, 返回 (向量数据, 全部批次 embedding token 总数)。
 
     Returns:
-        list[dict[str, Any]]: 与切片按下标一一对应的向量数据,
-        每个元素含 "content" / "dense" / "sparse" 三个键。
+        向量数据与切片按下标一一对应, 每个元素含
+        "content" / "dense" / "sparse" 三个键。
     """
     if not chunks_list:
         logger.warning("切片列表为空")
-        return []
+        return [], 0
 
     batch_size = ENV_CONFIG.dashscope.embedding_batch_size
     batches: list[list[str]] = [
@@ -179,11 +196,13 @@ def _vectorize_chunks(chunks_list: list[Chunk]) -> list[dict[str, Any]]:
         for i in range(0, len(chunks_list), batch_size)
     ]
 
+    # 各 worker 独立返回 (向量, token), 无需共享状态或锁
     with ThreadPoolExecutor(max_workers=APP_CONFIG.max_concurrency) as pool:
-        vecs_list = list(pool.map(EMBEDDING.embed_document_hybrid, batches))
+        batch_results = list(pool.map(EMBEDDING.embed_document_hybrid, batches))
 
     embedded: list[dict[str, Any]] = []
-    for batch_texts, batch_vecs in zip(batches, vecs_list):
+    total_tokens = 0
+    for batch_texts, (batch_vecs, batch_tokens) in zip(batches, batch_results):
         if len(batch_vecs) != len(batch_texts):
             raise ValueError(
                 f"向量化结果数量与切片数量不一致: "
@@ -197,8 +216,9 @@ def _vectorize_chunks(chunks_list: list[Chunk]) -> list[dict[str, Any]]:
                     "sparse": vec["sparse"],
                 }
             )
+        total_tokens += batch_tokens
 
-    return embedded
+    return embedded, total_tokens
 
 
 @step_log(desc="向量化文档元数据与切片")
@@ -206,16 +226,16 @@ def step_5_vectorize(
     keywords: str,
     abstract: str,
     chunks_list: list[Chunk],
-) -> tuple[dict[int, float], list[float], list[dict[str, Any]]]:
-    """docs 元数据双向量 + chunks 批量向量, 返回可写入 Milvus 的数据。"""
+) -> tuple[dict[int, float], list[float], list[dict[str, Any]], int]:
+    """docs 元数据双向量 + chunks 批量向量, 返回可写入 Milvus 的数据与 token。"""
     # 一次批调用同时向量化 keywords 与 abstract, 各取所需分量:
     # keywords -> 稀疏 (术语精确匹配), abstract -> 稠密 (语义模糊匹配)
-    meta_vecs = EMBEDDING.embed_document_hybrid([keywords, abstract])
+    meta_vecs, meta_tokens = EMBEDDING.embed_document_hybrid([keywords, abstract])
     keywords_sparse = meta_vecs[0]["sparse"]
     abstract_dense = meta_vecs[1]["dense"]
 
-    embedded = _vectorize_chunks(chunks_list)
-    return keywords_sparse, abstract_dense, embedded
+    embedded, chunk_tokens = _vectorize_chunks(chunks_list)
+    return keywords_sparse, abstract_dense, embedded, meta_tokens + chunk_tokens
 
 
 @step_log(desc="写入 minirag_docs 并查回 doc_id")
@@ -275,7 +295,9 @@ def node_document_embedding(state: ImportGraphState) -> ImportGraphState:
 
     # 4. LLM 生成文档关键词与摘要
     md_content = md_path.read_text(encoding="utf-8")
-    keywords, abstract = step_4_generate_keywords_abstract(file_title, md_content)
+    keywords, abstract, llm_tokens = step_4_generate_keywords_abstract(
+        file_title, md_content
+    )
 
     # 5. 向量化 (docs 元数据 + chunks)
     chunks_list = list(
@@ -284,7 +306,7 @@ def node_document_embedding(state: ImportGraphState) -> ImportGraphState:
             json.loads(chunks_path.read_text(encoding="utf-8")),
         )
     )
-    keywords_sparse, abstract_dense, embedded = step_5_vectorize(
+    keywords_sparse, abstract_dense, embedded, embedding_tokens = step_5_vectorize(
         keywords, abstract, chunks_list
     )
 
@@ -302,10 +324,14 @@ def node_document_embedding(state: ImportGraphState) -> ImportGraphState:
     # 7. 写入 chunks
     step_7_insert_chunks(doc_id, file_title, embedded)
 
-    # 本节点只有 Milvus / MinIO 副作用, 不写回任何状态字段。
-    # 注意: md 压缩包扇出时多个分支会并发执行本节点, 若返回完整 state
-    # 会让所有 key 在同一 step 被并发写入, 触发 LangGraph InvalidUpdateError。
-    return {}
+    # 只返回本节点计量增量 (不写回其他状态字段):
+    # md 压缩包扇出时多个分支会并发执行本节点, 若返回完整 state
+    # 会让所有 key 在同一 step 被并发写入, 触发 LangGraph InvalidUpdateError
+    return {
+        "token_meter": TokenUsage(
+            llm_tokens=llm_tokens, embedding_tokens=embedding_tokens
+        )
+    }
 
 
 if __name__ == "__main__":

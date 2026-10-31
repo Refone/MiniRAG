@@ -2,7 +2,9 @@ from common.events import EVENT_BUS, SSEEvent
 from common.events.tracing import trace_node
 from common.logging import logger
 from common.model import LLM
+from common.model.metering import message_usage_tokens
 from common.prompt.prompt_final_answer import PromptFinalAnswer
+from common.schema.token_usage import TokenUsage
 from common.store import CHAT_HISTORY_MANAGER
 from common.store.chat_history import MessageRole
 from graphs.query_graph.query_graph_state import QueryGraphState, RerankResult
@@ -37,10 +39,14 @@ def step_2_format_prompt(
     ).prompt
 
 
-def step_3_call_llm_generate_answer(session_id: str, answer_prompt: str) -> str:
+def step_3_call_llm_generate_answer(
+    session_id: str, answer_prompt: str
+) -> tuple[str, int]:
     answer = ""
+    last_chunk = None
 
     for chunk in LLM.stream(answer_prompt):
+        last_chunk = chunk
         chunk_str = chunk.content
         EVENT_BUS.push(
             session_id,
@@ -51,7 +57,12 @@ def step_3_call_llm_generate_answer(session_id: str, answer_prompt: str) -> str:
         )
         answer += chunk_str
 
-    return answer
+    # stream_usage=True 时 usage 只出现在末段 chunk
+    tokens = message_usage_tokens(last_chunk) if last_chunk is not None else 0
+    if not tokens:
+        logger.warning("答案生成 LLM 流式调用未返回 usage, 本次调用不计入统计")
+
+    return answer, tokens
 
 
 def step_4_save_message_and_push_final(session_id: str, answer: str) -> None:
@@ -82,19 +93,23 @@ def node_answer_output(state: QueryGraphState) -> QueryGraphState:
     ) = step_1_validate_and_get_data(state)
 
     if answer:
+        # 提前终止路径 (无确认文档): 本节点无模型调用, 计量增量为 0
         step_4_save_message_and_push_final(session_id, answer)
+        return {}
     else:
         answer_prompt = step_2_format_prompt(
             rewritten_query, session_id, rerank_results
         )
         logger.info(f"生成的答案提示: {answer_prompt}")
 
-        answer = step_3_call_llm_generate_answer(session_id, answer_prompt)
+        answer, answer_tokens = step_3_call_llm_generate_answer(
+            session_id, answer_prompt
+        )
         logger.info(f"最终答案: {answer}")
 
         step_4_save_message_and_push_final(session_id, answer)
 
-    return state
+    return {"token_meter": TokenUsage(llm_tokens=answer_tokens)}
 
 
 if __name__ == "__main__":

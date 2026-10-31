@@ -8,6 +8,7 @@ from fastapi import (
     BackgroundTasks,
     FastAPI,
     File,
+    Form,
     HTTPException,
     Request,
     UploadFile,
@@ -31,8 +32,10 @@ from common.config.path_config import UPLOAD_TMP_DIR
 from common.events import EVENT_BUS, TASK_MANAGER, TaskStatus
 from common.logging import logger
 from common.schema import DocDetail
-from common.store import CHAT_HISTORY_MANAGER
+from common.schema.token_usage import TokenUsageSnapshot
+from common.store import CHAT_HISTORY_MANAGER, TOKEN_USAGE_MANAGER
 from common.store.chat_history import ChatMessage
+from common.store.token_usage import TokenUsageStoreError
 from service import docs_service
 from service.import_service import arun_import
 from service.query_service import arun_query
@@ -122,6 +125,7 @@ async def import_document(
     request: Request,
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
+    session_id: str | None = Form(default=None),
 ) -> UploadResponse:
     """导入文档接口, 异步处理上传文件。"""
 
@@ -129,6 +133,10 @@ async def import_document(
 
     if not file.filename:
         raise HTTPException(status_code=400, detail="缺少文件名")
+
+    # Token 统计按浏览器会话落库, 上传必须携带会话标识 (前端 kb_session_id)
+    if not session_id:
+        raise HTTPException(status_code=400, detail="缺少会话标识 session_id")
 
     task_id = uuid.uuid4().hex
     # 每个任务独立子目录：并发上传同名文件互不覆盖
@@ -139,7 +147,14 @@ async def import_document(
 
     EVENT_BUS.create(task_id)
 
-    background_tasks.add_task(arun_import, task_id=task_id, origin_file_path=str(dest))
+    user_ip = request.client.host if request.client else ""
+    background_tasks.add_task(
+        arun_import,
+        task_id=task_id,
+        origin_file_path=str(dest),
+        session_id=session_id,
+        user_ip=user_ip,
+    )
 
     return UploadResponse(
         task_id=task_id,
@@ -181,12 +196,14 @@ def query(
 
     EVENT_BUS.create(payload.session_id)
 
+    user_ip = request.client.host if request.client else ""
     background_tasks.add_task(
         arun_query,
         session_id=payload.session_id,
         query=payload.query,
         enable_web_search=payload.enable_web_search,
         enable_hyde=payload.enable_hyde,
+        user_ip=user_ip,
     )
 
     return {
@@ -247,6 +264,24 @@ def delete_history(
         "status": "ok",
         "msg": f"历史记录已删除: {session_id}, 删除条数: {deleted_count}",
     }
+
+
+@router.get("/token-usage/{session_id}", response_model=TokenUsageSnapshot)
+def get_token_usage(
+    request: Request,
+    session_id: str,
+) -> TokenUsageSnapshot:
+    """获取浏览器会话的 Token 统计快照（会话总计 / 查询 / 上传三口径）。
+
+    无记录返回全 0（空统计态）；Mongo 读失败返回 500（统计失败态）。
+    """
+
+    logger.info(f"[{str(request.url)}], session_id={session_id}")
+
+    try:
+        return TOKEN_USAGE_MANAGER.get_usage(session_id)
+    except TokenUsageStoreError:
+        raise HTTPException(status_code=500, detail="Token 统计读取失败")
 
 
 # ------------------------------------------------------------------ #

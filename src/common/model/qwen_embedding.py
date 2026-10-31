@@ -3,6 +3,7 @@ from typing import TypedDict
 from dashscope import TextEmbedding
 
 from common.config.env_config import ENV_CONFIG
+from common.model.metering import dashscope_total_tokens
 from common.model.rate_limiter import SlidingWindowRateLimiter
 
 
@@ -29,8 +30,8 @@ class QwenEmbedding:
         self._api_key = ENV_CONFIG.dashscope.api_key
         self._limiter = SlidingWindowRateLimiter(ENV_CONFIG.dashscope.embedding_rpm)
 
-    def embed_document_hybrid(self, texts: list[str]) -> list[HybridVector]:
-        """嵌入文本混合向量
+    def embed_document_hybrid(self, texts: list[str]) -> tuple[list[HybridVector], int]:
+        """嵌入文本混合向量, 返回 (向量列表, 本次调用 token 数)。
 
         输出格式:
         [
@@ -43,8 +44,8 @@ class QwenEmbedding:
         """
         return self._embed(texts, text_type="document")
 
-    def embed_query_hybrid(self, texts: list[str]) -> list[HybridVector]:
-        """查询文本的混合向量
+    def embed_query_hybrid(self, texts: list[str]) -> tuple[list[HybridVector], int]:
+        """查询文本的混合向量, 返回 (向量列表, 本次调用 token 数)。
 
         输出格式:
         [
@@ -57,7 +58,9 @@ class QwenEmbedding:
         """
         return self._embed(texts, text_type="query")
 
-    def _embed(self, texts: list[str], *, text_type: str) -> list[HybridVector]:
+    def _embed(
+        self, texts: list[str], *, text_type: str
+    ) -> tuple[list[HybridVector], int]:
         self._limiter.acquire()  # 在调用嵌入接口前进行速率限制
 
         resp = TextEmbedding.call(
@@ -87,15 +90,18 @@ class QwenEmbedding:
                 }
             )
 
-        return result
+        return result, dashscope_total_tokens(resp.get("usage"))
 
 
 if __name__ == "__main__":
     from rich import print as rprint
 
     embedding = QwenEmbedding()
-    result = embedding.embed_document_hybrid(["Hello World", "Hello RAG", "你好, 朋友"])
+    result, tokens = embedding.embed_document_hybrid(
+        ["Hello World", "Hello RAG", "你好, 朋友"]
+    )
     for i, r in enumerate(result):
         rprint(f"Text {i}:")
         rprint(f"  Dense: {r['dense'][0:5]}")
         rprint(f"  Sparse: {r['sparse']}")
+    rprint(f"Tokens: {tokens}")

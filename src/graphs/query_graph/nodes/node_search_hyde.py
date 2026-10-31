@@ -3,7 +3,9 @@ from common.client.milvus_client import MilvusChunksRecall
 from common.events.tracing import step_log, trace_node
 from common.logging import logger
 from common.model import LLM
+from common.model.metering import message_usage_tokens
 from common.prompt.prompt_hypo_answer import PromptHypoAnswer
+from common.schema.token_usage import TokenUsage
 from common.utils.brief import brief
 from graphs.query_graph.query_graph_state import QueryGraphState
 
@@ -24,24 +26,27 @@ def step_1_validate_and_get_data(
 @step_log(desc="生成假设性回答")
 def step_2_generate_hypothetical_answer(
     rewritten_query: str,
-) -> str:
+) -> tuple[str, int]:
     prompt = PromptHypoAnswer(rewritten_query).prompt
     hypo_answer = LLM.invoke(prompt)
-    return hypo_answer.content
+    tokens = message_usage_tokens(hypo_answer)
+    if not tokens:
+        logger.warning("HyDE 假设性回答 LLM 未返回 usage, 本次调用不计入统计")
+    return hypo_answer.content, tokens
 
 
 @step_log(desc="在 Milvus 中匹配假设性回答")
 def step_3_hypo_match_in_milvus(
     doc_ids: list[int],
     hypo_answer: str,
-) -> list[MilvusChunksRecall]:
+) -> tuple[list[MilvusChunksRecall], int]:
 
-    chunks = MILVUS_CLIENT.hybrid_search_chunks(
+    chunks, embedding_tokens = MILVUS_CLIENT.hybrid_search_chunks(
         query_text=[hypo_answer],
         doc_ids=doc_ids,
     )
 
-    return chunks[0] if chunks else []
+    return (chunks[0] if chunks else []), embedding_tokens
 
 
 @trace_node(desc="HyDE 搜索", need_push=True)
@@ -58,15 +63,18 @@ def node_search_hyde(state: QueryGraphState) -> QueryGraphState:
     if not hyde_enable:
         return {"hyde_recalls": []}
 
-    hypo_answer = step_2_generate_hypothetical_answer(rewritten_query)
+    hypo_answer, hypo_tokens = step_2_generate_hypothetical_answer(rewritten_query)
     logger.info(f"生成的假设性回答: {hypo_answer}")
 
-    hyde_recalls: list[MilvusChunksRecall] = step_3_hypo_match_in_milvus(
-        doc_ids, hypo_answer
-    )
+    hyde_recalls, embedding_tokens = step_3_hypo_match_in_milvus(doc_ids, hypo_answer)
     logger.info(f"匹配到的文档块: {brief(hyde_recalls)}")
 
-    return {"hyde_recalls": hyde_recalls}
+    return {
+        "hyde_recalls": hyde_recalls,
+        "token_meter": TokenUsage(
+            llm_tokens=hypo_tokens, embedding_tokens=embedding_tokens
+        ),
+    }
 
 
 if __name__ == "__main__":

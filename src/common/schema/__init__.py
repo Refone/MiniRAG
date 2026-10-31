@@ -4,5 +4,25 @@
 """
 
 from .doc import DocChunk, DocDetail, DocItem
+from .token_usage import (
+    ModelTokenUsage,
+    TokenScope,
+    TokenUsage,
+    TokenUsageSnapshot,
+    build_snapshot,
+    empty_token_usage,
+    sum_token_usage,
+)
 
-__all__ = ["DocChunk", "DocDetail", "DocItem"]
+__all__ = [
+    "DocChunk",
+    "DocDetail",
+    "DocItem",
+    "ModelTokenUsage",
+    "TokenScope",
+    "TokenUsage",
+    "TokenUsageSnapshot",
+    "build_snapshot",
+    "empty_token_usage",
+    "sum_token_usage",
+]

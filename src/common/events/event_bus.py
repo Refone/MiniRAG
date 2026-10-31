@@ -20,6 +20,7 @@ class SSEEvent:
     CHILD_PROGRESS = "child-progress"  # 单个 md 子任务的进度快照
     DELTA = "delta"  # LLM 流式输出增量
     FINAL = "final"  # 最终完整答案
+    USAGE = "usage"  # Token 统计快照（流结束时推送，载荷为 TokenUsageSnapshot）
     ERROR = "error"  # 错误信息
     CLOSE = "__close__"  # 关闭连接信号
 

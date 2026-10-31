@@ -1,8 +1,9 @@
 import copy
 import json
-from typing import TypedDict
+from typing import Annotated, TypedDict
 
 from common.client.milvus_client import MilvusChunksRecall
+from common.schema.token_usage import TokenUsage, sum_token_usage
 
 
 class WebSearchResult(TypedDict):
@@ -64,6 +65,11 @@ class QueryGraphState(TypedDict):
 
     answer: str  # 最终回答
 
+    # Token 计量累计值 (纯数据, 可 JSON 序列化): 消耗 token 的节点在结束时
+    # 返回本节点的增量, 通道经 sum_token_usage reducer 逐字段累加;
+    # 节点不得返回累计值本身 (会重复累加), 流结束由 service 读取并落库
+    token_meter: Annotated[TokenUsage, sum_token_usage]
+
 
 _DEFAULT_STATE: QueryGraphState = {
     "session_id": "",
@@ -78,6 +84,12 @@ _DEFAULT_STATE: QueryGraphState = {
     "web_matches": [],
     "rerank_results": [],
     "answer": "",
+    "token_meter": {
+        "llm_tokens": 0,
+        "vlm_tokens": 0,
+        "embedding_tokens": 0,
+        "reranker_tokens": 0,
+    },
 }
 
 

@@ -2,6 +2,8 @@ import copy
 import json
 from typing import Annotated, TypedDict
 
+from common.schema.token_usage import TokenUsage, sum_token_usage
+
 
 def _keep_latest(_old, new):
     """
@@ -75,6 +77,12 @@ class ImportGraphState(TypedDict):
     # 带 _keep_latest reducer: md 压缩包扇出时多个分支并发写此字段
     chunks_json_path: Annotated[str, _keep_latest]
 
+    # Token 计量累计值 (纯数据, 可 JSON 序列化): 消耗 token 的节点在结束时
+    # 返回本节点增量, 通道经 sum_token_usage reducer 累加。zip 扇出的子分支
+    # 状态必须从 0 起算 (不得继承父值), 各分支增量在回归父图时由 reducer 折叠;
+    # 流结束由 arun_import 读取并落库
+    token_meter: Annotated[TokenUsage, sum_token_usage]
+
 
 _DEFAULT_STATE: ImportGraphState = {
     "task_id": "",
@@ -86,6 +94,12 @@ _DEFAULT_STATE: ImportGraphState = {
     "origin_file_type": "",
     "file_title": "",
     "chunks_json_path": "",
+    "token_meter": {
+        "llm_tokens": 0,
+        "vlm_tokens": 0,
+        "embedding_tokens": 0,
+        "reranker_tokens": 0,
+    },
 }
 
 

@@ -32,6 +32,10 @@ class DeepSeekFlash(ChatDeepSeek):
         kwargs.setdefault("extra_body", {})
         kwargs["extra_body"]["enable_thinking"] = False
 
+        # 流式调用在末段 chunk 携带 usage_metadata（Token 统计计量依赖;
+        # 显式传 base_url 时 langchain 不会自动开启, 必须手动声明）
+        kwargs.setdefault("stream_usage", True)
+
         return super().__init__(
             model=model,
             api_key=api_key,

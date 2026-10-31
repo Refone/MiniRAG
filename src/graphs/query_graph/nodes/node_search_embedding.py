@@ -2,6 +2,7 @@ from common.client import MILVUS_CLIENT
 from common.client.milvus_client import MilvusChunksRecall
 from common.events.tracing import step_log, trace_node
 from common.logging import logger
+from common.schema.token_usage import TokenUsage
 from graphs.query_graph.query_graph_state import QueryGraphState
 
 
@@ -16,19 +17,19 @@ def step_1_validate_and_get_data(state: QueryGraphState):
 def step_2_vectorize_query(
     rewritten_query: str,
     doc_ids: list[int],
-) -> list[MilvusChunksRecall]:
+) -> tuple[list[MilvusChunksRecall], int]:
     """
     根据 rewritten_query 在 minirag_chunks 中进行向量化查询，
     检索范围严格限定为确认文档 doc_ids 中的条目。
     """
 
     # 仅有一个 query_text, 因此取第一个结果列表
-    chunks: list[list[MilvusChunksRecall]] | None = MILVUS_CLIENT.hybrid_search_chunks(
+    chunks, embedding_tokens = MILVUS_CLIENT.hybrid_search_chunks(
         query_text=[rewritten_query],
         doc_ids=doc_ids,
     )
 
-    return chunks[0] if chunks else []
+    return (chunks[0] if chunks else []), embedding_tokens
 
 
 @trace_node(desc="向量化查询", need_push=True)
@@ -42,12 +43,15 @@ def node_search_embedding(state: QueryGraphState) -> QueryGraphState:
         logger.warning("没有确认匹配的文档, 跳过向量化查询")
         return {}
 
-    embedding_recalls: list[MilvusChunksRecall] = step_2_vectorize_query(
+    embedding_recalls, embedding_tokens = step_2_vectorize_query(
         rewritten_query,
         doc_ids,
     )
 
-    return {"embedding_recalls": embedding_recalls}
+    return {
+        "embedding_recalls": embedding_recalls,
+        "token_meter": TokenUsage(embedding_tokens=embedding_tokens),
+    }
 
 
 if __name__ == "__main__":

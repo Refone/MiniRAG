@@ -4,7 +4,9 @@ from common.config.env_config import ENV_CONFIG
 from common.events.tracing import step_log, trace_node
 from common.logging import logger
 from common.model import LLM, RERANKER
+from common.model.metering import message_usage_tokens
 from common.prompt.prompt_rerank_text_refine import PromptRerankRefineText
+from common.schema.token_usage import TokenUsage
 from common.utils.tokenizer import compute_token
 from graphs.query_graph.nodes.node_search_web import WebSearchResult
 from graphs.query_graph.query_graph_state import DataFrom, QueryGraphState, RerankResult
@@ -85,8 +87,9 @@ def step_2_rrf_fusion(
     return fused_results[: APP_CONFIG.chunks_recall_topk]
 
 
-def _ensure_answer_token_limit(question: str, answer: str) -> str:
+def _ensure_answer_token_limit(question: str, answer: str) -> tuple[str, int]:
     result = answer
+    tokens = 0
     # 这里有些不严谨，近似计算
     answer_token_limit = ENV_CONFIG.dashscope.rerank_max_text_length - compute_token(
         question
@@ -101,8 +104,9 @@ def _ensure_answer_token_limit(question: str, answer: str) -> str:
         )
         llm_conclude = LLM.invoke(prompt.prompt)
         result = llm_conclude.content
+        tokens = message_usage_tokens(llm_conclude)
 
-    return result
+    return result, tokens
 
 
 @step_log(desc="重排序")
@@ -110,19 +114,26 @@ def step_3_rerank(
     rewritten_query: str,
     fused_results: list[MilvusChunksRecall],
     web_matches: list[WebSearchResult],
-) -> list[RerankResult]:
+) -> tuple[list[RerankResult], int, int]:
     question = rewritten_query
 
     # 组装 question-answer 对: Milvus 切片在前, Web 搜索结果在后。
     # 该顺序与 rerank 返回结果中的 index 一一对应, 用于回填原文与来源。
     candidates: list[tuple[str, str]] = []  # [(answer, data_from), ...]
 
+    refine_tokens = 0
     for chunk in fused_results:
-        answer = _ensure_answer_token_limit(question, chunk.get("chunk_content", ""))
+        answer, tokens = _ensure_answer_token_limit(
+            question, chunk.get("chunk_content", "")
+        )
+        refine_tokens += tokens
         candidates.append((answer, DataFrom.MILVUS))
 
     for web_page in web_matches:
-        answer = _ensure_answer_token_limit(question, web_page.get("snippet", ""))
+        answer, tokens = _ensure_answer_token_limit(
+            question, web_page.get("snippet", "")
+        )
+        refine_tokens += tokens
         candidates.append((answer, DataFrom.WEB))
 
     documents = [answer for answer, _ in candidates]
@@ -130,7 +141,7 @@ def step_3_rerank(
     logger.info(f"待重排序文档数量: {len(documents)}")
     logger.info(f"待重排序文档内容: {documents}")
 
-    results = RERANKER.rerank(
+    results, rerank_tokens = RERANKER.rerank(
         query=question,
         documents=documents,
         return_documents=True,
@@ -151,7 +162,7 @@ def step_3_rerank(
     # 显式按相关性得分降序排序 (rerank 接口通常已有序, 此处兜底保证)
     rerank_results.sort(key=lambda r: r["score"], reverse=True)
 
-    return rerank_results
+    return rerank_results, refine_tokens, rerank_tokens
 
 
 @step_log(desc="动态TopK")
@@ -232,7 +243,9 @@ def node_rrf_and_rerank(state: QueryGraphState) -> QueryGraphState:
     fused_results = step_2_rrf_fusion(embedding_recalls, hyde_recalls)
     logger.info(f"最终融合切片数量: {len(fused_results)}")
 
-    rerank_results = step_3_rerank(rewritten_query, fused_results, web_matches)
+    rerank_results, refine_tokens, rerank_tokens = step_3_rerank(
+        rewritten_query, fused_results, web_matches
+    )
     logger.info(f"重排序结果: {rerank_results}")
     logger.info(f"重排序结果数量: {len(rerank_results)}")
 
@@ -240,7 +253,12 @@ def node_rrf_and_rerank(state: QueryGraphState) -> QueryGraphState:
     logger.info(f"动态 TopK 后结果: {rerank_results}")
     logger.info(f"动态 TopK 后结果数量: {len(rerank_results)}")
 
-    return {"rerank_results": rerank_results}
+    return {
+        "rerank_results": rerank_results,
+        "token_meter": TokenUsage(
+            llm_tokens=refine_tokens, reranker_tokens=rerank_tokens
+        ),
+    }
 
 
 if __name__ == "__main__":

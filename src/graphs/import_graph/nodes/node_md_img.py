@@ -12,8 +12,10 @@ from common.config.env_config import ENV_CONFIG
 from common.events.tracing import step_log, trace_node
 from common.logging import logger
 from common.model import VLM
+from common.model.metering import message_usage_tokens
 from common.model.qwen3_vl_plus import encode_image
 from common.prompt.prompt_image_summary import PromptImageSummary
+from common.schema.token_usage import TokenUsage
 from common.utils.markdown_image import extract_surrounding_context, find_image_position
 from graphs.import_graph.import_graph_state import ImportGraphState
 
@@ -156,7 +158,7 @@ def step_2_scan_images(
 def step_3_image_summary(
     file_title: str,
     image_info_list: list[ImageInfo],
-) -> dict[str, str]:
+) -> tuple[dict[str, str], int]:
     """
     请求 VLM 获取图像摘要, 线程池并发执行 (VLM.invoke 同步调用)。
 
@@ -168,16 +170,19 @@ def step_3_image_summary(
     APIConnectionError。httpx 同步客户端线程安全, 线程池并发是安全做法
     (与 node_document_embedding 的 embedding 并发模式一致)。
 
+    usage 直接取自每次 invoke 返回消息的 usage_metadata, 各线程独立汇总,
+    不依赖任何共享状态。
+
     Args:
         file_title: 文件标题
         image_info_list (list[ImageInfo]): 图片信息列表
     Returns:
-        dict[str, str]: { "<图片名>" : "描述摘要" }
+        ({ "<图片名>" : "描述摘要" }, 全部图片识别的 token 总数)
     """
     if not image_info_list:
-        return {}
+        return {}, 0
 
-    def process_image(image_info: ImageInfo) -> tuple[str, str]:
+    def process_image(image_info: ImageInfo) -> tuple[str, str, int]:
         image_path = image_info["path"]
         prompt = PromptImageSummary(
             md_title=file_title,
@@ -194,14 +199,24 @@ def step_3_image_summary(
 
         logger.debug(f"请求 VLM 获取图片摘要: {image_path}")
         description = VLM.invoke([message])
+        tokens = message_usage_tokens(description)
+        if not tokens:
+            logger.warning(f"图片 {image_path} VLM 未返回 usage, 不计入统计")
         description = description.content
         logger.debug(f"{image_path} 图片摘要: {description}")
-        return image_info["name"], description
+        return image_info["name"], description, tokens
 
     workers = min(APP_CONFIG.max_concurrency, len(image_info_list))
     with ThreadPoolExecutor(max_workers=workers) as pool:
         results = pool.map(process_image, image_info_list)
-        return dict(results)
+
+    summary_dict: dict[str, str] = {}
+    total_tokens = 0
+    for name, description, tokens in results:
+        summary_dict[name] = description
+        total_tokens += tokens
+
+    return summary_dict, total_tokens
 
 
 @step_log("图片上传 Minio")
@@ -337,7 +352,7 @@ def node_md_img(state: ImportGraphState) -> ImportGraphState:
 
     # 3. 请求 VLM 获取图片摘要
     # {"<图片名>" : "<摘要>"}
-    summary_dict = step_3_image_summary(file_title, image_info_list)
+    summary_dict, vlm_tokens = step_3_image_summary(file_title, image_info_list)
 
     # 4. 上传图片至 MinIO 并获取 URL (云端按出现顺序重命名为 1.<后缀>, 2.<后缀> ...)
     # {"<原始图片名>" : "<URL>"}
@@ -355,7 +370,10 @@ def node_md_img(state: ImportGraphState) -> ImportGraphState:
 
     # 只返回变更字段: md 压缩包扇出时多个分支并发执行本节点, 返回完整 state
     # 会让所有 key 在同一 step 并发写入, 触发 LangGraph InvalidUpdateError
-    return {"markdown_file_path": str(fixed_md_path)}
+    return {
+        "markdown_file_path": str(fixed_md_path),
+        "token_meter": TokenUsage(vlm_tokens=vlm_tokens),
+    }
 
 
 if __name__ == "__main__":

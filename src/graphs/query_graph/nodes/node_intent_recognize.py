@@ -4,7 +4,9 @@ from common.config.app_config import APP_CONFIG
 from common.events.tracing import step_log, trace_node
 from common.logging import logger
 from common.model import LLM
+from common.model.metering import message_usage_tokens
 from common.prompt.prompt_query_rewrite import PromptQueryRewrite
+from common.schema.token_usage import TokenUsage
 from common.store import CHAT_HISTORY_MANAGER
 from common.store.chat_history import MessageRole
 from graphs.query_graph.query_graph_state import QueryGraphState
@@ -34,18 +36,21 @@ def step_2_summary_history(session_id: str) -> str:
 def step_3_rewrite_query(
     history_summary: str,
     original_query: str,
-) -> str:
+) -> tuple[str, int]:
     prompt = PromptQueryRewrite(history_summary, original_query)
 
     response = LLM.invoke(prompt.prompt)
+    tokens = message_usage_tokens(response)
+    if not tokens:
+        logger.warning("查询改写 LLM 未返回 usage, 本次调用不计入 token 统计")
 
-    return response.content
+    return response.content, tokens
 
 
 @step_log(desc="从 Milvus docs 表中召回匹配文档")
 def step_4_select_docs_from_milvus(
     rewritten_query: str,
-) -> list[MilvusDocsRecall]:
+) -> tuple[list[MilvusDocsRecall], int]:
     """
     一级召回: 直接拿重写后的完整查询在 minirag_docs 中混合检索,
     同时匹配 keywords_sparse_vector(关键词精确) 与 abstract_dense_vector(摘要语义),
@@ -58,15 +63,15 @@ def step_4_select_docs_from_milvus(
         [{"id": 1, "score": 0.9, "file_title": "...", "docs_abstract": "..."}, ...]
     """
 
-    reqs_list: list[list[MilvusDocsRecall]] | None = MILVUS_CLIENT.hybrid_search_docs(
-        texts=[rewritten_query]
+    reqs_list, embedding_tokens = MILVUS_CLIENT.hybrid_search_docs(
+        texts=[rewritten_query],
     )
 
     if not reqs_list:
         logger.warning("文档级混合搜索无结果或失败")
-        return []
+        return [], embedding_tokens
 
-    return reqs_list[0]
+    return reqs_list[0], embedding_tokens
 
 
 @step_log(desc="根据文档匹配结果生成确认/疑似文档列表")
@@ -129,11 +134,13 @@ def node_intent_recognize(state: QueryGraphState) -> QueryGraphState:
     history_summary = step_2_summary_history(session_id=session_id)
     logger.info(f"历史记录摘要:\n{history_summary}")
 
-    rewritten_query = step_3_rewrite_query(history_summary, original_query)
+    rewritten_query, rewrite_tokens = step_3_rewrite_query(
+        history_summary, original_query
+    )
     state["rewritten_query"] = rewritten_query if rewritten_query else original_query
     logger.info(f"重写后的查询: {state['rewritten_query']}")
 
-    hits = step_4_select_docs_from_milvus(state["rewritten_query"])
+    hits, embedding_tokens = step_4_select_docs_from_milvus(state["rewritten_query"])
     logger.info(f"从 Milvus 中选取的结果: {hits}")
 
     confirm_list, suspect_list, doc_titles = step_5_docs_match_results(hits)
@@ -163,6 +170,11 @@ def node_intent_recognize(state: QueryGraphState) -> QueryGraphState:
     step_6_save_chat_message(
         original_query=original_query,
         session_id=session_id,
+    )
+
+    # 覆盖为本节点的计量增量 (返回完整 state 时通道按增量折叠, 避免重复累计)
+    state["token_meter"] = TokenUsage(
+        llm_tokens=rewrite_tokens, embedding_tokens=embedding_tokens
     )
 
     return state

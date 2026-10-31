@@ -3,6 +3,7 @@ from typing import TypedDict
 from dashscope import TextReRank
 
 from common.config.env_config import ENV_CONFIG
+from common.model.metering import dashscope_total_tokens
 from common.model.rate_limiter import SlidingWindowRateLimiter
 
 
@@ -34,8 +35,8 @@ class QwenReranker:
         *,
         top_n: int | None = None,
         return_documents: bool = False,
-    ) -> list[QwenRerankResult]:
-        """对候选文档进行重排序
+    ) -> tuple[list[QwenRerankResult], int]:
+        """对候选文档进行重排序, 返回 (结果列表, 本次调用 token 数)。
 
         输出格式(按相关性得分降序):
         [
@@ -77,14 +78,14 @@ class QwenReranker:
         # 保险起见显式按相关性降序(API 通常已按此顺序返回)
         results.sort(key=lambda r: r["relevance_score"], reverse=True)
 
-        return results
+        return results, dashscope_total_tokens(resp.get("usage"))
 
 
 if __name__ == "__main__":
     from rich import print as rprint
 
     reranker = QwenReranker()
-    result = reranker.rerank(
+    results, tokens = reranker.rerank(
         query="什么是文本排序模型",
         documents=[
             "文本排序模型广泛用于搜索引擎和推荐系统中，它们根据文本相关性对候选文本进行排序",
@@ -93,5 +94,6 @@ if __name__ == "__main__":
         ],
         return_documents=True,
     )
-    for r in result:
+    for r in results:
         rprint(f"[{r['index']}] score={r['relevance_score']:.4f} text={r['document']}")
+    rprint(f"Tokens: {tokens}")

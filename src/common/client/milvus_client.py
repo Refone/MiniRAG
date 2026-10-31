@@ -6,7 +6,6 @@ from common.config.app_config import APP_CONFIG
 from common.config.env_config import ENV_CONFIG
 from common.logging import logger
 from common.model import EMBEDDING
-from common.model.qwen_embedding import HybridVector
 from common.utils.net import probe_tcp
 
 
@@ -119,7 +118,7 @@ class MiniRagMilvusClient(MilvusClient):
         self,
         texts: list[str],
         limit: int = APP_CONFIG.docs_recall_limit,
-    ) -> list[list[MilvusDocsRecall]] | None:
+    ) -> tuple[list[list[MilvusDocsRecall]] | None, int]:
         """文档级一级召回: 摘要稠密 + 关键词稀疏混合检索。
 
         texts 为查询侧识别的检索线索 (如询问主体) 列表,
@@ -138,7 +137,7 @@ class MiniRagMilvusClient(MilvusClient):
                 ...
             ]
 
-        搜索失败时返回 None。
+        搜索失败时返回 (None, embedding_tokens)。
         """
         collection_name = ENV_CONFIG.milvus.collection_docs
         output_fields = [
@@ -146,7 +145,7 @@ class MiniRagMilvusClient(MilvusClient):
             MilvusDocsField.DOCS_ABSTRACT,
         ]
 
-        texts_vectors = EMBEDDING.embed_query_hybrid(texts)
+        texts_vectors, embedding_tokens = EMBEDDING.embed_query_hybrid(texts)
         # 摘要匹配用稠密分量, 关键词匹配用稀疏分量
         dense_vectors = [vec["dense"] for vec in texts_vectors]
         sparse_vectors = [vec["sparse"] for vec in texts_vectors]
@@ -162,14 +161,14 @@ class MiniRagMilvusClient(MilvusClient):
             limit=limit,
         )
 
-        return self._convert_hit_results(hits)
+        return self._convert_hit_results(hits), embedding_tokens
 
     def hybrid_search_chunks(
         self,
         query_text: list[str],
         doc_ids: list[int] = None,
         limit: int = APP_CONFIG.chunks_recall_limit,
-    ) -> list[list[MilvusChunksRecall]] | None:
+    ) -> tuple[list[list[MilvusChunksRecall]] | None, int]:
         """切片级二级召回, 检索范围严格限定在 doc_ids 对应的确认文档内。
 
         doc_ids 为空时不加过滤 (全库检索, 调用侧应保证只在确认文档
@@ -183,7 +182,7 @@ class MiniRagMilvusClient(MilvusClient):
             MilvusChunksField.CHUNK_CONTENT,
         ]
 
-        vectors: list[HybridVector] = EMBEDDING.embed_query_hybrid(query_text)
+        vectors, embedding_tokens = EMBEDDING.embed_query_hybrid(query_text)
         dense_vector = [vec["dense"] for vec in vectors]
         sparse_vector = [vec["sparse"] for vec in vectors]
 
@@ -203,7 +202,7 @@ class MiniRagMilvusClient(MilvusClient):
             output_fields=output_fields,
         )
 
-        return self._convert_hit_results(hits)
+        return self._convert_hit_results(hits), embedding_tokens
 
     # Milvus 混合搜索 (稠密向量 + 稀疏向量)
     # https://milvus.io/docs/multi-vector-search.md

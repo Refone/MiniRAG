@@ -7,6 +7,7 @@ from langgraph.types import Send
 
 from common.events import EVENT_BUS, TASK_MANAGER, SSEEvent
 from common.events.tracing import trace_node
+from common.schema.token_usage import TokenUsage, sum_token_usage
 from graphs.import_graph.import_graph_state import (
     FileType,
     ImportGraphState,
@@ -40,10 +41,15 @@ class MdTailOutput(TypedDict):
     若不限制输出, 子图会把完整状态 (task_id / file_title 等) 写回父图通道,
     md 压缩包多分支并发完成时会在非 reducer 字段上触发 InvalidUpdateError。
     (item_name 已随 node_item_name_vect 的合并移除)
+
+    token_meter 必须显式回写: 子图内的节点只返回本节点增量, 通道累计值
+    (sum_token_usage reducer) 就是本分支的计量增量, 回写后父图对多分支
+    增量继续折叠累加。
     """
 
     markdown_file_path: Annotated[str, _keep_latest]
     chunks_json_path: Annotated[str, _keep_latest]
+    token_meter: Annotated[TokenUsage, sum_token_usage]
 
 
 md_tail_workflow = StateGraph(ImportGraphState, output_schema=MdTailOutput)
@@ -90,6 +96,8 @@ def node_md_tail_branch(state: ImportGraphState):
     return {
         "markdown_file_path": result.get("markdown_file_path", ""),
         "chunks_json_path": result.get("chunks_json_path", ""),
+        # 子图通道累计的本分支计量增量, 写回父图由 reducer 折叠
+        "token_meter": result.get("token_meter") or {},
     }
 
 
@@ -141,6 +149,9 @@ def zip_fanout_router(state: ImportGraphState):
                 origin_file_type=state.get("origin_file_type", ""),
                 markdown_file_path=child["markdown_file_path"],
                 file_title=child["title"],
+                # 注意: 子分支不继承父状态的 token_meter (create_state 默认
+                # 从 0 起算), 各分支返回本分支增量, 回归父图时由 reducer
+                # 折叠累加; 若继承累计值会重复计量
             ),
         )
         for child in state.get("md_children", [])
