@@ -10,6 +10,7 @@
  */
 import type { ChildProgressResponse, StatusResponse } from "@/types/app";
 import type { ForkResponse } from "@/types/docs";
+import type { TokenUsageSnapshot } from "@/types/tokenUsage";
 
 export interface SseHandlers {
   onOpen?: () => void;
@@ -23,6 +24,8 @@ export interface SseHandlers {
   onDelta?: (delta: string) => void;
   /** final 事件（data 可能为 null，透传原样） */
   onFinal?: (data: StatusResponse | null) => void;
+  /** usage 事件（流结束前的 Token 统计快照；data 解析失败时为 null） */
+  onUsage?: (data: TokenUsageSnapshot | null) => void;
   /** 连接中断/失败（消息已提取） */
   onError?: (message: string) => void;
   /** 收到服务端 __close__ 信号 */
@@ -78,6 +81,11 @@ export function openStatusSse(url: string, handlers: SseHandlers): SseHandle {
   es.addEventListener("final", (e) => {
     const d = parseEventData<StatusResponse>((e as MessageEvent).data);
     handlers.onFinal?.(d);
+  });
+
+  es.addEventListener("usage", (e) => {
+    const d = parseEventData<TokenUsageSnapshot>((e as MessageEvent).data);
+    handlers.onUsage?.(d);
   });
 
   es.addEventListener("__close__", () => {

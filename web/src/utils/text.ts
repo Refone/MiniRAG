@@ -37,6 +37,11 @@ export function isImageUrl(url: string): boolean {
   }
 }
 
+/** 整数千分位格式化（负数 / 小数统一钳到 0 后取整） */
+export function formatThousands(n: number): string {
+  return String(Math.max(0, Math.round(n))).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+}
+
 export function dedupeKeepOrder(arr: unknown[]): string[] {
   const seen = new Set<string>();
   const out: string[] = [];

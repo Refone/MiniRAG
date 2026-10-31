@@ -171,7 +171,8 @@
   }
 
   .theme-toggle {
-    margin-left: auto;
+    /* Token 指示器已占右端（margin-left: auto），主题按钮紧随其后 */
+    margin-left: 0;
   }
 
   .theme-toggle-label {

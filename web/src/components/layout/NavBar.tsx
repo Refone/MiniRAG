@@ -2,6 +2,7 @@ import { PAGE_TABS } from "@/lib/constants";
 import type { PageKey } from "@/types/app";
 import type { Theme } from "@/store/preferenceStore";
 import { BookIcon, ChatIcon, MoonIcon, SunIcon } from "@/components/icons/AppIcons";
+import { TokenMeter } from "@/components/layout/TokenMeter";
 
 interface NavBarProps {
   page: PageKey;
@@ -37,6 +38,8 @@ export function NavBar({ page, onPageChange, theme, onToggleTheme }: NavBarProps
           </button>
         ))}
       </nav>
+
+      <TokenMeter />
 
       <button
         type="button"

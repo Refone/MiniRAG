@@ -22,6 +22,11 @@ button {
   font-family: inherit;
 }
 
+/* hidden 属性强制隐藏（类选择器的 display 不覆盖它） */
+[hidden] {
+  display: none !important;
+}
+
 /* 单色线性图标：颜色继承 currentColor */
 .icon {
   width: 16px;

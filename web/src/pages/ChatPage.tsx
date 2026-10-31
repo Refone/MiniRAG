@@ -8,10 +8,12 @@ import {
 import { ChatComposer } from "@/components/chat/ChatComposer";
 import { MessageBubble } from "@/components/chat/MessageBubble";
 import { QueryTaskBar } from "@/components/chat/QueryTaskBar";
+import { Toast } from "@/components/ui/Toast";
 import { useApiHealth } from "@/hooks/useApiHealth";
 import { useScrollRestore } from "@/hooks/useScrollRestore";
 import { HEALTH_INTERVAL } from "@/lib/constants";
 import { useChatStore } from "@/store/chatStore";
+import { useDocsStore } from "@/store/docsStore";
 import { usePreferenceStore } from "@/store/preferenceStore";
 
 /** 自动跟随时，消息末尾与任务卡片顶部保留的自然间距（px） */
@@ -31,6 +33,7 @@ export function ChatPage() {
   const send = useChatStore((s) => s.send);
   const dismissTask = useChatStore((s) => s.dismissTask);
   const clearHistory = useChatStore((s) => s.clearHistory);
+  const toasts = useDocsStore((s) => s.toasts);
   const enableWebSearch = usePreferenceStore((s) => s.enableWebSearch);
   const enableHyde = usePreferenceStore((s) => s.enableHyde);
   const setEnableWebSearch = usePreferenceStore((s) => s.setEnableWebSearch);
@@ -224,7 +227,12 @@ export function ChatPage() {
   const handleClearHistory = useCallback(() => {
     if (!window.confirm("确定要清空当前会话的历史记录吗？这将无法恢复。"))
       return;
-    void clearHistory();
+    void clearHistory().then(() => {
+      // Token 统计与聊天历史独立存储，清空不影响（demo 契约文案）
+      useDocsStore
+        .getState()
+        .pushToast("success", "已清空聊天记录，Token 统计保留在本次浏览器会话中");
+    });
   }, [clearHistory]);
 
   /**
@@ -292,6 +300,7 @@ export function ChatPage() {
         }
         onHeightChange={handleHeightChange}
       />
+      <Toast toasts={toasts} />
     </div>
   );
 }

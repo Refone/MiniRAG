@@ -12,11 +12,12 @@ import { create } from "zustand";
 import { API_BASE } from "@/lib/api/client";
 import { deleteHistory, getHistory, postQuery } from "@/lib/api/chat";
 import { usePreferenceStore } from "@/store/preferenceStore";
+import { useTokenUsageStore } from "@/store/tokenUsageStore";
 import { cachedGet, invalidateCache } from "@/lib/cache/requestCache";
 import { openStatusSse } from "@/lib/sse";
+import { getBrowserSessionId } from "@/utils/session";
 import {
   CACHE_KEY,
-  SESSION_KEY,
   TTL,
   WELCOME_HINT,
   WELCOME_TEXT,
@@ -28,13 +29,7 @@ import type { ProgressView } from "@/types/app";
 import type { ChatMessage, HistoryItem, QueryTaskView } from "@/types/chat";
 
 function getSessionId(): string {
-  let id = localStorage.getItem(SESSION_KEY);
-  if (!id) {
-    id =
-      "sess-" + Math.random().toString(36).slice(2) + Date.now().toString(36);
-    localStorage.setItem(SESSION_KEY, id);
-  }
-  return id;
+  return getBrowserSessionId();
 }
 
 function welcomeMessage(): ChatMessage {
@@ -241,6 +236,12 @@ export const useChatStore = create<ChatStoreState>()((set, get) => ({
             console.log(`[chat] 回答完成（${finalText.length} 字）`);
             patchBot({ typing: false, streaming: false, text: finalText });
             set({ sending: false });
+          },
+
+          // Token 统计快照帧（后端 flush 后、__close__ 前推送，直接落地）
+          onUsage: (d) => {
+            if (!d) return;
+            useTokenUsageStore.getState().applySnapshot(d, "query");
           },
 
           // 不在 final 时关流, 等收到服务端 __close__ 信号再关闭连接

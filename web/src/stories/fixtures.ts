@@ -13,6 +13,7 @@ import type {
   ImportChildTask,
   ImportFile,
 } from "@/types/docs";
+import type { TokenUsageSnapshot } from "@/types/tokenUsage";
 
 /** 对话消息：user / 回答 / typing / 流式 / 失败 / 空答案 */
 export const chatMessages: Record<string, ChatMessage> = {
@@ -302,4 +303,82 @@ export const importZipFile: ImportFile = {
       running: [],
     },
   ],
+};
+
+/** Token 统计快照：查询 + 上传后的会话总计（面板三口径可切换） */
+export const mockTokenUsage: TokenUsageSnapshot = {
+  session_id: "sess-demo-token",
+  user_ip: "127.0.0.1",
+  updated_at: Math.floor(Date.now() / 1000),
+  llm_tokens: 1106,
+  vlm_tokens: 1264,
+  embedding_tokens: 1795,
+  reranker_tokens: 350,
+  total_tokens: 4515,
+  query: {
+    llm_tokens: 620,
+    vlm_tokens: 0,
+    embedding_tokens: 905,
+    reranker_tokens: 350,
+    total_tokens: 1875,
+  },
+  upload: {
+    llm_tokens: 486,
+    vlm_tokens: 1264,
+    embedding_tokens: 890,
+    reranker_tokens: 0,
+    total_tokens: 2640,
+  },
+};
+
+/** Token 统计快照：空统计态（全 0，updated_at 为 null） */
+export const emptyTokenUsage: TokenUsageSnapshot = {
+  session_id: "sess-demo-empty",
+  user_ip: "127.0.0.1",
+  updated_at: null,
+  llm_tokens: 0,
+  vlm_tokens: 0,
+  embedding_tokens: 0,
+  reranker_tokens: 0,
+  total_tokens: 0,
+  query: {
+    llm_tokens: 0,
+    vlm_tokens: 0,
+    embedding_tokens: 0,
+    reranker_tokens: 0,
+    total_tokens: 0,
+  },
+  upload: {
+    llm_tokens: 0,
+    vlm_tokens: 0,
+    embedding_tokens: 0,
+    reranker_tokens: 0,
+    total_tokens: 0,
+  },
+};
+
+/** Token 统计快照：百万级大数值态（排版验证） */
+export const largeTokenUsage: TokenUsageSnapshot = {
+  session_id: "sess-demo-large",
+  user_ip: "127.0.0.1",
+  updated_at: Math.floor(Date.now() / 1000),
+  llm_tokens: 903280,
+  vlm_tokens: 62540,
+  embedding_tokens: 222782,
+  reranker_tokens: 96000,
+  total_tokens: 1284602,
+  query: {
+    llm_tokens: 842000,
+    vlm_tokens: 52000,
+    embedding_tokens: 78000,
+    reranker_tokens: 96000,
+    total_tokens: 1068000,
+  },
+  upload: {
+    llm_tokens: 61280,
+    vlm_tokens: 10540,
+    embedding_tokens: 144782,
+    reranker_tokens: 0,
+    total_tokens: 216602,
+  },
 };

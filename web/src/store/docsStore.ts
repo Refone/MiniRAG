@@ -12,6 +12,7 @@ import { API_BASE } from "@/lib/api/client";
 import { deleteDoc, getDocsDetail, getDocsList } from "@/lib/api/docs";
 import { postUpload } from "@/lib/api/upload";
 import { usePreferenceStore } from "@/store/preferenceStore";
+import { useTokenUsageStore } from "@/store/tokenUsageStore";
 import { cachedGet, invalidateCache } from "@/lib/cache/requestCache";
 import { openStatusSse } from "@/lib/sse";
 import { CACHE_KEY, TOAST_DURATION, TTL } from "@/lib/constants";
@@ -373,8 +374,7 @@ export const useDocsStore = create<DocsStoreState>()((set, get) => ({
                     `[import] 未知子任务状态：${d.status}（child ${d.child_id}）`,
                   );
                   return;
-                }
-                const status = d.status as ImportChildStatus;
+                }                const status = d.status as ImportChildStatus;
                 if (!hasChild(fileId, d.child_id)) {
                   console.warn(
                     `[import] 收到未登记子任务进度，可能丢失 fork 事件：${d.child_id}`,
@@ -437,6 +437,12 @@ export const useDocsStore = create<DocsStoreState>()((set, get) => ({
                     error: d.error || c.error || "处理失败",
                   };
                 });
+              },
+
+              // Token 统计快照帧（后端 flush 后、__close__ 前推送，直接落地）
+              onUsage: (d) => {
+                if (!d) return;
+                useTokenUsageStore.getState().applySnapshot(d, "upload");
               },
 
               // 不在终态事件时关流, 等收到服务端 __close__ 信号再关闭连接

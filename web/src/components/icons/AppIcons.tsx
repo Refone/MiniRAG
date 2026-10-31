@@ -134,3 +134,80 @@ export function ScissorsIcon({ className }: IconProps) {
     </IconBase>
   );
 }
+
+export function GaugeIcon({ className }: IconProps) {
+  return (
+    <IconBase className={className}>
+      <path d="m12 14 4-4" />
+      <path d="M3.34 19a10 10 0 1 1 17.32 0" />
+    </IconBase>
+  );
+}
+
+export function CpuIcon({ className }: IconProps) {
+  return (
+    <IconBase className={className}>
+      <rect x="4" y="4" width="16" height="16" rx="2" />
+      <rect x="9" y="9" width="6" height="6" />
+      <path d="M15 2v2M9 2v2M15 20v2M9 20v2M2 15h2M2 9h2M20 15h2M20 9h2" />
+    </IconBase>
+  );
+}
+
+export function ImageIcon({ className }: IconProps) {
+  return (
+    <IconBase className={className}>
+      <rect x="3" y="3" width="18" height="18" rx="2" />
+      <circle cx="9" cy="9" r="2" />
+      <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
+    </IconBase>
+  );
+}
+
+export function LayersIcon({ className }: IconProps) {
+  return (
+    <IconBase className={className}>
+      <path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z" />
+      <path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65" />
+      <path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65" />
+    </IconBase>
+  );
+}
+
+export function SortIcon({ className }: IconProps) {
+  return (
+    <IconBase className={className}>
+      <path d="m21 16-4 4-4-4" />
+      <path d="M17 20V4" />
+      <path d="m3 8 4-4 4 4" />
+      <path d="M7 4v16" />
+    </IconBase>
+  );
+}
+
+export function AlertIcon({ className }: IconProps) {
+  return (
+    <IconBase className={className}>
+      <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3" />
+      <path d="M12 9v4" />
+      <path d="M12 17h.01" />
+    </IconBase>
+  );
+}
+
+export function ClockIcon({ className }: IconProps) {
+  return (
+    <IconBase className={className}>
+      <circle cx="12" cy="12" r="10" />
+      <path d="M12 6v6l4 2" />
+    </IconBase>
+  );
+}
+
+export function ChevronDownIcon({ className }: IconProps) {
+  return (
+    <IconBase className={className}>
+      <path d="m6 9 6 6 6-6" />
+    </IconBase>
+  );
+}

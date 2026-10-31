@@ -2,6 +2,7 @@
 
 import type { PageKey, TaskStatus } from "@/types/app";
 import type { ImportChildStatus, ImportStatus, PreviewMode } from "@/types/docs";
+import type { TokenKind, TokenScope } from "@/types/tokenUsage";
 
 /* ==================== storage key ==================== */
 
@@ -67,6 +68,36 @@ export const IMPORT_CHILD_STATUS_META: Record<ImportChildStatus, StatusMeta> = {
 
 /** 上传区文件类型约束 */
 export const UPLOAD_ACCEPT = ".pdf,.md,.markdown,.zip";
+
+/* ==================== Token 统计域 ==================== */
+
+/** 四模型展示行（顺序即面板行顺序；model 为后端配置的真实模型名） */
+export const TOKEN_KINDS: { key: TokenKind; label: string; model: string }[] = [
+  { key: "llm", label: "LLM", model: "deepseek-v4.1-flash" },
+  { key: "vlm", label: "VLM", model: "qwen3-vl-plus" },
+  { key: "embedding", label: "Embedding", model: "text-embedding-v4" },
+  { key: "reranker", label: "Reranker", model: "qwen3.7-text-rerank" },
+];
+
+/** 统计口径 tab 顺序（与 demo 一致：会话总计 ｜ 查询消耗 ｜ 上传消耗） */
+export const TOKEN_SCOPE_OPTIONS: { value: TokenScope; label: string }[] = [
+  { value: "total", label: "会话总计" },
+  { value: "query", label: "查询消耗" },
+  { value: "upload", label: "上传消耗" },
+];
+
+export const TOKEN_SCOPE_LABELS: Record<TokenScope, string> = {
+  total: "会话总计",
+  query: "查询消耗",
+  upload: "上传消耗",
+};
+
+/** 各口径空态文案（demo 文案原样） */
+export const TOKEN_SCOPE_EMPTY: Record<TokenScope, string> = {
+  total: "本次访问还没有消耗 Token，发送消息或上传文档后开始统计。",
+  query: "本次访问还没有查询消耗，发送一条消息后开始统计。",
+  upload: "本次访问还没有上传消耗，上传文档后开始统计。",
+};
 
 /* ==================== 缓存 key 与 TTL ==================== */
 
