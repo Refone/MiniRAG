@@ -6,6 +6,9 @@ export type TokenKind = "llm" | "vlm" | "embedding" | "reranker";
 /** 统计口径（demo 三 tab）：会话总计 ｜ 查询消耗 ｜ 上传消耗 */
 export type TokenScope = "total" | "query" | "upload";
 
+/** 消耗来源流（查询 / 上传）：增量与快照帧按来源归属到口径 */
+export type TokenSource = Exclude<TokenScope, "total">;
+
 /** 前端快照加载状态（idle 为未触发首次拉取） */
 export type TokenLoadStatus = "idle" | "loading" | "ready" | "error";
 

@@ -442,12 +442,16 @@ export const useDocsStore = create<DocsStoreState>()((set, get) => ({
               // Token 统计快照帧（后端 flush 后、__close__ 前推送，直接落地）
               onUsage: (d) => {
                 if (!d) return;
-                useTokenUsageStore.getState().applySnapshot(d, "upload");
+                useTokenUsageStore
+                  .getState()
+                  .applySnapshot(d, "upload", taskId);
               },
 
-              // 单次模型调用增量帧（调用返回即推送，TokenMeter 即时弹气泡）
+              // 单次模型调用增量帧（调用返回即推送，chip 数字实时累加）
               onUsageDelta: (kind, tokens) => {
-                useTokenUsageStore.getState().applyDelta(kind, tokens, "upload");
+                useTokenUsageStore
+                  .getState()
+                  .applyDelta(kind, tokens, "upload", taskId);
               },
 
               // 不在终态事件时关流, 等收到服务端 __close__ 信号再关闭连接
@@ -455,6 +459,8 @@ export const useDocsStore = create<DocsStoreState>()((set, get) => ({
                 console.log(
                   `[import] SSE 收到 __close__，关闭连接（task ${taskId}）`,
                 );
+                // 未收到 usage 帧的增量不会落库，丢弃未落账计数
+                useTokenUsageStore.getState().clearPending("upload", taskId);
                 if (!parentTerminal) {
                   parentTerminal = true;
                   // 服务端未给终态就关流: 按断连处理, 不伪造完成
@@ -467,6 +473,7 @@ export const useDocsStore = create<DocsStoreState>()((set, get) => ({
               onError: (msg) => {
                 // 原生连接错误与服务端 event: error 共用此回调 (后者是带 data 的 MessageEvent)
                 console.warn(`[import] SSE 错误/中断：${msg}`);
+                useTokenUsageStore.getState().clearPending("upload", taskId);
                 if (!parentTerminal) {
                   parentTerminal = true;
                   updateFile(fileId, { status: "failed", running: [] });

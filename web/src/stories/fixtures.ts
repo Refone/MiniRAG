@@ -383,7 +383,7 @@ export const largeTokenUsage: TokenUsageSnapshot = {
   },
 };
 
-/** Token 统计快照：相对 mockTokenUsage 的增量（llm +300 / embedding +200 / reranker +300），验证按模型拆分的气泡 */
+/** Token 统计快照：相对 mockTokenUsage 的增量（llm +300 / embedding +200 / reranker +300），验证按模型拆分增量与实时累加 */
 export const tokenUsageAfterDelta: TokenUsageSnapshot = {
   session_id: "sess-demo-token",
   user_ip: "127.0.0.1",

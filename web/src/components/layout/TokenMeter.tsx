@@ -1,13 +1,20 @@
 /**
- * NavBar Token 指示器（demo 契约）：
+ * NavBar Token 指示器：
  * - chip：图标 + 「本次访问」标签 + 总量补间数字 + 四模型占比条 + 实时圆点；
- * - 气泡（面板关闭时）：单次模型调用结束（SSE usage-delta）→ 立即弹「+N 模型」
- *   彩色气泡；请求结束（SSE usage 快照帧）→ 弹「+N tokens」总气泡；
- *   多个气泡按到达顺序排队逐个浮现（每个 1.1s），每次弹泡伴随 chip bump；
+ * - 数字随 SSE usage-delta 实时累加（未落账增量叠加在权威快照上），
+ *   usage 快照帧到达后回落到权威值，变化过程由 useTweenNumber 补间；
+ * - 增量到达 / 权威快照增长时 chip 高亮（420ms 节流），面板打开时改为行闪烁；
  * - 面板：TokenPanel 内容，固定定位在 chip 下方、点击外部 / 关闭按钮收起；
  * - 打开面板静默刷新、加载失败可重试（重试 toast 与 demo 文案一致）。
  */
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { ChevronDownIcon, GaugeIcon } from "@/components/icons/AppIcons";
 import { TokenPanel } from "@/components/layout/TokenPanel";
 import { useTweenNumber } from "@/hooks/useTweenNumber";
@@ -17,7 +24,12 @@ import { useDocsStore } from "@/store/docsStore";
 import { useTokenUsageStore } from "@/store/tokenUsageStore";
 import { getBrowserSessionId } from "@/utils/session";
 import { formatThousands } from "@/utils/text";
-import { kindTotal, scopeUsage, usageKindIncreases } from "@/utils/token";
+import {
+  kindTotal,
+  scopeUsage,
+  usageKindIncreases,
+  withPendingUsage,
+} from "@/utils/token";
 import type { TokenKind, TokenScope } from "@/types/tokenUsage";
 
 /** 面板最大宽度（demo 契约） */
@@ -25,21 +37,11 @@ const PANEL_WIDTH = 360;
 /** chip bump 节流（demo 契约 420ms） */
 const BUMP_THROTTLE_MS = 420;
 
-const KIND_LABELS: Record<TokenKind, string> = Object.fromEntries(
-  TOKEN_KINDS.map((k) => [k.key, k.label]),
-) as Record<TokenKind, string>;
-
-/** 气泡队列单元：kind 为 null 表示请求结束的总气泡（accent 色） */
-interface DeltaBeat {
-  id: number;
-  text: string;
-  kind: TokenKind | null;
-}
-
 export function TokenMeter() {
   const snapshot = useTokenUsageStore((s) => s.snapshot);
   const status = useTokenUsageStore((s) => s.status);
   const lastDelta = useTokenUsageStore((s) => s.lastDelta);
+  const pending = useTokenUsageStore((s) => s.pending);
   const sending = useChatStore((s) => s.sending);
   const importing = useDocsStore((s) =>
     s.files.some((f) => f.status === "uploading" || f.status === "processing"),
@@ -49,7 +51,6 @@ export function TokenMeter() {
   const [open, setOpen] = useState(false);
   const [scope, setScope] = useState<TokenScope>("total");
   const [bump, setBump] = useState(false);
-  const [beats, setBeats] = useState<DeltaBeat[]>([]);
   const [flashKinds, setFlashKinds] = useState<TokenKind[]>([]);
 
   const meterRef = useRef<HTMLDivElement>(null);
@@ -57,14 +58,21 @@ export function TokenMeter() {
   const panelRef = useRef<HTMLDivElement>(null);
   const prevSnapshotRef = useRef(snapshot);
   const lastBumpAtRef = useRef(0);
-  const beatSeqRef = useRef(0);
   const openRef = useRef(open);
   const scopeRef = useRef(scope);
   openRef.current = open;
   scopeRef.current = scope;
 
   const live = sending || importing;
-  const total = snapshot ? kindTotal(scopeUsage(snapshot, "total")) : 0;
+  /** 展示快照 = 权威快照 + 各通道未落账增量（增量落库前也让数字实时增长） */
+  const displaySnapshot = useMemo(
+    () =>
+      snapshot ? withPendingUsage(snapshot, Object.values(pending)) : null,
+    [snapshot, pending],
+  );
+  const total = displaySnapshot
+    ? kindTotal(scopeUsage(displaySnapshot, "total"))
+    : 0;
   const unknown = (status === "loading" || status === "error") && !snapshot;
   const chipValue = useTweenNumber(unknown ? null : total);
 
@@ -76,7 +84,7 @@ export function TokenMeter() {
     if (state.status === "idle") void state.refresh();
   }, []);
 
-  /* ---- chip bump（420ms 节流，气泡 / 快照共用） ---- */
+  /* ---- chip bump（420ms 节流，增量 / 快照共用） ---- */
   const triggerBump = useCallback(() => {
     const now = Date.now();
     if (now - lastBumpAtRef.current < BUMP_THROTTLE_MS) return;
@@ -84,35 +92,24 @@ export function TokenMeter() {
     setBump(true);
   }, []);
 
-  /* ---- 面板口径是否命中（行闪烁 / 气泡分支判断用） ---- */
+  /* ---- 面板口径是否命中（行闪烁分支判断用） ---- */
   const scopeMatches = useCallback((source: TokenScope | null) => {
     return scopeRef.current === "total" || scopeRef.current === source;
   }, []);
 
-  /* ---- 单次模型调用增量（SSE usage-delta）：立即弹「+N 模型」气泡 ---- */
+  /* ---- 单次模型调用增量（SSE usage-delta）：数字已累加，这里负责高亮 ---- */
   useEffect(() => {
     if (!lastDelta) return;
     triggerBump();
-    if (openRef.current) {
-      if (scopeMatches(lastDelta.source)) {
-        setFlashKinds((kinds) =>
-          kinds.includes(lastDelta.kind) ? kinds : [...kinds, lastDelta.kind],
-        );
-      }
-      return;
+    if (!openRef.current) return;
+    if (scopeMatches(lastDelta.source)) {
+      setFlashKinds((kinds) =>
+        kinds.includes(lastDelta.kind) ? kinds : [...kinds, lastDelta.kind],
+      );
     }
-    beatSeqRef.current += 1;
-    setBeats((queue) => [
-      ...queue,
-      {
-        id: beatSeqRef.current,
-        text: `+${formatThousands(lastDelta.tokens)} ${KIND_LABELS[lastDelta.kind]}`,
-        kind: lastDelta.kind,
-      },
-    ]);
   }, [lastDelta, triggerBump, scopeMatches]);
 
-  /* ---- 快照增量（请求结束的权威帧）：弹「+N tokens」总气泡 + 行闪烁 ---- */
+  /* ---- 权威快照增长（请求结束的 usage 帧）：面板行闪烁 ---- */
   useEffect(() => {
     const prev = prevSnapshotRef.current;
     prevSnapshotRef.current = snapshot;
@@ -124,39 +121,14 @@ export function TokenMeter() {
     const kinds = TOKEN_KINDS.map((k) => k.key).filter(
       (kind) => increases[kind] > 0,
     );
-    const totalDelta = kinds.reduce((sum, kind) => sum + increases[kind], 0);
-    if (totalDelta <= 0) return;
+    if (kinds.length === 0) return;
 
     triggerBump();
 
-    if (openRef.current) {
-      const source = useTokenUsageStore.getState().lastSource;
-      if (scopeMatches(source)) setFlashKinds(kinds);
-      return;
-    }
-
-    beatSeqRef.current += 1;
-    setBeats((queue) => [
-      ...queue,
-      {
-        id: beatSeqRef.current,
-        text: `+${formatThousands(totalDelta)} tokens`,
-        kind: null,
-      },
-    ]);
+    if (!openRef.current) return;
+    const source = useTokenUsageStore.getState().lastSource;
+    if (scopeMatches(source)) setFlashKinds(kinds);
   }, [snapshot, triggerBump, scopeMatches]);
-
-  /* ---- 气泡出队: 当前气泡动画结束后播放下一个 (同时 bump) ---- */
-  const handleBeatEnd = useCallback(() => {
-    setBeats((queue) => queue.slice(1));
-    triggerBump();
-  }, [triggerBump]);
-
-  /* ---- 面板打开即中止气泡队列 (改行闪烁呈现) ---- */
-  useEffect(() => {
-    if (!open) return;
-    setBeats((queue) => (queue.length > 0 ? [] : queue));
-  }, [open]);
 
   /* ---- 面板定位（demo positionPanel） ---- */
   const positionPanel = useCallback(() => {
@@ -225,8 +197,8 @@ export function TokenMeter() {
   }, [pushToast]);
 
   const sparkRatio = (kind: TokenKind): number => {
-    if (!snapshot || total <= 0) return 0;
-    return scopeUsage(snapshot, "total")[kind] / total;
+    if (!displaySnapshot || total <= 0) return 0;
+    return scopeUsage(displaySnapshot, "total")[kind] / total;
   };
 
   const chipLabel = unknown
@@ -290,7 +262,7 @@ export function TokenMeter() {
             sessionId={sessionId}
             status={status}
             scope={scope}
-            snapshot={snapshot}
+            snapshot={displaySnapshot}
             live={live}
             flashKinds={flashKinds}
             onScopeChange={setScope}
@@ -301,24 +273,6 @@ export function TokenMeter() {
             }
           />
         </div>
-      )}
-
-      {beats.length > 0 && (
-        <span
-          key={beats[0].id}
-          className="token-delta show"
-          aria-hidden="true"
-          style={{
-            color: beats[0].kind
-              ? `var(--c-${beats[0].kind})`
-              : "var(--accent)",
-          }}
-          onAnimationEnd={(e) => {
-            if (e.animationName === "delta-float") handleBeatEnd();
-          }}
-        >
-          {beats[0].text}
-        </span>
       )}
     </div>
   );

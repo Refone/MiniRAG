@@ -241,17 +241,25 @@ export const useChatStore = create<ChatStoreState>()((set, get) => ({
           // Token 统计快照帧（后端 flush 后、__close__ 前推送，直接落地）
           onUsage: (d) => {
             if (!d) return;
-            useTokenUsageStore.getState().applySnapshot(d, "query");
+            useTokenUsageStore
+              .getState()
+              .applySnapshot(d, "query", data.session_id);
           },
 
-          // 单次模型调用增量帧（调用返回即推送，TokenMeter 即时弹气泡）
+          // 单次模型调用增量帧（调用返回即推送，chip 数字实时累加）
           onUsageDelta: (kind, tokens) => {
-            useTokenUsageStore.getState().applyDelta(kind, tokens, "query");
+            useTokenUsageStore
+              .getState()
+              .applyDelta(kind, tokens, "query", data.session_id);
           },
 
           // 不在 final 时关流, 等收到服务端 __close__ 信号再关闭连接
           onServerClose: () => {
             console.log(`[chat] SSE 收到 __close__，关闭连接`);
+            // 未收到 usage 帧的增量不会落库，丢弃未落账计数
+            useTokenUsageStore
+              .getState()
+              .clearPending("query", data.session_id);
             if (activeTaskId === taskId) {
               patchBot({ streaming: false });
               finishTask("complete");
@@ -263,6 +271,9 @@ export const useChatStore = create<ChatStoreState>()((set, get) => ({
 
           onError: (msg) => {
             console.warn(`[chat] SSE 中断：${msg}`);
+            useTokenUsageStore
+              .getState()
+              .clearPending("query", data.session_id);
             if (activeTaskId === taskId) {
               rawAnswerText += `\n\n（错误：${msg}）`;
               patchBot({
