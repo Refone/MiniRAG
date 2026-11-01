@@ -8,19 +8,30 @@
 .venv
 **/__pycache__
 *.pyc
+.pytest_cache
+.ruff_cache
 
 # 前端: 前后端镜像共用仓库根作为构建上下文,
 # 仅排除依赖与构建产物 (web 源码需保留, 供 frontend.Dockerfile 使用)
 web/node_modules
 web/dist
 web/storybook-static
+web/playwright-report
+web/test-results
+web/.npm-cache
+# 本机 Vite 环境变量不进构建上下文, 否则 VITE_API_BASE=http://127.0.0.1:8000
+# 会被烤进生产包, 浏览器绕过 nginx 反代
+web/.env*
 
-# 数据 / 运行时产物 / 密钥
+# 数据 / 运行时产物 / 密钥 / 非运行代码
 .env
 .env.example
 var
 docs
 docker/volumes
+.agents
+tools
 
 # 测试资源 (大体积样例文件, 运行镜像不需要)
 tests
+**/.DS_Store

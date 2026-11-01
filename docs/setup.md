@@ -1,5 +1,19 @@
 # 环境部署
 
+## 一键脚本
+
+仓库顶层的 `minirag.py` 封装了环境检查、依赖安装、镜像构建与容器拉起，Linux / macOS /
+Windows 通用：
+
+```shell
+python minirag.py env_check      # 检查系统 / Python / .env / Docker / 端口 / 镜像
+python minirag.py env_prepare    # 安装 uv / npm 依赖并拉取 Docker 镜像
+python minirag.py deploy         # 构建前后端镜像并按顺序拉起
+python minirag.py reset          # 清空持久化存储并重置数据库
+```
+
+各命令的参数与 reset 的删除范围见 [web-deploy.md](web-deploy.md)。
+
 ## Milvus Docker
 
 在 Milvus Github 中可以找到默认配置的 docker-compose.yaml

@@ -3,6 +3,7 @@
 ## 基本架构
 
 ```shell
+minirag.py  # 一键部署脚本: env_check / env_prepare / deploy / reset
 docker  # 容器编排与镜像定义
 ├── compose.infra.yaml      # 基础设施: Milvus (etcd + MinIO) / Attu / MongoDB
 ├── compose.backend.yaml    # 后端 (FastAPI) :8000
@@ -133,6 +134,40 @@ web     # 前端 (Vite + React)
 （`APP_CONFIG.task_ttl_seconds` / `sse_channel_ttl_seconds`）。
 横向扩展需把两者换成 Redis 等外部存储，接口（`TASK_MANAGER` / `EVENT_BUS`）已按可替换设计。
 
+## 一键部署（minirag.py）
+
+仓库顶层的 `minirag.py` 封装了完整的容器化部署流程，支持 **Linux / macOS / Windows**
+（WSL 会标记为 `[WSL]`），脚本本身只依赖 Python 标准库，容器编排依赖 Docker Compose v2。
+
+```shell
+python minirag.py env_check      # ① 环境检查: 系统 / Python / .env / Docker / 端口 / 磁盘 / 镜像
+python minirag.py env_prepare    # ② 环境安装: 生成 .env、uv sync、npm ci、拉取 Docker 镜像
+python minirag.py deploy         # ③ 一键部署: 构建前后端镜像 → infra → backend → frontend
+python minirag.py reset          # ④ 清空持久化存储并重置数据库
+```
+
+| 命令 | 行为 |
+| --- | --- |
+| `env_check` | 只读检查；有失败项时退出码为 1。`--strict` 把警告也视为失败 |
+| `env_prepare` | 缺少 `.env` 时从 `.env.example` 复制；安装 Python / 前端依赖；拉取全部基础设施与构建基础镜像 |
+| `deploy` | 依次构建 backend / frontend，按 infra → backend → frontend 拉起并等待健康检查，最后验证 nginx `/api` 反代 |
+| `reset` | 停止容器，清空 `docker/volumes`（etcd / Milvus / MinIO）、Mongo 命名卷、`var/uploads`、`var/import`、`var/tmp`，随后重启 infra 与已构建的前后端，由后端启动自检重建集合与 bucket |
+
+常用参数：
+
+```shell
+python minirag.py deploy --dry-run       # 只打印执行计划，不修改状态
+python minirag.py deploy --no-build      # 用已有镜像启动
+python minirag.py deploy --no-cache      # 构建不用缓存
+python minirag.py reset --dry-run        # 先看清会删哪些目录 / 数据卷
+python minirag.py reset --keep-runtime   # 保留 var/ 下的上传与中间产物
+python minirag.py reset --keep-down      # 清空后保持容器停止
+python minirag.py depoly                 # deploy 的兼容别名（历史拼写）
+```
+
+> `reset` 默认会重启基础设施与已构建的应用容器，并由后端启动自检重建数据库资源；
+> 若只想清空、不启动，使用 `--keep-down`。
+
 ## Web 应用部署
 
 ```shell
@@ -141,9 +176,14 @@ uvicorn --app-dir src api.main:app --reload        # 后端 :8000
 cd web && npm run dev                              # 前端 :5173 (代理 /api → :8000)
 cd web && npm run storybook                        # 组件工作台 :6006 (无后端也能看)
 
-# 一键容器化 (按顺序拉起)
+# 一键容器化: 推荐使用顶层脚本
+python minirag.py env_check
+python minirag.py env_prepare
+python minirag.py deploy
+
+# 手动方式 (按顺序拉起)
 # 后端配置 (密钥/模型等) 由仓库根目录 .env 经 env_file 注入容器,
-# 基础设施地址 (milvus/minio) 在 yaml 内已覆盖为 Docker 服务名。
+# 基础设施地址 (milvus / minio / mongodb) 在 yaml 内已覆盖为 Docker 服务名。
 # 项目名已用 yaml 顶部的 name: mini-rag 固定, 因此不需要 -p。
 docker compose -f docker/compose.infra.yaml up -d                # ① 数据/监控服务 (Milvus/MinIO/Mongo/Attu)
 docker compose -f docker/compose.backend.yaml up -d --build      # ② 后端 :8000
