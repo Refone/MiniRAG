@@ -1,7 +1,15 @@
-FROM python:3.12-slim
+# 基础镜像可通过 build-arg 换成国内镜像站地址，例如:
+#   PYTHON_IMAGE=docker.m.daocloud.io/library/python:3.12-slim
+#   UV_IMAGE=ghcr.nju.edu.cn/astral-sh/uv:latest
+ARG PYTHON_IMAGE=python:3.12-slim
+ARG UV_IMAGE=ghcr.io/astral-sh/uv:latest
 
-# 安装 uv (从官方镜像拷贝静态二进制)
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+# 单独一层用于拷贝 uv 静态二进制 (COPY --from 不支持变量展开)
+FROM ${UV_IMAGE} AS uv
+
+FROM ${PYTHON_IMAGE}
+
+COPY --from=uv /uv /uvx /bin/
 
 ENV PYTHONPATH=/app/src \
     PROJECT_ROOT=/app \
@@ -12,7 +20,16 @@ WORKDIR /app
 
 # 依赖层 (可缓存): 只复制依赖清单, 避免源码改动触发重装 torch 等重依赖
 COPY pyproject.toml uv.lock ./
-RUN uv sync --frozen --no-dev --no-install-project
+
+# 国内网络可传 --build-arg UV_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple。
+# uv.lock 记录的是 pypi.org / files.pythonhosted.org 地址, 仅设置索引不会改变
+# 已锁定 wheel 的下载地址; 因此先用镜像重新锁定 (版本不变, 只重写 source/URL),
+# 再用 --frozen 安装。
+ARG UV_INDEX_URL=https://pypi.org/simple
+RUN if [ "$UV_INDEX_URL" != "https://pypi.org/simple" ]; then \
+        uv lock --default-index "$UV_INDEX_URL"; \
+    fi \
+ && uv sync --frozen --no-dev --no-install-project
 
 # 源码层
 COPY src ./src

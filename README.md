@@ -140,7 +140,7 @@ web     # 前端 (Vite + React)
 （WSL 会标记为 `[WSL]`），脚本本身只依赖 Python 标准库，容器编排依赖 Docker Compose v2。
 
 ```shell
-python minirag.py env_check      # ① 环境检查: 系统 / Python / .env / Docker / 端口 / 磁盘 / 镜像
+python minirag.py env_check      # ① 环境检查: 系统 / Python / .env / Docker / 网络 / 端口 / 磁盘 / 镜像
 python minirag.py env_prepare    # ② 环境安装: 生成 .env、uv sync、npm ci、拉取 Docker 镜像
 python minirag.py deploy         # ③ 一键部署: 构建前后端镜像 → infra → backend → frontend
 python minirag.py reset          # ④ 清空持久化存储并重置数据库
@@ -148,8 +148,8 @@ python minirag.py reset          # ④ 清空持久化存储并重置数据库
 
 | 命令 | 行为 |
 | --- | --- |
-| `env_check` | 只读检查；有失败项时退出码为 1。`--strict` 把警告也视为失败 |
-| `env_prepare` | 缺少 `.env` 时从 `.env.example` 复制；安装 Python / 前端依赖；拉取全部基础设施与构建基础镜像 |
+| `env_check` | 只读检查；含 PyPI / npm / Docker 镜像源连通性。有失败项时退出码为 1，`--strict` 把警告也视为失败 |
+| `env_prepare` | 缺少 `.env` 时从 `.env.example` 复制；按 `--mirror` 选择 PyPI/npm 源；安装 Python / 前端依赖；拉取全部基础设施与构建基础镜像 |
 | `deploy` | 依次构建 backend / frontend，按 infra → backend → frontend 拉起并等待健康检查，最后验证 nginx `/api` 反代 |
 | `reset` | 停止容器，清空 `docker/volumes`（etcd / Milvus / MinIO）、Mongo 命名卷、`var/uploads`、`var/import`、`var/tmp`，随后重启 infra 与已构建的前后端，由后端启动自检重建集合与 bucket |
 
@@ -167,6 +167,47 @@ python minirag.py depoly                 # deploy 的兼容别名（历史拼写
 
 > `reset` 默认会重启基础设施与已构建的应用容器，并由后端启动自检重建数据库资源；
 > 若只想清空、不启动，使用 `--keep-down`。
+
+### 国内网络与镜像源
+
+`env_check` 会并行探测 PyPI / npm / Docker Hub / Quay / GHCR 的直连与国内镜像耗时
+（`--skip-network` 可跳过）。`env_prepare` / `deploy` 默认 `--mirror auto`：
+直连明显更慢或不可达时自动切换到清华 PyPI + npmmirror；也可以强制指定：
+
+```shell
+python minirag.py deploy --mirror cn
+python minirag.py env_prepare --mirror cn
+python minirag.py deploy --pypi-index https://mirrors.aliyun.com/pypi/simple
+python minirag.py deploy --npm-registry https://registry.npmmirror.com
+```
+
+- 后端构建会先把 `uv.lock` 按镜像临时重锁（版本不变，只重写下载地址），再执行
+  `uv sync --frozen`；宿主机的 `env_prepare` 也会临时改写并在结束后恢复 `uv.lock`。
+- 前端 npm registry 通过 Dockerfile build arg 注入。
+- Docker 基础镜像与基础设施镜像仍由 Docker 自己拉取。国内可给 daemon 配
+  `registry-mirrors`（**仅对 Docker Hub 生效**）：
+
+```json
+{
+  "registry-mirrors": ["https://docker.m.daocloud.io"]
+}
+```
+
+Linux 修改 `/etc/docker/daemon.json` 后执行 `sudo systemctl restart docker`；
+Docker Desktop 在「Settings → Docker Engine」中修改。镜像站可用性会变化，请按实际网络调整。
+
+- 基础镜像也可以直接换成镜像站地址（示例，需按镜像站实际路径调整）：
+
+```shell
+PYTHON_IMAGE=docker.m.daocloud.io/library/python:3.12-slim \
+UV_IMAGE=ghcr.nju.edu.cn/astral-sh/uv:latest \
+NODE_IMAGE=docker.m.daocloud.io/library/node:22-alpine \
+NGINX_IMAGE=docker.m.daocloud.io/library/nginx:alpine \
+python minirag.py deploy --mirror cn
+```
+
+- `quay.io` 上的 etcd / MinIO 镜像不受 Docker Hub 的 `registry-mirrors` 影响；
+  直连不通时需要代理或提前导入离线镜像。
 
 ## Web 应用部署
 

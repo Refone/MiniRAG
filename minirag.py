@@ -13,6 +13,7 @@
 from __future__ import annotations
 
 import argparse
+import concurrent.futures
 import ctypes
 import errno
 import json
@@ -25,6 +26,7 @@ import socket
 import subprocess
 import sys
 import time
+import urllib.error
 import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
@@ -51,6 +53,26 @@ VAR_TMP = VAR_DIR / "tmp"
 MIN_PYTHON = (3, 12)
 DEFAULT_WAIT_TIMEOUT = 600
 DEFAULT_HTTP_TIMEOUT = 60
+UV_LOCK = ROOT / "uv.lock"
+
+DEFAULT_PYPI_INDEX = "https://pypi.org/simple"
+CN_PYPI_INDEX = "https://pypi.tuna.tsinghua.edu.cn/simple"
+DEFAULT_NPM_REGISTRY = "https://registry.npmjs.org"
+CN_NPM_REGISTRY = "https://registry.npmmirror.com"
+
+# (key, 展示名, 官方地址, 国内镜像地址); 只用于连通性探测与建议
+NETWORK_TARGETS = (
+    ("pypi", "PyPI", "https://pypi.org/simple/", f"{CN_PYPI_INDEX}/"),
+    ("npm", "npm", "https://registry.npmjs.org/", f"{CN_NPM_REGISTRY}/"),
+    (
+        "dockerhub",
+        "Docker Hub",
+        "https://registry-1.docker.io/v2/",
+        "https://docker.m.daocloud.io/v2/",
+    ),
+    ("ghcr", "GHCR", "https://ghcr.io/v2/", "https://ghcr.nju.edu.cn/v2/"),
+    ("quay", "Quay", "https://quay.io/v2/", None),
+)
 
 # reset 只清理这些容器数据目录, 避免误删未来新增的配置类 bind mount
 DATA_MOUNT_TARGETS = {"/etcd", "/var/lib/milvus", "/minio_data"}
@@ -315,13 +337,14 @@ def run_stream(
     cmd: Iterable[str],
     cwd: Path = ROOT,
     check: bool = True,
+    env: Optional[dict[str, str]] = None,
 ) -> int:
     parts = [str(part) for part in cmd]
     _print(f"{_paint('$', _Color.DIM)} {_display_cmd(parts)}")
     if _DRY_RUN:
         return 0
     try:
-        completed = subprocess.run(parts, cwd=str(cwd))
+        completed = subprocess.run(parts, cwd=str(cwd), env=env)
     except FileNotFoundError as exc:
         raise CommandError(parts, 127, f"找不到命令: {parts[0]} ({exc})") from exc
     if check and completed.returncode != 0:
@@ -345,6 +368,134 @@ def run_with_retry(
                 time.sleep(3)
     assert last is not None
     raise last
+
+
+# --------------------------------------------------------------------------- #
+# 网络探测与镜像源
+# --------------------------------------------------------------------------- #
+@dataclass(frozen=True)
+class ProbeResult:
+    ok: bool
+    seconds: float
+    note: str = ""
+
+
+_NETWORK_CACHE: Optional[dict[str, ProbeResult]] = None
+
+
+def _probe_url(url: str, timeout: float = 3.0) -> ProbeResult:
+    """探测 URL 是否可达; 401/403/405 也算可达 (仅关心连通性与耗时)。"""
+    request = urllib.request.Request(
+        url,
+        method="HEAD",
+        headers={"User-Agent": "minirag-deploy/1.0"},
+    )
+    start = time.monotonic()
+    try:
+        with urllib.request.urlopen(request, timeout=timeout) as response:
+            response.read(1)
+            return ProbeResult(
+                True, time.monotonic() - start, f"HTTP {response.status}"
+            )
+    except urllib.error.HTTPError as exc:
+        # 401/403/405 说明服务可达; 5xx 视为镜像/服务异常
+        return ProbeResult(exc.code < 500, time.monotonic() - start, f"HTTP {exc.code}")
+    except Exception as exc:
+        return ProbeResult(False, time.monotonic() - start, type(exc).__name__)
+
+
+def _probe_network() -> dict[str, ProbeResult]:
+    global _NETWORK_CACHE
+    if _NETWORK_CACHE is not None:
+        return _NETWORK_CACHE
+
+    urls: dict[str, str] = {}
+    for key, _label, direct, mirror in NETWORK_TARGETS:
+        urls[f"{key}:direct"] = direct
+        if mirror:
+            urls[f"{key}:mirror"] = mirror
+
+    results: dict[str, ProbeResult] = {}
+    with concurrent.futures.ThreadPoolExecutor(max_workers=min(10, len(urls))) as pool:
+        futures = {name: pool.submit(_probe_url, url) for name, url in urls.items()}
+        for name, future in futures.items():
+            try:
+                results[name] = future.result()
+            except Exception:
+                results[name] = ProbeResult(False, 0.0, "probe failed")
+    _NETWORK_CACHE = results
+    return results
+
+
+def _probe_of(results: dict[str, ProbeResult], key: str) -> ProbeResult:
+    return results.get(key, ProbeResult(False, 0.0, "not probed"))
+
+
+def _latency(probe: ProbeResult) -> str:
+    return f"{probe.seconds:.1f}s" if probe.ok else "不可达"
+
+
+def _prefer_mirror(direct: ProbeResult, mirror: ProbeResult) -> bool:
+    if not mirror.ok:
+        return False
+    if not direct.ok:
+        return True
+    return direct.seconds >= 2.0 and mirror.seconds <= direct.seconds * 0.6
+
+
+@dataclass(frozen=True)
+class MirrorConfig:
+    pypi_index: Optional[str] = None
+    npm_registry: Optional[str] = None
+    reason: str = ""
+
+
+def resolve_mirror_config(args: argparse.Namespace) -> MirrorConfig:
+    """根据 --mirror / --pypi-index / --npm-registry 决定软件包索引。"""
+    override_pypi = getattr(args, "pypi_index", None)
+    override_npm = getattr(args, "npm_registry", None)
+    if override_pypi or override_npm:
+        return MirrorConfig(override_pypi, override_npm, "命令行手动指定")
+
+    mode = getattr(args, "mirror", "auto")
+    if mode == "cn":
+        return MirrorConfig(
+            CN_PYPI_INDEX, CN_NPM_REGISTRY, "国内镜像预设 (--mirror cn)"
+        )
+    if mode == "global":
+        return MirrorConfig(None, None, "官方源预设 (--mirror global)")
+
+    results = _probe_network()
+    pypi_direct = _probe_of(results, "pypi:direct")
+    pypi_mirror = _probe_of(results, "pypi:mirror")
+    npm_direct = _probe_of(results, "npm:direct")
+    npm_mirror = _probe_of(results, "npm:mirror")
+
+    use_pypi = _prefer_mirror(pypi_direct, pypi_mirror)
+    use_npm = _prefer_mirror(npm_direct, npm_mirror)
+    if use_pypi or use_npm:
+        reason = (
+            "自动探测: "
+            f"PyPI 直连 {_latency(pypi_direct)} / 清华 {_latency(pypi_mirror)}; "
+            f"npm 直连 {_latency(npm_direct)} / npmmirror {_latency(npm_mirror)}"
+        )
+        return MirrorConfig(
+            CN_PYPI_INDEX if use_pypi else None,
+            CN_NPM_REGISTRY if use_npm else None,
+            reason,
+        )
+    return MirrorConfig(None, None, "自动探测: 官方源直连正常")
+
+
+def announce_mirrors(config: MirrorConfig) -> None:
+    if config.pypi_index:
+        info(f"PyPI 索引: {config.pypi_index}")
+    if config.npm_registry:
+        info(f"npm registry: {config.npm_registry}")
+    if not config.pypi_index and not config.npm_registry:
+        info("软件包索引: 使用官方源直连")
+    if config.reason:
+        detail(f"策略: {config.reason}")
 
 
 # --------------------------------------------------------------------------- #
@@ -643,6 +794,114 @@ def check_compose_config(checker: Checker) -> None:
         checker.ok("Compose 配置", f"{len(COMPOSE_FILES)} 个文件有效")
 
 
+def _docker_registry_mirrors() -> list[str]:
+    try:
+        result = run_capture(
+            [
+                _docker_bin(),
+                "info",
+                "--format",
+                "{{json .RegistryConfig.Mirrors}}",
+            ],
+            timeout=20,
+        )
+    except CommandError:
+        return []
+    if result.returncode != 0:
+        return []
+    try:
+        mirrors = json.loads(result.stdout or "[]")
+    except json.JSONDecodeError:
+        return []
+    if not isinstance(mirrors, list):
+        return []
+    return [str(mirror) for mirror in mirrors if mirror]
+
+
+def check_network(checker: Checker) -> None:
+    results = _probe_network()
+    pypi_direct = _probe_of(results, "pypi:direct")
+    pypi_mirror = _probe_of(results, "pypi:mirror")
+    npm_direct = _probe_of(results, "npm:direct")
+    npm_mirror = _probe_of(results, "npm:mirror")
+    docker_direct = _probe_of(results, "dockerhub:direct")
+    docker_mirror = _probe_of(results, "dockerhub:mirror")
+    quay_direct = _probe_of(results, "quay:direct")
+    ghcr_direct = _probe_of(results, "ghcr:direct")
+
+    summary = " / ".join(
+        (
+            f"PyPI {_latency(pypi_direct)}",
+            f"npm {_latency(npm_direct)}",
+            f"Docker Hub {_latency(docker_direct)}",
+            f"Quay {_latency(quay_direct)}",
+            f"GHCR {_latency(ghcr_direct)}",
+        )
+    )
+    if (
+        pypi_direct.ok
+        and npm_direct.ok
+        and pypi_direct.seconds < 3.0
+        and npm_direct.seconds < 3.0
+    ):
+        checker.ok("网络直连", summary)
+    else:
+        checker.warn(
+            "网络直连",
+            summary,
+            "国内网络建议使用 --mirror cn，或为 Docker / shell 配置代理",
+        )
+
+    if _prefer_mirror(pypi_direct, pypi_mirror) or _prefer_mirror(
+        npm_direct, npm_mirror
+    ):
+        checker.warn(
+            "国内镜像",
+            f"PyPI 清华 {_latency(pypi_mirror)} / npm npmmirror {_latency(npm_mirror)}",
+            "使用 --mirror cn 可加速 uv / npm 依赖下载",
+        )
+
+    mirror_list = _docker_registry_mirrors()
+    if not docker_direct.ok:
+        if mirror_list:
+            checker.ok(
+                "Docker Hub",
+                "直连不可达，但 daemon 已配置 mirror: " + ", ".join(mirror_list),
+            )
+        elif docker_mirror.ok:
+            checker.warn(
+                "Docker Hub",
+                f"直连不可达；DaoCloud 镜像 {_latency(docker_mirror)}",
+                "配置 /etc/docker/daemon.json 的 registry-mirrors 后重启 Docker"
+                "（仅对 Docker Hub 生效）",
+            )
+        else:
+            checker.warn(
+                "Docker Hub",
+                "直连不可达，且未探测到可用镜像",
+                "配置 registry-mirrors，或提前导入离线镜像",
+            )
+    elif docker_direct.seconds >= 4.0 and not mirror_list:
+        checker.warn(
+            "Docker Hub",
+            f"直连较慢 ({_latency(docker_direct)})",
+            "可配置 registry-mirrors 加速基础镜像拉取",
+        )
+
+    if not quay_direct.ok:
+        checker.warn(
+            "Quay",
+            "直连不可达（etcd / MinIO 镜像）",
+            "配置可达的 quay 代理，或提前导入离线镜像",
+        )
+    if not ghcr_direct.ok:
+        checker.warn(
+            "GHCR",
+            "直连不可达（uv 构建镜像）",
+            "可通过 UV_IMAGE 换成镜像站地址，或提前导入离线镜像",
+        )
+
+
 def _tool_version(cmd: Iterable[str], timeout: int = 10) -> str:
     try:
         result = run_capture(cmd, timeout=timeout)
@@ -901,9 +1160,29 @@ def image_exists(image: str) -> bool:
     return result.returncode == 0
 
 
-def _images_from_dockerfile(path: Path) -> list[str]:
+def _expand_docker_arg(
+    value: str,
+    defaults: dict[str, str],
+) -> str:
+    match = re.fullmatch(
+        r"\$\{([A-Za-z_][A-Za-z0-9_]*)(?::-([^}]*))?\}",
+        value,
+    )
+    if not match:
+        return value
+    name = match.group(1)
+    fallback = match.group(2)
+    return defaults.get(name) or fallback or ""
+
+
+def _images_from_dockerfile(
+    path: Path,
+    overrides: Optional[dict[str, str]] = None,
+) -> list[str]:
     images: list[str] = []
     stages: set[str] = set()
+    arg_defaults: dict[str, str] = {}
+    overrides = overrides or {}
     try:
         lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
     except OSError:
@@ -914,20 +1193,38 @@ def _images_from_dockerfile(path: Path) -> list[str]:
         re.IGNORECASE,
     )
     copy_pattern = re.compile(r"^\s*COPY\s+.*--from=(\S+)", re.IGNORECASE)
+    arg_pattern = re.compile(
+        r"^\s*ARG\s+([A-Za-z_][A-Za-z0-9_]*)(?:=(.*))?$",
+        re.IGNORECASE,
+    )
 
     for line in lines:
+        arg_match = arg_pattern.match(line)
+        if arg_match:
+            name = arg_match.group(1)
+            default = arg_match.group(2)
+            if default is not None:
+                arg_defaults[name] = overrides.get(name, default.strip().strip('"'))
+            continue
+
         match = from_pattern.match(line)
         if match:
-            reference = match.group(1)
+            reference = _expand_docker_arg(match.group(1), arg_defaults)
             stage = match.group(2)
-            if reference.lower() not in stages and reference.lower() != "scratch":
+            if (
+                reference
+                and reference.lower() not in stages
+                and reference.lower() != "scratch"
+            ):
                 images.append(reference)
             if stage:
                 stages.add(stage.lower())
             continue
         match = copy_pattern.match(line)
         if match:
-            reference = match.group(1).strip('"')
+            reference = _expand_docker_arg(match.group(1).strip('"'), arg_defaults)
+            if not reference:
+                continue
             if reference.lower() in stages or reference.isdigit():
                 continue
             if "/" in reference or ":" in reference:
@@ -945,8 +1242,13 @@ def collect_images() -> list[str]:
         images.extend(
             line.strip() for line in result.stdout.splitlines() if line.strip()
         )
+    overrides = {
+        name: value
+        for name in ("PYTHON_IMAGE", "UV_IMAGE", "NODE_IMAGE", "NGINX_IMAGE")
+        if (value := os.environ.get(name))
+    }
     for dockerfile in (BACKEND_DOCKERFILE, FRONTEND_DOCKERFILE):
-        images.extend(_images_from_dockerfile(dockerfile))
+        images.extend(_images_from_dockerfile(dockerfile, overrides))
     return _dedupe(images)
 
 
@@ -1138,6 +1440,8 @@ def cmd_env_check(args: argparse.Namespace) -> int:
     compose_ok = check_compose(checker) if docker_ok else False
     if compose_ok:
         check_compose_config(checker)
+    if not args.skip_network:
+        check_network(checker)
     check_toolchains(checker, system)
     check_local_deps(checker)
     if daemon_ok:
@@ -1294,7 +1598,40 @@ def ensure_uv(args: argparse.Namespace, system: SystemInfo) -> Optional[str]:
     return uv
 
 
-def install_node_deps(args: argparse.Namespace) -> None:
+def sync_python_deps(
+    uv: str,
+    args: argparse.Namespace,
+    mirrors: MirrorConfig,
+) -> None:
+    cmd = [uv, "sync", "--frozen"]
+    if args.no_dev:
+        cmd.append("--no-dev")
+
+    if not mirrors.pypi_index:
+        run_stream(cmd)
+        return
+
+    info(f"PyPI 镜像: {mirrors.pypi_index}")
+    if _DRY_RUN:
+        run_stream([uv, "lock", "--default-index", mirrors.pypi_index])
+        run_stream(cmd)
+        return
+
+    # uv.lock 记录的是 pypi.org / files.pythonhosted.org 地址，--frozen 不会改用镜像；
+    # 临时按镜像重新锁定（保持锁内版本，只重写 source/URL），安装后恢复原文件。
+    original_lock = UV_LOCK.read_bytes()
+    try:
+        run_stream([uv, "lock", "--default-index", mirrors.pypi_index])
+        run_stream(cmd)
+    finally:
+        UV_LOCK.write_bytes(original_lock)
+    ok("uv.lock 已恢复（镜像只用于本次安装）")
+
+
+def install_node_deps(
+    args: argparse.Namespace,
+    mirrors: MirrorConfig,
+) -> None:
     npm = shutil.which("npm")
     if not npm:
         warn(
@@ -1313,6 +1650,9 @@ def install_node_deps(args: argparse.Namespace) -> None:
     else:
         warn("缺少 web/package-lock.json", "回退到 npm install")
         cmd = [npm, "install", "--no-audit", "--no-fund"]
+    if mirrors.npm_registry:
+        info(f"npm registry: {mirrors.npm_registry}")
+        cmd.append(f"--registry={mirrors.npm_registry}")
     run_stream(cmd, cwd=WEB_DIR)
     ok("前端依赖已就绪 (web/node_modules)")
 
@@ -1360,6 +1700,12 @@ def cmd_env_prepare(args: argparse.Namespace) -> int:
     if checker.failures:
         return 1
 
+    mirrors = MirrorConfig()
+    if not args.skip_python or not args.skip_node:
+        step("镜像源选择")
+        mirrors = resolve_mirror_config(args)
+        announce_mirrors(mirrors)
+
     if args.skip_python:
         info("跳过 Python 依赖 (--skip-python)")
     else:
@@ -1367,16 +1713,13 @@ def cmd_env_prepare(args: argparse.Namespace) -> int:
         if not uv:
             return 1
         step("安装 Python 依赖")
-        cmd = [uv, "sync", "--frozen"]
-        if args.no_dev:
-            cmd.append("--no-dev")
-        run_stream(cmd)
+        sync_python_deps(uv, args, mirrors)
         ok("Python 依赖已就绪 (.venv)")
 
     if args.skip_node:
         info("跳过前端依赖 (--skip-node)")
     else:
-        install_node_deps(args)
+        install_node_deps(args, mirrors)
 
     if args.skip_pull:
         info("跳过 Docker 镜像拉取 (--skip-pull)")
@@ -1400,7 +1743,13 @@ def cmd_env_prepare(args: argparse.Namespace) -> int:
 # --------------------------------------------------------------------------- #
 # deploy
 # --------------------------------------------------------------------------- #
-def build_images(args: argparse.Namespace) -> None:
+def build_images(
+    args: argparse.Namespace,
+    mirrors: MirrorConfig,
+) -> None:
+    build_env = os.environ.copy()
+    build_env["UV_INDEX_URL"] = mirrors.pypi_index or DEFAULT_PYPI_INDEX
+    build_env["NPM_REGISTRY"] = mirrors.npm_registry or DEFAULT_NPM_REGISTRY
     for compose_file, label in (
         (COMPOSE_BACKEND, "后端"),
         (COMPOSE_FRONTEND, "前端"),
@@ -1411,7 +1760,7 @@ def build_images(args: argparse.Namespace) -> None:
             cmd.append("--pull")
         if args.no_cache:
             cmd.append("--no-cache")
-        run_stream(cmd)
+        run_stream(cmd, env=build_env)
         image = _first(compose_images(compose_file))
         if not image:
             raise CommandError(cmd, 1, f"无法解析{label}镜像名")
@@ -1466,7 +1815,10 @@ def cmd_deploy(args: argparse.Namespace) -> int:
         info("跳过镜像构建 (--no-build)")
         ensure_built_images()
     else:
-        build_images(args)
+        step("镜像源选择")
+        mirrors = resolve_mirror_config(args)
+        announce_mirrors(mirrors)
+        build_images(args, mirrors)
 
     _start_with_log_hint(COMPOSE_INFRA, "基础设施", args.timeout)
     _start_with_log_hint(COMPOSE_BACKEND, "后端", args.timeout)
@@ -1819,6 +2171,27 @@ def cmd_reset(args: argparse.Namespace) -> int:
 # --------------------------------------------------------------------------- #
 # 入口
 # --------------------------------------------------------------------------- #
+def _add_mirror_args(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--mirror",
+        choices=("auto", "global", "cn"),
+        default="auto",
+        help="软件包镜像策略: auto=自动探测, global=官方源, cn=国内镜像",
+    )
+    parser.add_argument(
+        "--pypi-index",
+        metavar="URL",
+        default=None,
+        help="覆盖 PyPI 索引（例如清华 / 阿里云镜像）",
+    )
+    parser.add_argument(
+        "--npm-registry",
+        metavar="URL",
+        default=None,
+        help="覆盖 npm registry（例如 https://registry.npmmirror.com）",
+    )
+
+
 def build_parser() -> argparse.ArgumentParser:
     common = argparse.ArgumentParser(add_help=False)
     common.add_argument(
@@ -1850,6 +2223,11 @@ def build_parser() -> argparse.ArgumentParser:
 
     check = subparsers.add_parser("env_check", parents=[common], help="检查部署环境")
     check.add_argument("--strict", action="store_true", help="把警告也视为失败")
+    check.add_argument(
+        "--skip-network",
+        action="store_true",
+        help="跳过 PyPI / npm / Docker 镜像源连通性探测",
+    )
     check.set_defaults(func=cmd_env_check)
 
     prepare = subparsers.add_parser(
@@ -1868,6 +2246,7 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="缺少 uv 时自动安装（否则交互询问）",
     )
+    _add_mirror_args(prepare)
     prepare.set_defaults(func=cmd_env_prepare)
 
     deploy = subparsers.add_parser(
@@ -1885,6 +2264,7 @@ def build_parser() -> argparse.ArgumentParser:
         default=DEFAULT_WAIT_TIMEOUT,
         help=f"等待容器健康的秒数（默认 {DEFAULT_WAIT_TIMEOUT}）",
     )
+    _add_mirror_args(deploy)
     deploy.set_defaults(func=cmd_deploy)
 
     reset = subparsers.add_parser(

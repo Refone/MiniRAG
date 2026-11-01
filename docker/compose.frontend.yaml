@@ -10,6 +10,11 @@ services:
     build:
       context: ..
       dockerfile: docker/frontend.Dockerfile
+      args:
+        # 国内网络可在 shell 里 export 这些变量，或由 minirag.py --mirror 注入
+        NODE_IMAGE: ${NODE_IMAGE:-node:22-alpine}
+        NGINX_IMAGE: ${NGINX_IMAGE:-nginx:alpine}
+        NPM_REGISTRY: ${NPM_REGISTRY:-https://registry.npmjs.org}
     container_name: mini-rag-frontend
     ports:
       - "8080:80"

@@ -14,6 +14,11 @@ services:
     build:
       context: ..
       dockerfile: docker/backend.Dockerfile
+      args:
+        # 国内网络可在 shell 里 export 这些变量，或由 minirag.py --mirror 注入
+        PYTHON_IMAGE: ${PYTHON_IMAGE:-python:3.12-slim}
+        UV_IMAGE: ${UV_IMAGE:-ghcr.io/astral-sh/uv:latest}
+        UV_INDEX_URL: ${UV_INDEX_URL:-https://pypi.org/simple}
     container_name: mini-rag-backend
     env_file:
       - path: ../.env

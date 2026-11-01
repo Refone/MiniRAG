@@ -4,7 +4,7 @@
 Python 标准库，容器编排依赖 Docker Compose v2）：
 
 ```shell
-python minirag.py env_check      # 检查系统 / Python / .env / Docker / 端口 / 镜像
+python minirag.py env_check      # 检查系统 / Python / .env / Docker / 网络 / 端口 / 镜像
 python minirag.py env_prepare    # 生成 .env、uv sync、npm ci、拉取 Docker 镜像
 python minirag.py deploy         # 构建前后端镜像并按 infra → backend → frontend 拉起
 python minirag.py reset          # 清空持久化存储并重置数据库
@@ -34,6 +34,36 @@ python minirag.py reset --keep-down      # 清空后不重启
 
 若不想删除数据卷、只想在现有基础设施上 drop 并重建 Milvus 集合 / MinIO bucket，
 可运行 `.venv/bin/python tools/reset_db.py`（需 infra 已启动）。
+
+## 国内网络与镜像源
+
+`env_check` 会并行探测 PyPI / npm / Docker Hub / Quay / GHCR 的直连与镜像耗时
+（`--skip-network` 跳过）。`env_prepare` / `deploy` 默认 `--mirror auto`，
+直连明显更慢时自动使用清华 PyPI + npmmirror：
+
+```shell
+python minirag.py env_check
+python minirag.py deploy --mirror cn
+python minirag.py env_prepare --mirror cn
+python minirag.py deploy --pypi-index https://mirrors.aliyun.com/pypi/simple
+python minirag.py deploy --npm-registry https://registry.npmmirror.com
+```
+
+后端 Dockerfile 会先用镜像重新 `uv lock`（保持版本，只重写 `uv.lock` 里的 source/URL），
+再 `uv sync --frozen`；宿主机 `env_prepare` 同样临时改写并在结束后恢复 `uv.lock`。
+
+Docker 基础镜像由 daemon 拉取，国内可配置 `registry-mirrors`（仅 Docker Hub）：
+
+```json
+{
+  "registry-mirrors": ["https://docker.m.daocloud.io"]
+}
+```
+
+Linux 修改 `/etc/docker/daemon.json` 后重启 docker；Docker Desktop 在设置 → Docker Engine 修改。
+`quay.io` 的 etcd / MinIO 镜像不受此配置影响，直连不通时需代理或离线导入。
+基础镜像也可用 `PYTHON_IMAGE` / `UV_IMAGE` / `NODE_IMAGE` / `NGINX_IMAGE` 环境变量
+覆盖为镜像站地址（示例见 README「国内网络与镜像源」）。
 
 ## 手动部署
 
