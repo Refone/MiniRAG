@@ -33,3 +33,21 @@ export async function waitTaskComplete(page: Page): Promise<void> {
     "（已完成）",
   );
 }
+
+/** 切到文档管理页（App 内 Tab 切换，不是路由跳转） */
+export async function openDocs(page: Page): Promise<void> {
+  await page.getByRole("button", { name: "文档管理" }).click();
+  await expect(page.locator(".docs-page")).toBeVisible();
+}
+
+/** 切回对话页 */
+export async function openChatTab(page: Page): Promise<void> {
+  await page.getByRole("button", { name: "对话" }).click();
+  await expect(page.locator(".chat-page")).toBeVisible();
+}
+
+/** 打开 NavBar 的 Token 明细面板 */
+export async function openTokenPanel(page: Page): Promise<void> {
+  await page.locator(".token-chip").click();
+  await expect(page.locator(".token-panel")).toBeVisible();
+}
