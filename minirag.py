@@ -56,7 +56,14 @@ DEFAULT_HTTP_TIMEOUT = 60
 UV_LOCK = ROOT / "uv.lock"
 
 DEFAULT_PYPI_INDEX = "https://pypi.org/simple"
-CN_PYPI_INDEX = "https://pypi.tuna.tsinghua.edu.cn/simple"
+# 国内 PyPI 镜像按顺序尝试; 单一镜像对个别包可能 403 或暂时缺包
+CN_PYPI_MIRRORS = (
+    "https://mirrors.aliyun.com/pypi/simple",
+    "https://pypi.tuna.tsinghua.edu.cn/simple",
+    "https://mirrors.cloud.tencent.com/pypi/simple",
+    "https://repo.huaweicloud.com/repository/pypi/simple",
+)
+CN_PYPI_INDEX = CN_PYPI_MIRRORS[0]
 DEFAULT_NPM_REGISTRY = "https://registry.npmjs.org"
 CN_NPM_REGISTRY = "https://registry.npmmirror.com"
 
@@ -454,37 +461,49 @@ def resolve_mirror_config(args: argparse.Namespace) -> MirrorConfig:
     """根据 --mirror / --pypi-index / --npm-registry 决定软件包索引。"""
     override_pypi = getattr(args, "pypi_index", None)
     override_npm = getattr(args, "npm_registry", None)
-    if override_pypi or override_npm:
-        return MirrorConfig(override_pypi, override_npm, "命令行手动指定")
 
     mode = getattr(args, "mirror", "auto")
     if mode == "cn":
-        return MirrorConfig(
-            CN_PYPI_INDEX, CN_NPM_REGISTRY, "国内镜像预设 (--mirror cn)"
-        )
-    if mode == "global":
-        return MirrorConfig(None, None, "官方源预设 (--mirror global)")
+        pypi_index: Optional[str] = CN_PYPI_INDEX
+        npm_registry: Optional[str] = CN_NPM_REGISTRY
+        reason = "国内镜像预设 (--mirror cn)"
+    elif mode == "global":
+        pypi_index = None
+        npm_registry = None
+        reason = "官方源预设 (--mirror global)"
+    elif override_pypi is not None and override_npm is not None:
+        pypi_index = override_pypi
+        npm_registry = override_npm
+        reason = "命令行手动指定 PyPI / npm"
+    else:
+        results = _probe_network()
+        pypi_direct = _probe_of(results, "pypi:direct")
+        pypi_mirror = _probe_of(results, "pypi:mirror")
+        npm_direct = _probe_of(results, "npm:direct")
+        npm_mirror = _probe_of(results, "npm:mirror")
 
-    results = _probe_network()
-    pypi_direct = _probe_of(results, "pypi:direct")
-    pypi_mirror = _probe_of(results, "pypi:mirror")
-    npm_direct = _probe_of(results, "npm:direct")
-    npm_mirror = _probe_of(results, "npm:mirror")
-
-    use_pypi = _prefer_mirror(pypi_direct, pypi_mirror)
-    use_npm = _prefer_mirror(npm_direct, npm_mirror)
-    if use_pypi or use_npm:
+        use_pypi = _prefer_mirror(pypi_direct, pypi_mirror)
+        # 主镜像探测失败时也切到国内预设: 构建阶段还会按镜像列表继续回退
+        if not use_pypi and (not pypi_direct.ok or pypi_direct.seconds >= 2.0):
+            use_pypi = True
+        use_npm = _prefer_mirror(npm_direct, npm_mirror)
         reason = (
             "自动探测: "
-            f"PyPI 直连 {_latency(pypi_direct)} / 清华 {_latency(pypi_mirror)}; "
+            f"PyPI 直连 {_latency(pypi_direct)} / 阿里云 {_latency(pypi_mirror)}; "
             f"npm 直连 {_latency(npm_direct)} / npmmirror {_latency(npm_mirror)}"
         )
-        return MirrorConfig(
-            CN_PYPI_INDEX if use_pypi else None,
-            CN_NPM_REGISTRY if use_npm else None,
-            reason,
-        )
-    return MirrorConfig(None, None, "自动探测: 官方源直连正常")
+        if use_pypi and not pypi_mirror.ok:
+            reason += "（阿里云不可达，构建时继续尝试其他国内镜像）"
+        pypi_index = CN_PYPI_INDEX if use_pypi else None
+        npm_registry = CN_NPM_REGISTRY if use_npm else None
+
+    if override_pypi is not None:
+        pypi_index = override_pypi
+        reason += "；PyPI 手动指定"
+    if override_npm is not None:
+        npm_registry = override_npm
+        reason += "；npm 手动指定"
+    return MirrorConfig(pypi_index, npm_registry, reason)
 
 
 def announce_mirrors(config: MirrorConfig) -> None:
@@ -857,7 +876,7 @@ def check_network(checker: Checker) -> None:
     ):
         checker.warn(
             "国内镜像",
-            f"PyPI 清华 {_latency(pypi_mirror)} / npm npmmirror {_latency(npm_mirror)}",
+            f"PyPI 阿里云 {_latency(pypi_mirror)} / npm npmmirror {_latency(npm_mirror)}",
             "使用 --mirror cn 可加速 uv / npm 依赖下载",
         )
 
@@ -1598,6 +1617,25 @@ def ensure_uv(args: argparse.Namespace, system: SystemInfo) -> Optional[str]:
     return uv
 
 
+def _pypi_candidates(primary: str) -> list[str]:
+    candidates = [primary]
+    if primary == DEFAULT_PYPI_INDEX:
+        return candidates
+    known = any(
+        primary == mirror or primary.startswith(f"{mirror.rstrip('/')}/")
+        for mirror in CN_PYPI_MIRRORS
+    )
+    if known:
+        candidates = [primary, *CN_PYPI_MIRRORS, DEFAULT_PYPI_INDEX]
+    seen: set[str] = set()
+    result: list[str] = []
+    for candidate in candidates:
+        if candidate not in seen:
+            seen.add(candidate)
+            result.append(candidate)
+    return result
+
+
 def sync_python_deps(
     uv: str,
     args: argparse.Namespace,
@@ -1607,11 +1645,11 @@ def sync_python_deps(
     if args.no_dev:
         cmd.append("--no-dev")
 
-    if not mirrors.pypi_index:
+    if not mirrors.pypi_index or mirrors.pypi_index == DEFAULT_PYPI_INDEX:
         run_stream(cmd)
         return
 
-    info(f"PyPI 镜像: {mirrors.pypi_index}")
+    candidates = _pypi_candidates(mirrors.pypi_index)
     if _DRY_RUN:
         run_stream([uv, "lock", "--default-index", mirrors.pypi_index])
         run_stream(cmd)
@@ -1619,13 +1657,28 @@ def sync_python_deps(
 
     # uv.lock 记录的是 pypi.org / files.pythonhosted.org 地址，--frozen 不会改用镜像；
     # 临时按镜像重新锁定（保持锁内版本，只重写 source/URL），安装后恢复原文件。
+    # 已知国内镜像会按顺序回退，避免单个镜像对个别包 403 / 缺包导致整体失败。
     original_lock = UV_LOCK.read_bytes()
     try:
-        run_stream([uv, "lock", "--default-index", mirrors.pypi_index])
-        run_stream(cmd)
+        for index in candidates:
+            info(f"PyPI 索引: {index}")
+            lock_rc = run_stream([uv, "lock", "--default-index", index], check=False)
+            if lock_rc != 0:
+                warn(f"重新锁定失败，尝试下一个镜像: {index}")
+                UV_LOCK.write_bytes(original_lock)
+                continue
+            sync_rc = run_stream(cmd, check=False)
+            if sync_rc == 0:
+                return
+            warn(f"依赖安装失败，尝试下一个镜像: {index}")
+            UV_LOCK.write_bytes(original_lock)
     finally:
         UV_LOCK.write_bytes(original_lock)
-    ok("uv.lock 已恢复（镜像只用于本次安装）")
+    raise CommandError(
+        [],
+        1,
+        "所有 PyPI 镜像均失败；请检查网络，或用 --pypi-index 指定可用镜像",
+    )
 
 
 def install_node_deps(
@@ -2182,7 +2235,7 @@ def _add_mirror_args(parser: argparse.ArgumentParser) -> None:
         "--pypi-index",
         metavar="URL",
         default=None,
-        help="覆盖 PyPI 索引（例如清华 / 阿里云镜像）",
+        help="覆盖 PyPI 索引（例如阿里云 / 清华镜像）",
     )
     parser.add_argument(
         "--npm-registry",

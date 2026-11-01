@@ -21,15 +21,33 @@ WORKDIR /app
 # 依赖层 (可缓存): 只复制依赖清单, 避免源码改动触发重装 torch 等重依赖
 COPY pyproject.toml uv.lock ./
 
-# 国内网络可传 --build-arg UV_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple。
+# 国内网络可传 --build-arg UV_INDEX_URL=https://mirrors.aliyun.com/pypi/simple。
 # uv.lock 记录的是 pypi.org / files.pythonhosted.org 地址, 仅设置索引不会改变
 # 已锁定 wheel 的下载地址; 因此先用镜像重新锁定 (版本不变, 只重写 source/URL),
 # 再用 --frozen 安装。
+#
+# 单一镜像可能对个别包返回 403 / 暂缺 (例如 chunkana), 所以对已知国内镜像
+# 自动按 Aliyun -> 清华 -> 腾讯云 -> 华为云 -> 官方源 依次回退。
 ARG UV_INDEX_URL=https://pypi.org/simple
-RUN if [ "$UV_INDEX_URL" != "https://pypi.org/simple" ]; then \
-        uv lock --default-index "$UV_INDEX_URL"; \
-    fi \
- && uv sync --frozen --no-dev --no-install-project
+RUN set -eu; \
+    if [ "$UV_INDEX_URL" = "https://pypi.org/simple" ]; then \
+        uv sync --frozen --no-dev --no-install-project; \
+    else \
+        indices="$UV_INDEX_URL"; \
+        case "$UV_INDEX_URL" in \
+            https://mirrors.aliyun.com/*|https://pypi.tuna.tsinghua.edu.cn/*|https://mirrors.cloud.tencent.com/*|https://repo.huaweicloud.com/*) \
+                indices="$indices https://mirrors.aliyun.com/pypi/simple https://pypi.tuna.tsinghua.edu.cn/simple https://mirrors.cloud.tencent.com/pypi/simple https://repo.huaweicloud.com/repository/pypi/simple https://pypi.org/simple" ;; \
+        esac; \
+        for index in $indices; do \
+            echo "==> PyPI index: $index"; \
+            if uv lock --default-index "$index" \
+                && uv sync --frozen --no-dev --no-install-project; then \
+                exit 0; \
+            fi; \
+            echo "!! PyPI index failed: $index"; \
+        done; \
+        exit 1; \
+    fi
 
 # 源码层
 COPY src ./src

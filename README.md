@@ -172,17 +172,23 @@ python minirag.py depoly                 # deploy 的兼容别名（历史拼写
 
 `env_check` 会并行探测 PyPI / npm / Docker Hub / Quay / GHCR 的直连与国内镜像耗时
 （`--skip-network` 可跳过）。`env_prepare` / `deploy` 默认 `--mirror auto`：
-直连明显更慢或不可达时自动切换到清华 PyPI + npmmirror；也可以强制指定：
+直连明显更慢或不可达时自动切换到阿里云 PyPI + npmmirror；也可以强制指定：
 
 ```shell
 python minirag.py deploy --mirror cn
 python minirag.py env_prepare --mirror cn
 python minirag.py deploy --pypi-index https://mirrors.aliyun.com/pypi/simple
 python minirag.py deploy --npm-registry https://registry.npmmirror.com
+
+# 腾讯云主机可优先用内网镜像（仍保留其他镜像回退）
+python minirag.py deploy --mirror cn \
+  --pypi-index https://mirrors.cloud.tencent.com/pypi/simple
 ```
 
 - 后端构建会先把 `uv.lock` 按镜像临时重锁（版本不变，只重写下载地址），再执行
   `uv sync --frozen`；宿主机的 `env_prepare` 也会临时改写并在结束后恢复 `uv.lock`。
+- 已知国内镜像会按 **阿里云 → 清华 → 腾讯云 → 华为云 → 官方源** 自动回退，
+  避免某个镜像对个别包返回 403 / 缺包（例如 `chunkana`）导致整个构建失败。
 - 前端 npm registry 通过 Dockerfile build arg 注入。
 - Docker 基础镜像与基础设施镜像仍由 Docker 自己拉取。国内可给 daemon 配
   `registry-mirrors`（**仅对 Docker Hub 生效**）：
