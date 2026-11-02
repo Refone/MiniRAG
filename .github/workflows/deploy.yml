@@ -1,0 +1,116 @@
+# main 分支更新后，SSH 到部署服务器执行 minirag.py deploy。
+#
+# 需要在仓库 Settings -> Secrets and variables -> Actions 中配置:
+#   DEPLOY_HOST       服务器 IP / 域名
+#   DEPLOY_USER       SSH 用户（例如 ubuntu）
+#   DEPLOY_PATH       服务器上的仓库绝对路径（例如 /home/ubuntu/deploy/MiniRAG）
+#   DEPLOY_SSH_KEY    部署专用私钥（OpenSSH 格式，无 passphrase）
+#   DEPLOY_KNOWN_HOSTS  ssh-keyscan -H -p <port> <host> 的输出
+#   DEPLOY_PORT       可选，SSH 端口，默认 22
+#
+# 服务器要求: 已 git clone、当前分支 main、存在未入库的 .env、部署用户有 Docker 权限。
+# 详细步骤见 docs/ci-cd.md。
+
+name: Deploy Production
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      mirror:
+        description: "依赖镜像源策略"
+        type: choice
+        options: [cn, auto, global]
+        default: cn
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy to server
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    environment: production
+
+    steps:
+      - name: Validate deployment secrets
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          missing=0
+          for name in DEPLOY_HOST DEPLOY_USER DEPLOY_PATH DEPLOY_SSH_KEY DEPLOY_KNOWN_HOSTS; do
+            if [ -z "${!name:-}" ]; then
+              echo "::error::Missing repository/environment secret: $name"
+              missing=1
+            fi
+          done
+          exit "$missing"
+
+      - name: Configure SSH
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+
+      - name: Deploy over SSH
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+          MIRROR: ${{ github.event.inputs.mirror }}
+        run: |
+          ssh -i ~/.ssh/deploy_key \
+            -p "${DEPLOY_PORT:-22}" \
+            -o BatchMode=yes \
+            -o IdentitiesOnly=yes \
+            -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
+            -o ConnectTimeout=15 \
+            -o ServerAliveInterval=30 \
+            "$DEPLOY_USER@$DEPLOY_HOST" \
+            "cd '$DEPLOY_PATH' && MIRROR='${MIRROR:-cn}' bash -s" <<'REMOTE'
+          set -euo pipefail
+
+          echo "==> Deploy path: $PWD"
+          echo "==> Previous commit: $(git rev-parse --short HEAD)"
+
+          # 只允许自动更新干净的工作区; .env / docker/volumes / var 等未入库文件不会被删除
+          if ! git diff --quiet || ! git diff --cached --quiet; then
+            echo "::error::Server working tree has tracked changes; aborting"
+            git status --short
+            exit 1
+          fi
+
+          export GIT_TERMINAL_PROMPT=0
+          git fetch --prune origin main
+
+          # 服务器应只跟踪 origin/main; 有本地 commit 时中止, 避免静默丢弃
+          if ! git merge-base --is-ancestor HEAD origin/main; then
+            echo "::error::Server HEAD has commits not in origin/main; aborting"
+            exit 1
+          fi
+
+          git checkout -B main origin/main
+          echo "==> New commit: $(git rev-parse --short HEAD)"
+
+          python3 minirag.py deploy --mirror "$MIRROR"
+
+          echo "==> Deploy finished: $(git rev-parse --short HEAD)"
+          REMOTE

@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
-"""校验 README「目录约定」表与磁盘 / .gitignore 是否一致。
+"""校验 README「目录约定」表与 git 入库布局 / .gitignore 是否一致。
 
-README 是目录契约: 结构树和约定表写的是什么, 磁盘就得是什么。
+README 是目录契约: 结构树和约定表写的是什么, 入库布局就得是什么。
 本脚本检查三件事:
 
 1. 表里标 ✅ 的路径必须真实存在;
 2. 表里标 ❌ 的路径必须被 .gitignore 命中 (不能误入库);
-3. 仓库顶层的每个目录 (隐藏目录除外) 都必须出现在表里 (不能有「黑户」目录)。
+3. git 索引中出现的每个顶层目录 (隐藏目录除外) 都必须出现在表里,
+   不能有「黑户」目录。工作区里未跟踪 / 被 ignore 的本地目录不算,
+   否则本地临时文件会挡住与它无关的提交。
 
 用法: python tools/check_layout.py
 退出码: 0 = 一致, 1 = 有漂移 (输出具体差异)
@@ -38,6 +40,19 @@ def parse_table(text: str) -> dict[str, bool]:
             if m:
                 rows[m.group(1).rstrip("/")] = m.group(2) == "✅"
     return rows
+
+
+def git_indexed(path: str) -> bool:
+    """路径下是否有已入库或已暂存的文件 (只看 git index)。"""
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(ROOT), "ls-files", "--", path],
+            capture_output=True,
+            text=True,
+        )
+        return bool(result.stdout.strip())
+    except FileNotFoundError:  # 没有 git 时退回全量检查
+        return True
 
 
 def git_ignored(path: str) -> bool:
@@ -74,7 +89,9 @@ def main() -> int:
             )
 
     top_dirs = sorted(
-        p.name for p in ROOT.iterdir() if p.is_dir() and not p.name.startswith(".")
+        p.name
+        for p in ROOT.iterdir()
+        if p.is_dir() and not p.name.startswith(".") and git_indexed(p.name)
     )
     for name in top_dirs:
         if not any(entry == name or entry.startswith(f"{name}/") for entry in table):

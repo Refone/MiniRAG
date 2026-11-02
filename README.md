@@ -48,16 +48,16 @@ web     # 前端 (Vite + React)
 
 ## 目录约定
 
-| 路径 | 入库 | 定位 |
-| --- | --- | --- |
-| `src/` | ✅ | 后端源码, 以 `src/` 为 `sys.path` 根 |
-| `web/` | ✅ | 前端工程 (Vite + React) |
-| `docker/` | ✅ | 编排与镜像定义 |
-| `docker/volumes/` | ❌ | 容器 bind mount 数据 |
-| `docs/` | ✅ | 文档与需求笔记 |
-| `tests/` | ✅ | pytest 用例 + 样例输入 |
-| `tools/` | ✅ | 非生产代码: 维护脚本与独立工具 |
-| `var/` | ❌ | 运行时产物, 可随时删 |
+| 路径              | 入库 | 定位                                 |
+| ----------------- | ---- | ------------------------------------ |
+| `src/`            | ✅   | 后端源码, 以 `src/` 为 `sys.path` 根 |
+| `web/`            | ✅   | 前端工程 (Vite + React)              |
+| `docker/`         | ✅   | 编排与镜像定义                       |
+| `docker/volumes/` | ❌   | 容器 bind mount 数据                 |
+| `docs/`           | ✅   | 文档与需求笔记                       |
+| `tests/`          | ✅   | pytest 用例 + 样例输入               |
+| `tools/`          | ✅   | 非生产代码: 维护脚本与独立工具       |
+| `var/`            | ❌   | 运行时产物, 可随时删                 |
 
 > 新增 / 重命名顶层目录时**必须同时改上面结构树与本表**；
 > `python tools/check_layout.py` 会校验本表与磁盘是否一致。
@@ -117,12 +117,12 @@ web     # 前端 (Vite + React)
 
 ## 配置
 
-| 文件 | 入库 | 说明 |
-| --- | --- | --- |
-| `.env` | ❌ | 后端配置 (密钥 / 模型 / 服务地址), 从 `.env.example` 复制后填值 |
-| `.env.example` | ✅ | 由 `python tools/make_env_example.py` 从 `.env` 脱敏生成 |
-| `web/.env` | ❌ | 前端变量 |
-| `web/.env.example` | ✅ | 前端变量模板 (`VITE_API_BASE` 等) |
+| 文件               | 入库 | 说明                                                            |
+| ------------------ | ---- | --------------------------------------------------------------- |
+| `.env`             | ❌   | 后端配置 (密钥 / 模型 / 服务地址), 从 `.env.example` 复制后填值 |
+| `.env.example`     | ✅   | 由 `python tools/make_env_example.py` 从 `.env` 脱敏生成        |
+| `web/.env`         | ❌   | 前端变量                                                        |
+| `web/.env.example` | ✅   | 前端变量模板 (`VITE_API_BASE` 等)                               |
 
 ## 运行限制
 
@@ -146,12 +146,12 @@ python minirag.py deploy         # ③ 一键部署: 构建前后端镜像 → i
 python minirag.py reset          # ④ 清空持久化存储并重置数据库
 ```
 
-| 命令 | 行为 |
-| --- | --- |
-| `env_check` | 只读检查；含 PyPI / npm / Docker 镜像源连通性。有失败项时退出码为 1，`--strict` 把警告也视为失败 |
-| `env_prepare` | 缺少 `.env` 时从 `.env.example` 复制；按 `--mirror` 选择 PyPI/npm 源；安装 Python / 前端依赖；拉取全部基础设施与构建基础镜像 |
-| `deploy` | 依次构建 backend / frontend，按 infra → backend → frontend 拉起并等待健康检查，最后验证 nginx `/api` 反代 |
-| `reset` | 停止容器，清空 `docker/volumes`（etcd / Milvus / MinIO）、Mongo 命名卷、`var/uploads`、`var/import`、`var/tmp`，随后重启 infra 与已构建的前后端，由后端启动自检重建集合与 bucket |
+| 命令          | 行为                                                                                                                                                                             |
+| ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `env_check`   | 只读检查；含 PyPI / npm / Docker 镜像源连通性。有失败项时退出码为 1，`--strict` 把警告也视为失败                                                                                 |
+| `env_prepare` | 缺少 `.env` 时从 `.env.example` 复制；按 `--mirror` 选择 PyPI/npm 源；安装 Python / 前端依赖；拉取全部基础设施与构建基础镜像                                                     |
+| `deploy`      | 依次构建 backend / frontend，按 infra → backend → frontend 拉起并等待健康检查，最后验证 nginx `/api` 反代                                                                        |
+| `reset`       | 停止容器，清空 `docker/volumes`（etcd / Milvus / MinIO）、Mongo 命名卷、`var/uploads`、`var/import`、`var/tmp`，随后重启 infra 与已构建的前后端，由后端启动自检重建集合与 bucket |
 
 常用参数：
 
@@ -214,6 +214,16 @@ python minirag.py deploy --mirror cn
 
 - `quay.io` 上的 etcd / MinIO 镜像不受 Docker Hub 的 `registry-mirrors` 影响；
   直连不通时需要代理或提前导入离线镜像。
+
+### GitHub Actions 自动部署
+
+`main` 分支更新后可自动 SSH 到服务器执行 `minirag.py deploy`。workflow 位于
+[.github/workflows/deploy.yml](.github/workflows/deploy.yml)，需要配置
+`DEPLOY_HOST` / `DEPLOY_USER` / `DEPLOY_PATH` / `DEPLOY_SSH_KEY` /
+`DEPLOY_KNOWN_HOSTS` 等 secrets。
+
+完整步骤、服务器准备、回滚与 self-hosted runner 方案见
+[docs/ci-cd.md](docs/ci-cd.md)。
 
 ## Web 应用部署
 
