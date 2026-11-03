@@ -19,11 +19,11 @@
 ## 关于 Git
 
 - 任何**只读**命令都可以执行：`git status`、`git log`、`git diff`、`git show` 等。
-- **不要做任何改变状态的操作**，包括但不限于 `git add`、`git commit`、`git push`、
-  `git checkout --`、`git restore`、`git reset`。
-- AI 生成代码留在工作区，由人类提交暂存区、提交 commit、以及推送。
-  - 人类提交暂存区：认可阶段修改，仍需进一步调整。
-  - 人类提交 commit：认可对应任务完成。
+- AI 可以自行 `git add` 与 `git commit`：一个任务（或阶段）完成并自测通过后，
+  用清晰的 commit message 提交对应改动；不要提交无关文件。
+- 以下操作仍由人类执行：
+  - `git push` 及远端相关操作；
+  - 回退类操作：`git checkout --`、`git restore`、`git reset` 等。
 
 ## 需求开发 SOP
 
