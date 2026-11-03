@@ -46,7 +46,7 @@ class ProgressDetail(TypedDict):
     示例:
     {
         "node": "PDF 转 Markdown",
-        "text": "24 页 · 解析中 12/24 页 · 已等 48s",
+        "text": "24 页 · 解析中 12/24 页",
         "metrics": {"stage": "parsing", "done": 12, "total": 24},
     }
     """

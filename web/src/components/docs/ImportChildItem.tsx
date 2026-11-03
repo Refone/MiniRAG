@@ -38,8 +38,7 @@ export const ImportChildItem = memo(function ImportChildItem({
   if (child.status === "pending") {
     summaryText = "等待开始";
   } else if (child.status === "processing") {
-    const detailText = child.detail ? ` · ${child.detail.text}` : "";
-    summaryText = `已耗时 ${elapsedText} · ${child.running[0] || "处理中"}${detailText}`;
+    summaryText = `已耗时 ${elapsedText} · ${child.running[0] || "处理中"}`;
   } else if (child.status === "complete") {
     summaryText = `耗时 ${elapsedText}`;
   } else if (child.status === "failed") {

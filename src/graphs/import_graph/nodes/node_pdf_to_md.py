@@ -137,10 +137,7 @@ def step_2_upload_and_poll(pdf_path: Path, page_cnt: int) -> str:
     logger.debug(f"轮询间隔: {interval_time}s, 最大等待时间: {max_wait_time}s")
 
     last_page = 0
-    report_progress(
-        f"{page_cnt} 页 · 排队中 · 已等 0s",
-        {"stage": "queued", "elapsed_ms": 0},
-    )
+    report_progress(f"{page_cnt} 页 · 排队中", {"stage": "queued"})
 
     while True:
         time.sleep(interval_time)
@@ -170,7 +167,6 @@ def step_2_upload_and_poll(pdf_path: Path, page_cnt: int) -> str:
 
         extract_result = poll_resp_data["data"]["extract_result"][0]
         state = extract_result["state"]
-        elapsed_ms = int(elapsed * 1000)
 
         if state == "done":
             zip_url = extract_result["full_zip_url"]
@@ -180,7 +176,7 @@ def step_2_upload_and_poll(pdf_path: Path, page_cnt: int) -> str:
                 )
             report_progress(
                 f"{page_cnt} 页 · 转换完成 · 正在下载",
-                {"stage": "downloading", "elapsed_ms": elapsed_ms},
+                {"stage": "downloading"},
             )
             logger.debug(f"MinerU 解析完毕, zip 地址: {zip_url}")
             return zip_url
@@ -188,7 +184,7 @@ def step_2_upload_and_poll(pdf_path: Path, page_cnt: int) -> str:
         if state == "failed":
             raise requests.RequestException(f"MinerU 解析失败: {poll_resp_data['msg']}")
 
-        # 仍在处理中: 有页进度就报页进度, 否则按排队阶段报已等待时长
+        # 仍在处理中: 有页进度就报页进度, 否则按状态报排队 / 解析
         progress = extract_result.get("extract_progress") or {}
         total_pages = int(progress.get("total_pages") or 0)
         extracted_pages = int(progress.get("extracted_pages") or 0)
@@ -197,27 +193,19 @@ def step_2_upload_and_poll(pdf_path: Path, page_cnt: int) -> str:
             # MinerU 按批上报, 页数可能跳变, 这里钳制为单调递增
             last_page = max(last_page, min(extracted_pages, total_pages))
             report_progress(
-                f"{page_cnt} 页 · 解析中 {last_page}/{total_pages} 页 · "
-                f"已等 {int(elapsed)}s",
+                f"{page_cnt} 页 · 解析中 {last_page}/{total_pages} 页",
                 {
                     "stage": "parsing",
                     "done": last_page,
                     "total": total_pages,
-                    "elapsed_ms": elapsed_ms,
                 },
             )
         else:
             if state == "pending":
-                report_progress(
-                    f"{page_cnt} 页 · 排队中 · 已等 {int(elapsed)}s",
-                    {"stage": "queued", "elapsed_ms": elapsed_ms},
-                )
+                report_progress(f"{page_cnt} 页 · 排队中", {"stage": "queued"})
             else:
                 # running / converting 但服务端未给出页进度
-                report_progress(
-                    f"{page_cnt} 页 · 解析中 · 已等 {int(elapsed)}s",
-                    {"stage": "parsing", "elapsed_ms": elapsed_ms},
-                )
+                report_progress(f"{page_cnt} 页 · 解析中", {"stage": "parsing"})
 
         logger.debug(f"解析未完成, {interval_time}s 后重试")
 

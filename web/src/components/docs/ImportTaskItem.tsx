@@ -95,7 +95,7 @@ export const ImportTaskItem = memo(function ImportTaskItem({
             listClassName="log-list"
             open={parentOpen}
             onToggle={setParentOpen}
-            summary={`已耗时 ${elapsedText}${file.detail ? ` · ${file.detail.text}` : ""}，点击收起 / 展开`}
+            summary={`已耗时 ${elapsedText}，点击收起 / 展开`}
             lines={lines}
           />
         </div>
