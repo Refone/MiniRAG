@@ -13,7 +13,9 @@
 .venv/bin/ruff check . && .venv/bin/ruff format --check .
 .venv/bin/python tools/check_layout.py     # 目录契约
 .venv/bin/python tools/check_layers.py     # 分层依赖
-.venv/bin/pytest -q                        # 单测
+.venv/bin/pytest -q                        # unit + contract（无 key / 无 infra）
+.venv/bin/pytest -m integration            # 真 Mongo/MinIO/Milvus（按需）
+RUN_LIVE_TESTS=1 .venv/bin/pytest -m live  # 真模型/真 key（手动）
 ```
 
 ## 关于 Git
@@ -142,6 +144,14 @@ graph LR
 - 消费侧必须**模块命名空间调用**：`from common import client, model, store` 后调用 `model.get_llm()`；禁止 `from common.model import get_llm` 后裸调用（函数对象被绑定进消费模块，测试无法替换）。
 - service 边界同理：`from service import query_service` 后调用 `query_service.arun_query()`。
 - 只有 `EVENT_BUS` / `TASK_MANAGER`（纯内存、构造无副作用）保留模块级单例；测试用 `clear_all()` 隔离。
+
+### 测试约定
+
+- 入口文档：`docs/manual/backend-testing.md`；默认 `pytest -q` 只跑 unit + contract，无 key、无外部服务。
+- 用例命名 `test_<域>__<场景>__<期望>`，docstring 用 Given/When/Then；断言消息写清「期望 vs 实际」。
+- 只测契约与不变式，不测日志文案、私有步骤调用次数、prompt 快照、真实模型输出。
+- 新增行为先写测试跑红再实现；每个 bug 补一条回归用例；不改测试来适配实现。
+- 替换外部依赖用 `tests/support/seams.py::patch_accessors` 或 FastAPI `dependency_overrides`，禁止在默认套件连真实服务。
 
 ---
 

@@ -27,8 +27,10 @@ src     # 后端源码 (以 src/ 为 sys.path 根); 分层规则见 AGENTS.md
     ├── events/   # T3 进程内任务状态 + SSE 通道 + 节点追踪装饰器
     ├── prompt/   # T0 提示词模板
     └── store/    # T4 持久化 (会话历史 / 文档写路径)
-tests   # 单测 + 样例输入
-├── test_*.py   # pytest 用例 (纯函数与状态机)
+tests   # pytest 分层 + 样例输入
+├── unit/       # 纯逻辑/节点编排 (默认)
+├── contract/   # API/SSE 契约 (默认)
+├── support/    # fakes / seams / helper
 └── fixtures/   # 各节点 __main__ 与 pytest 共用的样例文件
 tools   # 非生产代码: 维护脚本 + 独立工具
 ├── make_env_example.py     # .env -> .env.example (脱敏)
@@ -61,6 +63,8 @@ web     # 前端 (Vite + React)
 
 > 新增 / 重命名顶层目录时**必须同时改上面结构树与本表**；
 > `python tools/check_layout.py` 会校验本表与磁盘是否一致。
+>
+> 后端测试的分层、命令与接缝约定见 [docs/manual/backend-testing.md](docs/manual/backend-testing.md)。
 
 ## 前端交互 demo（skill）
 
