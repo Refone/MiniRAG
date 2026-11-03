@@ -5,6 +5,7 @@
 人工核对。
 """
 
+import pytest
 from langchain_core.messages import AIMessage
 
 from common.model.metering import dashscope_total_tokens, message_usage_tokens
@@ -15,6 +16,8 @@ from common.schema.token_usage import (
     empty_token_usage,
     sum_token_usage,
 )
+
+pytestmark = pytest.mark.unit
 
 
 def test_message_usage_tokens():

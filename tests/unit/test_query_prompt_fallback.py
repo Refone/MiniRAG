@@ -4,7 +4,11 @@
 资料不足时的声明与通识兜底、以及疑似文档提示。
 """
 
+import pytest
+
 from common.prompt.prompt_final_answer import PromptFinalAnswer
+
+pytestmark = pytest.mark.unit
 
 WEB_REFERENCE = "---\n数据来源: Web, 置信度: 0.83000000,\n内容: 上海今日多云\n\n---\n"
 MILVUS_REFERENCE = (

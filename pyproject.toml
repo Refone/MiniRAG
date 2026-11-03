@@ -43,6 +43,7 @@ dependencies = [
 [dependency-groups]
 dev = [
     "grandalf>=0.8",      # 仅 graph.get_graph().draw_ascii() 的 __main__ 调试需要
+    "httpx>=0.28",
     "pre-commit>=4.7.0",
     "pytest>=9.2.0",
     "ruff>=0.17.3",
@@ -64,4 +65,10 @@ select = [
 [tool.pytest.ini_options]
 pythonpath = ["src"]
 testpaths = ["tests"]
-addopts = "-q"
+addopts = "--tb=short --strict-markers -m 'not integration and not live'"
+markers = [
+    "unit: 纯逻辑/假依赖，无网络无 key（默认）",
+    "contract: API/SSE 契约，TestClient + 假存储，无网络无 key（默认）",
+    "integration: 真 Mongo/MinIO/Milvus，假模型，需显式开启",
+    "live: 真模型/真 key，手动运行，绝不进 CI",
+]

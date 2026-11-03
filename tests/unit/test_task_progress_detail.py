@@ -3,8 +3,12 @@
 覆盖: 写入 / 快照透出 / 文案裁剪 / 指标过滤 / 终态清理 / 上报推帧。
 """
 
+import pytest
+
 from common.events import EVENT_BUS, TASK_MANAGER, SSEEvent, TaskStatus
 from common.events.tracing import report_progress, trace_node
+
+pytestmark = pytest.mark.unit
 
 
 def test_set_detail_appears_in_snapshot() -> None:
