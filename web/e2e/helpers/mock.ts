@@ -118,6 +118,25 @@ export function makeTokenSnapshot(sessionId: string): TokenUsageFixture {
   };
 }
 
+/** 全 0 的 Token 快照（重置后的 GET 响应，updated_at 为 null） */
+export function makeEmptyTokenSnapshot(sessionId: string): TokenUsageFixture {
+  const empty = () => ({
+    llm_tokens: 0,
+    vlm_tokens: 0,
+    embedding_tokens: 0,
+    reranker_tokens: 0,
+    total_tokens: 0,
+  });
+  return {
+    session_id: sessionId,
+    user_ip: "",
+    updated_at: null,
+    ...empty(),
+    query: empty(),
+    upload: empty(),
+  };
+}
+
 /** 用路由拦截覆盖 Token 统计响应 */
 export async function routeTokenUsage(
   page: Page,

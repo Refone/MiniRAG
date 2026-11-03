@@ -17,6 +17,7 @@ import {
 } from "react";
 import { ChevronDownIcon, GaugeIcon } from "@/components/icons/AppIcons";
 import { TokenPanel } from "@/components/layout/TokenPanel";
+import { ConfirmModal } from "@/components/ui/ConfirmModal";
 import { useTweenNumber } from "@/hooks/useTweenNumber";
 import { TOKEN_KINDS } from "@/lib/constants";
 import { useChatStore } from "@/store/chatStore";
@@ -52,6 +53,8 @@ export function TokenMeter() {
   const [scope, setScope] = useState<TokenScope>("total");
   const [bump, setBump] = useState(false);
   const [flashKinds, setFlashKinds] = useState<TokenKind[]>([]);
+  const [resetOpen, setResetOpen] = useState(false);
+  const [resetting, setResetting] = useState(false);
 
   const meterRef = useRef<HTMLDivElement>(null);
   const chipRef = useRef<HTMLButtonElement>(null);
@@ -157,10 +160,11 @@ export function TokenMeter() {
     return () => window.removeEventListener("resize", positionPanel);
   }, [open, positionPanel]);
 
-  /* ---- 点击外部关闭（demo pointerdown 语义） ---- */
+  /* ---- 点击外部关闭（demo pointerdown 语义；确认弹窗打开时不收起面板） ---- */
   useEffect(() => {
     if (!open) return;
     const onPointerDown = (e: PointerEvent) => {
+      if (resetOpen) return;
       if (
         meterRef.current &&
         e.target instanceof Node &&
@@ -172,7 +176,7 @@ export function TokenMeter() {
     };
     document.addEventListener("pointerdown", onPointerDown);
     return () => document.removeEventListener("pointerdown", onPointerDown);
-  }, [open]);
+  }, [open, resetOpen]);
 
   const handleChipClick = useCallback(() => {
     if (open) {
@@ -194,6 +198,25 @@ export function TokenMeter() {
       .then((ok) => {
         if (ok) pushToast("success", "Token 统计已恢复");
       });
+  }, [pushToast]);
+
+  const handleResetRequest = useCallback(() => {
+    // 按钮已禁用；这里兜底，避免运行中重置被请求结束的 flush 写回
+    if (live) return;
+    setResetOpen(true);
+  }, [live]);
+
+  const handleResetConfirm = useCallback(async () => {
+    setResetting(true);
+    const ok = await useTokenUsageStore.getState().reset();
+    setResetting(false);
+    if (!ok) {
+      pushToast("error", "重置失败，请稍后重试");
+      return;
+    }
+    setResetOpen(false);
+    setFlashKinds([]);
+    pushToast("success", "Token 统计已重置");
   }, [pushToast]);
 
   const sparkRatio = (kind: TokenKind): number => {
@@ -271,8 +294,27 @@ export function TokenMeter() {
             onFlashEnd={(kind) =>
               setFlashKinds((kinds) => kinds.filter((k) => k !== kind))
             }
+            onResetRequest={handleResetRequest}
+            resetDisabled={live}
           />
         </div>
+      )}
+
+      {resetOpen && (
+        <ConfirmModal
+          title="重置 Token 统计？"
+          confirmText="确认重置"
+          busyText="重置中..."
+          busy={resetting}
+          onCancel={() => {
+            if (!resetting) setResetOpen(false);
+          }}
+          onConfirm={() => void handleResetConfirm()}
+        >
+          <p>
+            {"当前会话的 Token 使用情况将被重置，历史会话不受影响。此操作无法撤销。"}
+          </p>
+        </ConfirmModal>
       )}
     </div>
   );

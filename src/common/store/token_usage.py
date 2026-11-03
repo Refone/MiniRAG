@@ -37,7 +37,7 @@ def _usage_from_doc(doc: dict, scope: TokenScope) -> ModelTokenUsage:
 
 
 class TokenUsageManager:
-    """token_usage 集合的读写：get_usage 读快照、add_usage 原子累计。"""
+    """token_usage 集合的读写：get_usage 读快照、add_usage 原子累计、clear_usage 重置。"""
 
     def __init__(self):
         self.token_usage = MONGODB_CLIENT.db["token_usage"]
@@ -62,6 +62,20 @@ class TokenUsageManager:
             upload=_usage_from_doc(doc, TokenScope.UPLOAD),
             updated_at=doc.get("updated_at"),
         )
+
+    def clear_usage(self, session_id: str) -> int:
+        """删除会话统计记录（重置为无记录的空统计态），返回删除条数。
+
+        只动 `token_usage` 集合，不触碰 `chat_history`；无记录时幂等返回 0。
+        """
+        try:
+            result = self.token_usage.delete_one({"session_id": session_id})
+        except Exception as e:
+            logger.error(f"重置 {session_id} token 统计失败: {e}")
+            raise TokenUsageStoreError("Token 统计重置失败") from e
+
+        logger.info(f"重置 {session_id} token 统计, 删除记录 {result.deleted_count} 条")
+        return result.deleted_count
 
     def add_usage(
         self,

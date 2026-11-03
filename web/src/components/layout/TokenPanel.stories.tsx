@@ -43,6 +43,8 @@ function PanelHost({
         onRetry={() => {}}
         onClose={() => {}}
         onFlashEnd={() => {}}
+        onResetRequest={() => {}}
+        resetDisabled={live}
       />
     </div>
   );
@@ -62,6 +64,8 @@ const meta = {
     onRetry: () => {},
     onClose: () => {},
     onFlashEnd: () => {},
+    onResetRequest: () => {},
+    resetDisabled: false,
   },
 } satisfies Meta<typeof TokenPanel>;
 

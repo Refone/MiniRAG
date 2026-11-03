@@ -10,13 +10,15 @@
  * - 静默刷新（面板打开）失败不打断已有数据展示，仅从未拿到数据时才进 error 态
  *   （对齐 demo 统计失败态 + 重试）；
  * - refreshSeq 竞态保护：过期 GET 响应与 SSE 快照互不覆盖。
+ * - reset：清零当前浏览器会话（后端删记录 + 前端立即归零），失败不改动现状。
  */
 import { create } from "zustand";
-import { getTokenUsage } from "@/lib/api/tokenUsage";
+import { getTokenUsage, resetTokenUsage } from "@/lib/api/tokenUsage";
 import { getBrowserSessionId } from "@/utils/session";
 import {
   TOKEN_KIND_KEYS,
   emptyKindUsage,
+  emptyTokenUsageSnapshot,
   type KindUsage,
   type PendingUsage,
 } from "@/utils/token";
@@ -63,6 +65,8 @@ interface TokenUsageStoreState {
   ) => void;
   /** 流终止未收到 usage 帧时丢弃该通道增量（失败路径不落库） */
   clearPending: (source: TokenSource, channelId: string) => void;
+  /** 清零当前浏览器会话统计（含 Mongo 记录）；失败返回 false 且不改动展示 */
+  reset: () => Promise<boolean>;
 }
 
 /** 请求序号：过期 GET 响应不得覆盖更新快照 */
@@ -140,5 +144,26 @@ export const useTokenUsageStore = create<TokenUsageStoreState>()((set, get) => (
     const key = channelKey(source, channelId);
     if (!(key in get().pending)) return;
     set((s) => ({ pending: withoutPending(s.pending, key) }));
+  },
+
+  reset: async () => {
+    const sessionId = getBrowserSessionId();
+    try {
+      await resetTokenUsage(sessionId);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.warn("[token] 重置 Token 统计失败", msg);
+      return false;
+    }
+    // 让重置前发出的 GET 响应全部失效，避免旧快照覆盖归零结果
+    refreshSeq += 1;
+    set({
+      snapshot: emptyTokenUsageSnapshot(sessionId),
+      status: "ready",
+      lastSource: null,
+      lastDelta: null,
+      pending: {},
+    });
+    return true;
   },
 }));

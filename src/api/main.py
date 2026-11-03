@@ -284,6 +284,30 @@ def get_token_usage(
         raise HTTPException(status_code=500, detail="Token 统计读取失败")
 
 
+@router.delete("/token-usage/{session_id}")
+def reset_token_usage(
+    request: Request,
+    session_id: str,
+) -> dict:
+    """重置浏览器会话的 Token 统计（删除 token_usage 记录，幂等）。
+
+    只清零该会话的统计，不触碰 chat_history；Mongo 写失败返回 500。
+    """
+
+    logger.info(f"[{str(request.url)}], session_id={session_id}")
+
+    try:
+        deleted_count = TOKEN_USAGE_MANAGER.clear_usage(session_id)
+    except TokenUsageStoreError:
+        raise HTTPException(status_code=500, detail="Token 统计重置失败")
+
+    return {
+        "status": "ok",
+        "msg": f"Token 统计已重置: {session_id}, 删除记录数: {deleted_count}",
+        "session_id": session_id,
+    }
+
+
 # ------------------------------------------------------------------ #
 # 文档管理页
 # ------------------------------------------------------------------ #

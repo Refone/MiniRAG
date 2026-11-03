@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useEffect, useId, useRef, type ReactNode } from "react";
 
 interface ConfirmModalProps {
   title: string;
@@ -23,15 +23,38 @@ export function ConfirmModal({
   onConfirm,
   onCancel,
 }: ConfirmModalProps) {
+  const titleId = useId();
+  const cancelRef = useRef<HTMLButtonElement>(null);
+
+  // 破坏性操作默认聚焦「取消」，避免回车误确认
+  useEffect(() => {
+    cancelRef.current?.focus();
+  }, []);
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      if (!busy) onCancel();
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [busy, onCancel]);
+
   return (
     <div className="modal-mask">
-      <div className="modal">
-        <h3>{title}</h3>
+      <div
+        className="modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+      >
+        <h3 id={titleId}>{title}</h3>
         {children}
         <div className="modal-actions">
           <button
             className="btn"
             type="button"
+            ref={cancelRef}
             disabled={busy}
             onClick={onCancel}
           >

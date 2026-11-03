@@ -499,6 +499,45 @@
   height: 12px;
 }
 
+.tp-foot-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.tp-foot-note {
+  white-space: nowrap;
+}
+
+.tp-reset {
+  flex: 0 0 auto;
+  padding: 2px 6px;
+  border: 1px solid transparent;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--text-2);
+  font-size: 10.5px;
+  line-height: 1.4;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    color 0.15s,
+    background-color 0.15s,
+    border-color 0.15s;
+}
+
+.tp-reset:hover:not(:disabled) {
+  border-color: var(--danger-soft);
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.tp-reset:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 /* ---- 响应式（与 demo 一致） ---- */
 @media (max-width: 900px) {
   .token-chip-label {

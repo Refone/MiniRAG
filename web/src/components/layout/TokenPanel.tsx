@@ -92,6 +92,10 @@ export interface TokenPanelProps {
   onRetry: () => void;
   onClose: () => void;
   onFlashEnd: (kind: TokenKind) => void;
+  /** 「重置统计」入口：由 TokenMeter 弹确认框并调用 store */
+  onResetRequest: () => void;
+  /** 查询 / 上传进行中禁止重置（避免落库 flush 把已清零的数据写回） */
+  resetDisabled?: boolean;
 }
 
 export function TokenPanel({
@@ -105,6 +109,8 @@ export function TokenPanel({
   onRetry,
   onClose,
   onFlashEnd,
+  onResetRequest,
+  resetDisabled = false,
 }: TokenPanelProps) {
   const loading = status === "loading";
   const failed = status === "error" && !snapshot;
@@ -241,7 +247,22 @@ export function TokenPanel({
           <ClockIcon />
           <span>{updatedCopy}</span>
         </span>
-        <span>清空聊天不影响统计</span>
+        <span className="tp-foot-actions">
+          <span className="tp-foot-note">清空聊天不影响统计</span>
+          <button
+            type="button"
+            className="tp-reset"
+            disabled={resetDisabled}
+            title={
+              resetDisabled
+                ? "查询或上传进行中，结束后可重置"
+                : "重置本次访问的 Token 统计"
+            }
+            onClick={onResetRequest}
+          >
+            重置统计
+          </button>
+        </span>
       </div>
     </>
   );

@@ -278,6 +278,13 @@ const server = createServer(async (req, res) => {
     if (req.method === "GET" && path.startsWith("/api/token-usage/")) {
       return sendJson(res, 200, TOKEN_USAGE);
     }
+    if (req.method === "DELETE" && path.startsWith("/api/token-usage/")) {
+      return sendJson(res, 200, {
+        status: "ok",
+        msg: "Token 统计已重置",
+        session_id: decodeURIComponent(path.slice("/api/token-usage/".length)),
+      });
+    }
     if (req.method === "POST" && path === "/api/query") {
       const body = await readJson(req);
       if (!body.session_id) {

@@ -35,6 +35,31 @@ export function emptyKindUsage(): KindUsage {
   return { llm: 0, vlm: 0, embedding: 0, reranker: 0 };
 }
 
+/** 全 0 的单口径用量（与后端 ModelTokenUsage 同形） */
+function emptyModelUsage(): ModelTokenUsage {
+  return {
+    llm_tokens: 0,
+    vlm_tokens: 0,
+    embedding_tokens: 0,
+    reranker_tokens: 0,
+    total_tokens: 0,
+  };
+}
+
+/** 空统计快照（重置成功后前端立即归零，与 GET 无记录响应同形） */
+export function emptyTokenUsageSnapshot(
+  sessionId: string,
+): TokenUsageSnapshot {
+  return {
+    session_id: sessionId,
+    user_ip: "",
+    updated_at: null,
+    ...emptyModelUsage(),
+    query: emptyModelUsage(),
+    upload: emptyModelUsage(),
+  };
+}
+
 function toKindUsage(u: ModelTokenUsage): KindUsage {
   return {
     llm: u.llm_tokens,
