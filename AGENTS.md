@@ -20,7 +20,10 @@
 
 - 任何**只读**命令都可以执行：`git status`、`git log`、`git diff`、`git show` 等。
 - AI 可以自行 `git add` 与 `git commit`：一个任务（或阶段）完成并自测通过后，
-  用清晰的 commit message 提交对应改动；不要提交无关文件。
+  用清晰的 commit message 提交对应改动。
+  - 提交前先 `git status` 检查工作区：除本次任务的改动外不得有其他未提交文件，
+    否则停止提交并提示人类及时 commit。
+  - AI 提交的 commit，message 中需附上生成此次提交的提示词（原始需求/指令）。
 - 以下操作仍由人类执行：
   - `git push` 及远端相关操作；
   - 回退类操作：`git checkout --`、`git restore`、`git reset` 等。
