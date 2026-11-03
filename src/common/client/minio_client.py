@@ -1,5 +1,6 @@
 import json
 from collections.abc import Iterator
+from functools import lru_cache
 from mimetypes import guess_type
 
 from minio import Minio
@@ -215,13 +216,16 @@ class MiniRagMinioClient:
         return stat.content_type or "application/octet-stream", _iter_chunks()
 
 
-MINIO_CLIENT = MiniRagMinioClient()
+@lru_cache(maxsize=1)
+def get_minio_client() -> MiniRagMinioClient:
+    """MinIO 客户端；构造无网络副作用，首次调用时创建。"""
+    return MiniRagMinioClient()
 
 
 if __name__ == "__main__":
     from rich import print as rprint
 
-    client = MiniRagMinioClient()
+    client = get_minio_client()
     client.check_health()
     client.prepare_bucket()
     rprint(client._minio.list_buckets())

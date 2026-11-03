@@ -19,7 +19,7 @@ import uuid
 from pathlib import Path
 from typing import Callable
 
-from common.client import MILVUS_CLIENT, MINIO_CLIENT, MONGODB_CLIENT
+from common import client, store
 from common.config.env_config import ENV_CONFIG
 from common.config.path_config import IMPORT_TMP_DIR, LOG_DIR, UPLOAD_TMP_DIR
 from common.logging import logger
@@ -27,20 +27,25 @@ from common.logging import logger
 
 def check_milvus() -> None:
     """校验 Milvus 连通性, 并初始化 docs / chunks 集合 (有则跳过, 无则创建)。"""
-    MILVUS_CLIENT.check_health()
-    MILVUS_CLIENT.prepare_docs_collection()
-    MILVUS_CLIENT.prepare_chunks_collection()
+    milvus = client.get_milvus_client()
+    milvus.check_health()
+    milvus.prepare_docs_collection()
+    milvus.prepare_chunks_collection()
 
 
 def check_minio() -> None:
     """校验 MinIO 连通性, 并初始化 bucket (有则跳过, 无则创建含匿名只读策略)。"""
-    MINIO_CLIENT.check_health()
-    MINIO_CLIENT.prepare_bucket()
+    minio = client.get_minio_client()
+    minio.check_health()
+    minio.prepare_bucket()
 
 
 def check_mongodb() -> None:
-    """校验 MongoDB 连通性 (无 schema, 无需初始化资源)。"""
-    MONGODB_CLIENT.check_health()
+    """校验 MongoDB 连通性, 并初始化集合索引 (create_index 幂等)。"""
+    mongo = client.get_mongo_client()
+    mongo.check_health()
+    store.get_chat_history_manager().prepare()
+    store.get_token_usage_manager().prepare()
 
 
 def runtime_dirs() -> list[Path]:

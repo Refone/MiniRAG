@@ -1,14 +1,12 @@
-from common.client import MILVUS_CLIENT
+from common import client, model, store
 from common.client.milvus_client import MilvusDocsRecall
 from common.config.app_config import APP_CONFIG
 from common.events.metering import push_usage_delta
 from common.events.tracing import step_log, trace_node
 from common.logging import logger
-from common.model import LLM
 from common.model.metering import message_usage_tokens
 from common.prompt.prompt_query_rewrite import PromptQueryRewrite
 from common.schema.token_usage import TokenUsage
-from common.store import CHAT_HISTORY_MANAGER
 from common.store.chat_history import MessageRole
 from graphs.query_graph.query_graph_state import QueryGraphState
 
@@ -30,7 +28,7 @@ def step_1_validate_and_get_data(state: QueryGraphState) -> tuple[str, str]:
 
 @step_log(desc="根据会话 ID 获取聊天记录")
 def step_2_summary_history(session_id: str) -> str:
-    return CHAT_HISTORY_MANAGER.summary_history(session_id=session_id)
+    return store.get_chat_history_manager().summary_history(session_id=session_id)
 
 
 @step_log(desc="重写查询")
@@ -40,7 +38,7 @@ def step_3_rewrite_query(
 ) -> tuple[str, int]:
     prompt = PromptQueryRewrite(history_summary, original_query)
 
-    response = LLM.invoke(prompt.prompt)
+    response = model.get_llm().invoke(prompt.prompt)
     tokens = message_usage_tokens(response)
     if not tokens:
         logger.warning("查询改写 LLM 未返回 usage, 本次调用不计入 token 统计")
@@ -64,7 +62,7 @@ def step_4_select_docs_from_milvus(
         [{"id": 1, "score": 0.9, "file_title": "...", "docs_abstract": "..."}, ...]
     """
 
-    reqs_list, embedding_tokens = MILVUS_CLIENT.hybrid_search_docs(
+    reqs_list, embedding_tokens = client.get_milvus_client().hybrid_search_docs(
         texts=[rewritten_query],
     )
 
@@ -120,7 +118,7 @@ def step_6_save_chat_message(
     original_query: str,
     session_id: str,
 ) -> None:
-    CHAT_HISTORY_MANAGER.save_message(
+    store.get_chat_history_manager().save_message(
         text=original_query,
         session_id=session_id,
         role=MessageRole.USER,

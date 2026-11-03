@@ -1,12 +1,11 @@
+from common import model, store
 from common.events import EVENT_BUS, SSEEvent
 from common.events.metering import push_usage_delta
 from common.events.tracing import trace_node
 from common.logging import logger
-from common.model import LLM
 from common.model.metering import message_usage_tokens
 from common.prompt.prompt_final_answer import PromptFinalAnswer
 from common.schema.token_usage import TokenUsage
-from common.store import CHAT_HISTORY_MANAGER
 from common.store.chat_history import MessageRole
 from graphs.query_graph.query_graph_state import DataFrom, QueryGraphState, RerankResult
 
@@ -26,7 +25,9 @@ def step_2_format_prompt(
     rerank_results: list[RerankResult],
     suspect_titles: list[str],
 ) -> tuple[str, bool]:
-    history_summary = CHAT_HISTORY_MANAGER.summary_history(session_id=session_id)
+    history_summary = store.get_chat_history_manager().summary_history(
+        session_id=session_id
+    )
 
     reference = ""
     for docs in rerank_results:
@@ -58,7 +59,7 @@ def step_3_call_llm_generate_answer(
     answer = ""
     usage_chunk = None
 
-    for chunk in LLM.stream(answer_prompt):
+    for chunk in model.get_llm().stream(answer_prompt):
         # stream_usage=True 时 usage 出现在末段带 usage_metadata 的 chunk 上,
         # 其后可能还有不带 usage 的空尾帧, 故记录"最后一个携带 usage 的 chunk"
         if message_usage_tokens(chunk):
@@ -82,7 +83,7 @@ def step_3_call_llm_generate_answer(
 
 def step_4_save_message_and_push_final(session_id: str, answer: str) -> None:
     # 图片完全由 LLM 在回答正文中以 Markdown 语法内嵌, 不再走独立的 image_urls 通道
-    CHAT_HISTORY_MANAGER.save_message(
+    store.get_chat_history_manager().save_message(
         session_id=session_id,
         role=MessageRole.ASSISTANT,
         text=answer,

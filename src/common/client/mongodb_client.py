@@ -1,3 +1,5 @@
+from functools import lru_cache
+
 from pymongo import MongoClient
 
 from common.config.env_config import ENV_CONFIG
@@ -24,11 +26,14 @@ class MiniRagMongoClient(MongoClient):
         logger.success(f"MongoDB 连接成功 ({self.uri}), 数据库: {self.db_name}")
 
 
-MONGODB_CLIENT = MiniRagMongoClient()
+@lru_cache(maxsize=1)
+def get_mongo_client() -> MiniRagMongoClient:
+    """MongoDB 客户端；pymongo 惰性连接，首次调用时创建。"""
+    return MiniRagMongoClient()
 
 
 if __name__ == "__main__":
-    client = MiniRagMongoClient()
+    client = get_mongo_client()
     db = client.db
     db.chat_history.delete_many({})  # 清空 chat_history 集合中的所有文档
     db.chat_history.insert_one(

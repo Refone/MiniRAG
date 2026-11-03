@@ -6,6 +6,7 @@ from pathlib import Path
 from fastapi import (
     APIRouter,
     BackgroundTasks,
+    Depends,
     FastAPI,
     File,
     Form,
@@ -25,7 +26,7 @@ from api.schemas import (
 )
 from api.sse import sse_stream
 from api.startup_checks import startup_checks
-from common.client import MINIO_CLIENT
+from common.client import get_minio_client
 from common.config.app_config import APP_CONFIG
 from common.config.env_config import ENV_CONFIG
 from common.config.path_config import UPLOAD_TMP_DIR
@@ -33,12 +34,10 @@ from common.events import EVENT_BUS, TASK_MANAGER, TaskStatus
 from common.logging import logger
 from common.schema import DocDetail
 from common.schema.token_usage import TokenUsageSnapshot
-from common.store import CHAT_HISTORY_MANAGER, TOKEN_USAGE_MANAGER
+from common.store import get_chat_history_manager, get_token_usage_manager
 from common.store.chat_history import ChatMessage
 from common.store.token_usage import TokenUsageStoreError
-from service import docs_service
-from service.import_service import arun_import
-from service.query_service import arun_query
+from service import docs_service, import_service, query_service
 
 
 async def _sweep_loop() -> None:
@@ -149,7 +148,7 @@ async def import_document(
 
     user_ip = request.client.host if request.client else ""
     background_tasks.add_task(
-        arun_import,
+        import_service.arun_import,
         task_id=task_id,
         origin_file_path=str(dest),
         session_id=session_id,
@@ -198,7 +197,7 @@ def query(
 
     user_ip = request.client.host if request.client else ""
     background_tasks.add_task(
-        arun_query,
+        query_service.arun_query,
         session_id=payload.session_id,
         query=payload.query,
         enable_web_search=payload.enable_web_search,
@@ -235,12 +234,13 @@ async def query_sse(
 def history(
     request: Request,
     session_id: str,
+    chats=Depends(get_chat_history_manager),
 ):
     """获取指定会话的历史聊天记录。"""
 
     logger.info(f"[{str(request.url)}], session_id={session_id}")
 
-    message_list: list[ChatMessage] = CHAT_HISTORY_MANAGER.get_latest_messages(
+    message_list: list[ChatMessage] = chats.get_latest_messages(
         session_id,
         # 历史页需展示全部记录, 不做条数限制;
         # 查询分析场景 (意图识别等) 仍按 APP_CONFIG.chat_message_lookback_count 回溯
@@ -254,12 +254,13 @@ def history(
 def delete_history(
     request: Request,
     session_id: str,
+    chats=Depends(get_chat_history_manager),
 ):
     """删除指定会话的历史聊天记录。"""
 
     logger.info(f"[{str(request.url)}], session_id={session_id}")
 
-    deleted_count = CHAT_HISTORY_MANAGER.clear_history(session_id)
+    deleted_count = chats.clear_history(session_id)
     return {
         "status": "ok",
         "msg": f"历史记录已删除: {session_id}, 删除条数: {deleted_count}",
@@ -270,6 +271,7 @@ def delete_history(
 def get_token_usage(
     request: Request,
     session_id: str,
+    tokens=Depends(get_token_usage_manager),
 ) -> TokenUsageSnapshot:
     """获取浏览器会话的 Token 统计快照（会话总计 / 查询 / 上传三口径）。
 
@@ -279,7 +281,7 @@ def get_token_usage(
     logger.info(f"[{str(request.url)}], session_id={session_id}")
 
     try:
-        return TOKEN_USAGE_MANAGER.get_usage(session_id)
+        return tokens.get_usage(session_id)
     except TokenUsageStoreError:
         raise HTTPException(status_code=500, detail="Token 统计读取失败")
 
@@ -288,6 +290,7 @@ def get_token_usage(
 def reset_token_usage(
     request: Request,
     session_id: str,
+    tokens=Depends(get_token_usage_manager),
 ) -> dict:
     """重置浏览器会话的 Token 统计（删除 token_usage 记录，幂等）。
 
@@ -297,7 +300,7 @@ def reset_token_usage(
     logger.info(f"[{str(request.url)}], session_id={session_id}")
 
     try:
-        deleted_count = TOKEN_USAGE_MANAGER.clear_usage(session_id)
+        deleted_count = tokens.clear_usage(session_id)
     except TokenUsageStoreError:
         raise HTTPException(status_code=500, detail="Token 统计重置失败")
 
@@ -385,6 +388,7 @@ def delete_doc(
 def get_file(
     request: Request,
     object_name: str,
+    minio=Depends(get_minio_client),
 ):
     """代理文件请求, 避免 CORS 问题, 使外网能跨域访问 MinIO 获取对象内容"""
 
@@ -401,7 +405,7 @@ def get_file(
         raise HTTPException(status_code=404, detail=f"对象不存在: {object_name}")
 
     try:
-        content_type, chunk_iter = MINIO_CLIENT.get_object_stream(object_name)
+        content_type, chunk_iter = minio.get_object_stream(object_name)
     except Exception:
         raise HTTPException(status_code=404, detail=f"对象不存在: {object_name}")
 

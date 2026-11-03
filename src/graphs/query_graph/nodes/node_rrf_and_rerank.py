@@ -1,16 +1,20 @@
+from common import model
 from common.client.milvus_client import MilvusChunksRecall
 from common.config.app_config import APP_CONFIG
 from common.config.env_config import ENV_CONFIG
 from common.events.metering import push_usage_delta
 from common.events.tracing import step_log, trace_node
 from common.logging import logger
-from common.model import LLM, RERANKER
 from common.model.metering import message_usage_tokens
 from common.prompt.prompt_rerank_text_refine import PromptRerankRefineText
 from common.schema.token_usage import TokenUsage
 from common.utils.tokenizer import compute_token
-from graphs.query_graph.nodes.node_search_web import WebSearchResult
-from graphs.query_graph.query_graph_state import DataFrom, QueryGraphState, RerankResult
+from graphs.query_graph.query_graph_state import (
+    DataFrom,
+    QueryGraphState,
+    RerankResult,
+    WebSearchResult,
+)
 
 
 @step_log(desc="验证并获取数据")
@@ -103,7 +107,7 @@ def _ensure_answer_token_limit(question: str, answer: str) -> tuple[str, int]:
             answer=answer,
             limit=answer_token_limit,
         )
-        llm_conclude = LLM.invoke(prompt.prompt)
+        llm_conclude = model.get_llm().invoke(prompt.prompt)
         result = llm_conclude.content
         tokens = message_usage_tokens(llm_conclude)
 
@@ -145,7 +149,7 @@ def step_3_rerank(
     logger.info(f"待重排序文档数量: {len(documents)}")
     logger.info(f"待重排序文档内容: {documents}")
 
-    results, rerank_tokens = RERANKER.rerank(
+    results, rerank_tokens = model.get_reranker().rerank(
         query=question,
         documents=documents,
         return_documents=True,

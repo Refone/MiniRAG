@@ -13,6 +13,7 @@ from .token_usage import (
     empty_token_usage,
     sum_token_usage,
 )
+from .web import WebSearchResult
 
 __all__ = [
     "DocChunk",
@@ -22,6 +23,7 @@ __all__ = [
     "TokenScope",
     "TokenUsage",
     "TokenUsageSnapshot",
+    "WebSearchResult",
     "build_snapshot",
     "empty_token_usage",
     "sum_token_usage",

@@ -32,12 +32,12 @@ class PromptHypoAnswer:
 
 
 if __name__ == "__main__":
-    from common.model import LLM
+    from common import model
 
     query = "MLGB-5000 开机自检亮红灯是什么原因？"
     prompt_instance = PromptHypoAnswer(query)
     print("=" * 20, " Prompt Instance ", "=" * 20)
     print(prompt_instance.prompt)
     print("=" * 20, " LLM Response ", "=" * 20)
-    llm_response = LLM.invoke(prompt_instance.prompt)
+    llm_response = model.get_llm().invoke(prompt_instance.prompt)
     print(llm_response.content)

@@ -1,11 +1,12 @@
+from functools import lru_cache
 from typing import NotRequired, TypedDict
 
 from pymilvus import AnnSearchRequest, DataType, MilvusClient, WeightedRanker
 
+from common import model
 from common.config.app_config import APP_CONFIG
 from common.config.env_config import ENV_CONFIG
 from common.logging import logger
-from common.model import EMBEDDING
 from common.utils.net import probe_tcp
 
 
@@ -145,7 +146,9 @@ class MiniRagMilvusClient(MilvusClient):
             MilvusDocsField.DOCS_ABSTRACT,
         ]
 
-        texts_vectors, embedding_tokens = EMBEDDING.embed_query_hybrid(texts)
+        texts_vectors, embedding_tokens = model.get_embedding().embed_query_hybrid(
+            texts
+        )
         # 摘要匹配用稠密分量, 关键词匹配用稀疏分量
         dense_vectors = [vec["dense"] for vec in texts_vectors]
         sparse_vectors = [vec["sparse"] for vec in texts_vectors]
@@ -182,7 +185,7 @@ class MiniRagMilvusClient(MilvusClient):
             MilvusChunksField.CHUNK_CONTENT,
         ]
 
-        vectors, embedding_tokens = EMBEDDING.embed_query_hybrid(query_text)
+        vectors, embedding_tokens = model.get_embedding().embed_query_hybrid(query_text)
         dense_vector = [vec["dense"] for vec in vectors]
         sparse_vector = [vec["sparse"] for vec in vectors]
 
@@ -680,10 +683,13 @@ class MiniRagMilvusClient(MilvusClient):
         )
 
 
-MILVUS_CLIENT = MiniRagMilvusClient()
+@lru_cache(maxsize=1)
+def get_milvus_client() -> MiniRagMilvusClient:
+    """Milvus 客户端；首次调用时建连。"""
+    return MiniRagMilvusClient()
 
 
 if __name__ == "__main__":
-    milvus_client = MiniRagMilvusClient()
+    milvus_client = get_milvus_client()
     milvus_client.prepare_docs_collection()
     milvus_client.prepare_chunks_collection()

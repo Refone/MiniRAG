@@ -1,7 +1,7 @@
+from common import store
 from common.events import EVENT_BUS, TASK_MANAGER, SSEEvent, TaskStatus
 from common.logging import logger
 from common.schema.token_usage import TokenScope, TokenUsage
-from common.store.token_usage import TOKEN_USAGE_MANAGER
 from graphs.query_graph.query_graph import query_graph
 from graphs.query_graph.query_graph_state import create_state
 
@@ -15,8 +15,9 @@ def _flush_token_usage(session_id: str, user_ip: str, usage: TokenUsage) -> None
         return
 
     try:
-        TOKEN_USAGE_MANAGER.add_usage(session_id, user_ip, TokenScope.QUERY, usage)
-        snapshot = TOKEN_USAGE_MANAGER.get_usage(session_id)
+        token_usage = store.get_token_usage_manager()
+        token_usage.add_usage(session_id, user_ip, TokenScope.QUERY, usage)
+        snapshot = token_usage.get_usage(session_id)
         EVENT_BUS.push(session_id, SSEEvent.USAGE, snapshot.model_dump())
     except Exception:
         logger.warning(f"Token 统计落库失败: session_id={session_id}")

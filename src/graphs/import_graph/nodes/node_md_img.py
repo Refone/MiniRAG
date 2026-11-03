@@ -6,13 +6,12 @@ from typing import TypedDict
 
 from langchain.messages import HumanMessage
 
-from common.client import MINIO_CLIENT
+from common import client, model
 from common.config.app_config import APP_CONFIG
 from common.config.env_config import ENV_CONFIG
 from common.events.metering import push_usage_delta
 from common.events.tracing import report_progress, step_log, trace_node
 from common.logging import logger
-from common.model import VLM
 from common.model.metering import message_usage_tokens
 from common.model.qwen3_vl_plus import encode_image
 from common.prompt.prompt_image_summary import PromptImageSummary
@@ -166,7 +165,7 @@ def step_3_image_summary(
 
     为什么不用 asyncio.run + VLM.ainvoke:
     本节点是同步节点, LangGraph 把它调度到工作线程执行; md 压缩包扇出时
-    多个分支并行, 每个分支都会新建自己的事件循环, 而 VLM 是模块级单例
+    多个分支并行, 每个分支都会新建自己的事件循环, 而 VLM 是进程级共享实例
     (内部 httpx AsyncClient 绑定首个事件循环), 多个事件循环共享同一个异步
     客户端会导致连接回调打到已关闭的 loop, 报 "Event loop is closed" /
     APIConnectionError。httpx 同步客户端线程安全, 线程池并发是安全做法
@@ -200,7 +199,7 @@ def step_3_image_summary(
         )
 
         logger.debug(f"请求 VLM 获取图片摘要: {image_path}")
-        description = VLM.invoke([message])
+        description = model.get_vlm().invoke([message])
         tokens = message_usage_tokens(description)
         if not tokens:
             logger.warning(f"图片 {image_path} VLM 未返回 usage, 不计入统计")
@@ -260,7 +259,7 @@ def step_4_upload_images_get_url(
     prefix = f"{ENV_CONFIG.minio.image_dir}/{file_title}/"
 
     # 查询 MinIO 中是否已经存在同名文件夹, 若存在, 直接删除(同名则覆盖原则)
-    del_cnt = MINIO_CLIENT.clear_dir_if_exist(prefix)
+    del_cnt = client.get_minio_client().clear_dir_if_exist(prefix)
     if del_cnt > 0:
         logger.info(f"{prefix} 覆盖删除 {del_cnt} 张图片")
 
@@ -278,7 +277,7 @@ def step_4_upload_images_get_url(
     for seq, image in enumerate(image_info_list, start=1):
         seq_name = f"{seq}{image['path'].suffix}"
         try:
-            url = MINIO_CLIENT.upload_file(
+            url = client.get_minio_client().upload_file(
                 prefix=prefix, as_name=seq_name, file_path=image["path"]
             )
             image_url_dict[image["name"]] = url

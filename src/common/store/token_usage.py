@@ -9,8 +9,9 @@ total_tokens 在读取时由两口径派生（见 `common.schema.token_usage`）
 """
 
 from datetime import datetime
+from functools import lru_cache
 
-from common.client import MONGODB_CLIENT
+from common import client
 from common.logging import logger
 from common.schema.token_usage import (
     ModelTokenUsage,
@@ -40,8 +41,10 @@ class TokenUsageManager:
     """token_usage 集合的读写：get_usage 读快照、add_usage 原子累计、clear_usage 重置。"""
 
     def __init__(self):
-        self.token_usage = MONGODB_CLIENT.db["token_usage"]
-        # create index 自带幂等性: 索引已存在时不会重复创建
+        self.token_usage = client.get_mongo_client().db["token_usage"]
+
+    def prepare(self) -> None:
+        """索引初始化（幂等），由启动自检调用。"""
         self.token_usage.create_index([("session_id", 1)], unique=True)
 
     def get_usage(self, session_id: str) -> TokenUsageSnapshot:
@@ -111,13 +114,18 @@ class TokenUsageManager:
             raise TokenUsageStoreError("Token 统计写入失败") from e
 
 
-TOKEN_USAGE_MANAGER: TokenUsageManager = TokenUsageManager()
+@lru_cache(maxsize=1)
+def get_token_usage_manager() -> TokenUsageManager:
+    """Token 用量管理器；首次调用时构造。"""
+    return TokenUsageManager()
+
 
 if __name__ == "__main__":
     from rich import print as rprint
 
     session_id = "test_token_session"
-    TOKEN_USAGE_MANAGER.add_usage(
+    manager = get_token_usage_manager()
+    manager.add_usage(
         session_id,
         user_ip="127.0.0.1",
         scope=TokenScope.QUERY,
@@ -127,7 +135,7 @@ if __name__ == "__main__":
             "reranker_tokens": 350,
         },
     )
-    TOKEN_USAGE_MANAGER.add_usage(
+    manager.add_usage(
         session_id,
         user_ip="127.0.0.1",
         scope=TokenScope.UPLOAD,
@@ -137,4 +145,4 @@ if __name__ == "__main__":
             "embedding_tokens": 890,
         },
     )
-    rprint(TOKEN_USAGE_MANAGER.get_usage(session_id))
+    rprint(manager.get_usage(session_id))

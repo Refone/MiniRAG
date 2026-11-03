@@ -1,10 +1,11 @@
 from datetime import datetime
 from enum import StrEnum
+from functools import lru_cache
 from typing import TypedDict
 
 from pymongo import DESCENDING
 
-from common.client import MONGODB_CLIENT
+from common import client
 from common.config.app_config import APP_CONFIG
 from common.logging import logger
 
@@ -23,8 +24,10 @@ class MessageRole(StrEnum):
 
 class ChatHistoryManager:
     def __init__(self):
-        self.chat_history = MONGODB_CLIENT.db["chat_history"]
-        # create index 自带幂等性: 索引已存在时不会重复创建
+        self.chat_history = client.get_mongo_client().db["chat_history"]
+
+    def prepare(self) -> None:
+        """索引初始化（幂等），由启动自检调用。"""
         self.chat_history.create_index([("session_id", 1), ("timestamp", -1)])
 
     def clear_history(self, session_id) -> int:
@@ -110,27 +113,32 @@ class ChatHistoryManager:
         return history_summary
 
 
-CHAT_HISTORY_MANAGER: ChatHistoryManager = ChatHistoryManager()
+@lru_cache(maxsize=1)
+def get_chat_history_manager() -> ChatHistoryManager:
+    """会话历史管理器；首次调用时构造。"""
+    return ChatHistoryManager()
+
 
 if __name__ == "__main__":
     session_id = "test_session"
+    manager = get_chat_history_manager()
 
-    # CHAT_HISTORY_MANAGER.clear_history(session_id)
-    CHAT_HISTORY_MANAGER.save_message(
+    # manager.clear_history(session_id)
+    manager.save_message(
         session_id=session_id,
         role=MessageRole.USER,
         text="Hello, world!",
     )
-    CHAT_HISTORY_MANAGER.save_message(
+    manager.save_message(
         session_id=session_id,
         role=MessageRole.ASSISTANT,
         text="你好我的朋友, 很高兴见到你!",
     )
-    CHAT_HISTORY_MANAGER.save_message(
+    manager.save_message(
         session_id=session_id,
         role=MessageRole.USER,
         text="这个 item1 怎么退货?",
     )
-    latest_messages = CHAT_HISTORY_MANAGER.get_latest_messages(session_id)
+    latest_messages = manager.get_latest_messages(session_id)
     for message in latest_messages:
         print(message)

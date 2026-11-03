@@ -29,6 +29,10 @@ class Qwen3_VL_Plus(ChatOpenAI):
         )
         kwargs.setdefault("max_retries", APP_CONFIG.vlm_request_retry_attempts)
         kwargs.setdefault("timeout", APP_CONFIG.vlm_request_timeout)
+
+        # 空 key 也允许构造（缺失 key 由启动自检告警，真实调用时才鉴权失败）
+        api_key = api_key or "not-configured"
+
         super().__init__(
             model=model,
             base_url=base_url,

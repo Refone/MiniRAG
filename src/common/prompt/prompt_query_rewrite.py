@@ -44,7 +44,7 @@ class PromptQueryRewrite:
 
 
 if __name__ == "__main__":
-    from common.model import LLM
+    from common import model
 
     history_summary = dedent("""\
     编号 1 | 用户提问 | 你能告诉我 Iphone 17 Pro Max 的硬件配置吗？
@@ -55,5 +55,5 @@ if __name__ == "__main__":
     print("=" * 20, " Prompt Instance ", "=" * 20)
     print(prompt_instance)
     print("=" * 20, " LLM Response ", "=" * 20)
-    llm_response = LLM.invoke(prompt_instance.prompt)
+    llm_response = model.get_llm().invoke(prompt_instance.prompt)
     print(llm_response.content)

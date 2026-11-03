@@ -3,26 +3,8 @@ import json
 from typing import Annotated, TypedDict
 
 from common.client.milvus_client import MilvusChunksRecall
+from common.schema import WebSearchResult
 from common.schema.token_usage import TokenUsage, sum_token_usage
-
-
-class WebSearchResult(TypedDict):
-    """
-    调用联网搜索 MCP 获得的搜索结果
-    {
-        'snippet': '如何使用电阻表测量电阻? 1. 断开...',
-        'hostname': '百度教育',
-        'hostlogo': 'https://mbs1.bdstatic.com/searchbox/mappconsole/image/20230906/3096e08a-869d-46a7-8d30-5e32adb66fdc.png',
-        'title': '如何使用电阻表测量电阻?',
-        'url': 'https://easylearn.baidu.com/edu-page/tiangong/questiondetail?id=1832280139494591726&fr=search'
-    }
-    """
-
-    snippet: str  # 搜索结果的摘要信息
-    hostname: str  # 搜索结果的主机名
-    hostlogo: str  # 搜索结果的主机图标 URL
-    title: str  # 搜索结果的标题
-    url: str  # 搜索结果的链接
 
 
 class DataFrom:

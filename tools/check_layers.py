@@ -91,9 +91,8 @@ def iter_imports(tree: ast.Module) -> list[tuple[int, str]]:
                 for alias in node.names:
                     yield node.lineno, alias.name
             elif isinstance(node, ast.ImportFrom):
-                if node.level:  # 相对 import 不在本规则范围
-                    continue
-                yield node.lineno, node.module or ""
+                for target in _import_targets(node):
+                    yield node.lineno, target
             elif isinstance(
                 node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)
             ):
@@ -103,12 +102,23 @@ def iter_imports(tree: ast.Module) -> list[tuple[int, str]]:
                     if isinstance(sub, ast.Import):
                         for alias in sub.names:
                             yield sub.lineno, alias.name
-                    elif isinstance(sub, ast.ImportFrom) and not sub.level:
-                        yield sub.lineno, sub.module or ""
+                    elif isinstance(sub, ast.ImportFrom):
+                        for target in _import_targets(sub):
+                            yield sub.lineno, target
             elif isinstance(node, (ast.For, ast.While, ast.With, ast.Try)):
                 yield from walk(node.body)
 
     yield from walk(tree.body)
+
+
+def _import_targets(node: ast.ImportFrom) -> list[str]:
+    """展开 import 目标；`from common import model` 要按 `common.model` 参与 tier 校验。"""
+    if node.level:  # 相对 import 不在本规则范围
+        return []
+    module = node.module or ""
+    if module == "common":
+        return [f"common.{alias.name}" for alias in node.names]
+    return [module]
 
 
 def _is_exempt_block(node: ast.If) -> bool:

@@ -136,6 +136,13 @@ graph LR
 - `env_config`：环境变量及外部服务参数，如 API Key。
 - `path_config`：路径相关参数。
 
+### 单例访问约定（测试可替）
+
+- 外部依赖单例一律经**访问器**获取：`common.model.get_llm()`、`common.client.get_milvus_client()`、`common.store.get_document_repo()`；模块底部禁止实例化。
+- 消费侧必须**模块命名空间调用**：`from common import client, model, store` 后调用 `model.get_llm()`；禁止 `from common.model import get_llm` 后裸调用（函数对象被绑定进消费模块，测试无法替换）。
+- service 边界同理：`from service import query_service` 后调用 `query_service.arun_query()`。
+- 只有 `EVENT_BUS` / `TASK_MANAGER`（纯内存、构造无副作用）保留模块级单例；测试用 `clear_all()` 隔离。
+
 ---
 
 ## 注释原则

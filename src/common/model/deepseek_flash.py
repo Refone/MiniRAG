@@ -36,6 +36,9 @@ class DeepSeekFlash(ChatDeepSeek):
         # 显式传 base_url 时 langchain 不会自动开启, 必须手动声明）
         kwargs.setdefault("stream_usage", True)
 
+        # 空 key 也允许构造（缺失 key 由启动自检告警，真实调用时才鉴权失败）
+        api_key = api_key or "not-configured"
+
         return super().__init__(
             model=model,
             api_key=api_key,

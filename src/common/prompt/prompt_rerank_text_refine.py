@@ -24,8 +24,8 @@ class PromptRerankRefineText:
 
 
 if __name__ == "__main__":
+    from common import model
     from common.config.path_config import PROJECT_ROOT
-    from common.model import LLM
 
     question = "HAK 180 一定要放平使用吗"
     # load 整段 output/markdown-folder/hak180产品安全手册/hak180产品安全手册_fixed.md
@@ -40,5 +40,5 @@ if __name__ == "__main__":
     print("=" * 20, " Prompt Instance ", "=" * 20)
     print(prompt_instance.prompt)
     print("=" * 20, " LLM Response ", "=" * 20)
-    llm_response = LLM.invoke(prompt_instance.prompt)
+    llm_response = model.get_llm().invoke(prompt_instance.prompt)
     print(llm_response.content)

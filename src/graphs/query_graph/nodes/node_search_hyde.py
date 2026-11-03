@@ -1,9 +1,8 @@
-from common.client import MILVUS_CLIENT
+from common import client, model
 from common.client.milvus_client import MilvusChunksRecall
 from common.events.metering import push_usage_delta
 from common.events.tracing import step_log, trace_node
 from common.logging import logger
-from common.model import LLM
 from common.model.metering import message_usage_tokens
 from common.prompt.prompt_hypo_answer import PromptHypoAnswer
 from common.schema.token_usage import TokenUsage
@@ -29,7 +28,7 @@ def step_2_generate_hypothetical_answer(
     rewritten_query: str,
 ) -> tuple[str, int]:
     prompt = PromptHypoAnswer(rewritten_query).prompt
-    hypo_answer = LLM.invoke(prompt)
+    hypo_answer = model.get_llm().invoke(prompt)
     tokens = message_usage_tokens(hypo_answer)
     if not tokens:
         logger.warning("HyDE 假设性回答 LLM 未返回 usage, 本次调用不计入统计")
@@ -42,7 +41,7 @@ def step_3_hypo_match_in_milvus(
     hypo_answer: str,
 ) -> tuple[list[MilvusChunksRecall], int]:
 
-    chunks, embedding_tokens = MILVUS_CLIENT.hybrid_search_chunks(
+    chunks, embedding_tokens = client.get_milvus_client().hybrid_search_chunks(
         query_text=[hypo_answer],
         doc_ids=doc_ids,
     )

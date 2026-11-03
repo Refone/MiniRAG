@@ -1,4 +1,4 @@
-from common.client import MILVUS_CLIENT
+from common import client
 from common.client.milvus_client import MilvusChunksRecall
 from common.events.metering import push_usage_delta
 from common.events.tracing import step_log, trace_node
@@ -25,7 +25,7 @@ def step_2_vectorize_query(
     """
 
     # 仅有一个 query_text, 因此取第一个结果列表
-    chunks, embedding_tokens = MILVUS_CLIENT.hybrid_search_chunks(
+    chunks, embedding_tokens = client.get_milvus_client().hybrid_search_chunks(
         query_text=[rewritten_query],
         doc_ids=doc_ids,
     )

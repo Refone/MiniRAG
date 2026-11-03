@@ -3,19 +3,18 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Any
 
+from common import model, store
 from common.config.app_config import APP_CONFIG
 from common.config.env_config import ENV_CONFIG
 from common.events.metering import push_usage_delta
 from common.events.tracing import report_progress, step_log, trace_node
 from common.logging import logger
-from common.model import EMBEDDING, LLM
 from common.model.metering import message_usage_tokens
 from common.prompt.prompt_doc_keywords_abstract import (
     DocKeywordsAbstractPydantic,
     PromptDocKeywordsAbstract,
 )
 from common.schema.token_usage import TokenUsage
-from common.store import DOCUMENT_REPO
 from common.store.document_repo import DocumentArtifacts
 from common.utils.markdown_splitter import Chunk
 from graphs.import_graph.import_graph_state import FileType, ImportGraphState
@@ -54,15 +53,15 @@ def step_1_validate_and_get_data(
 def step_2_delete_old_doc(file_title: str) -> None:
     """同名覆盖：清三制品 + 该标题的全部 chunks/docs（**不动图片目录**）。
 
-    删除顺序由 `DOCUMENT_REPO.delete_by_title` 统一维护（与删除文档接口共用
+    删除顺序由 `DocumentRepo.delete_by_title` 统一维护（与删除文档接口共用
     一份实现）；本节点只传参与记录。
 
     注意: 图片目录 (markdown-images/<file_title>/) **不能**在这里清理——
     本节点运行于 node_md_img 之后, 图片已重新上传, 再清理会把本次导入的图片
     删掉 (图片覆盖清理由 node_md_img.step_4 负责; 删除文档接口的图片清理在
-    DOCUMENT_REPO.delete_by_id 中, 与导入链路无关)。
+    DocumentRepo.delete_by_id 中, 与导入链路无关)。
     """
-    result = DOCUMENT_REPO.delete_by_title(file_title)
+    result = store.get_document_repo().delete_by_title(file_title)
     logger.info(
         f"旧文档完整删除完成: 旧 docs 行数 {result.docs_rows}, "
         f"MinIO 制品 {result.minio_objects} 个"
@@ -87,7 +86,7 @@ def step_3_upload_artifacts(
     origin_file_path: Path,
     origin_file_type: str,
 ) -> DocumentArtifacts:
-    """选择 origin 制品并上传三份制品（上传细节在 DOCUMENT_REPO）。
+    """选择 origin 制品并上传三份制品（上传细节在 DocumentRepo）。
 
     origin 制品: zip 分支取修复前的原始 md (zip 本身不属于某个分支文档),
     其余类型取原始上传文件。
@@ -97,7 +96,7 @@ def step_3_upload_artifacts(
     else:
         origin_path = origin_file_path
 
-    artifacts = DOCUMENT_REPO.upload_artifacts(
+    artifacts = store.get_document_repo().upload_artifacts(
         file_title, origin=origin_path, markdown=md_path, chunks=chunks_path
     )
     logger.info(
@@ -127,9 +126,11 @@ def step_4_generate_keywords_abstract(
     llm_tokens = 0
     try:
         logger.info("LLM 根据整篇文档生成关键词/摘要，耗时操作...")
-        raw_result = LLM.with_structured_output(
-            DocKeywordsAbstractPydantic, include_raw=True
-        ).invoke(prompt)
+        raw_result = (
+            model.get_llm()
+            .with_structured_output(DocKeywordsAbstractPydantic, include_raw=True)
+            .invoke(prompt)
+        )
         llm_tokens = message_usage_tokens(raw_result["raw"])
         if not llm_tokens:
             logger.warning("关键词/摘要 LLM 未返回 usage, 本次调用不计入统计")
@@ -211,7 +212,7 @@ def _vectorize_chunks(
     batch_results: list[Any] = [None] * total_batches
     with ThreadPoolExecutor(max_workers=APP_CONFIG.max_concurrency) as pool:
         future_to_index = {
-            pool.submit(EMBEDDING.embed_document_hybrid, batch): index
+            pool.submit(model.get_embedding().embed_document_hybrid, batch): index
             for index, batch in enumerate(batches)
         }
         for done, future in enumerate(as_completed(future_to_index), start=1):
@@ -260,7 +261,9 @@ def step_5_vectorize(
     """docs 元数据双向量 + chunks 批量向量, 返回可写入 Milvus 的数据与 token。"""
     # 一次批调用同时向量化 keywords 与 abstract, 各取所需分量:
     # keywords -> 稀疏 (术语精确匹配), abstract -> 稠密 (语义模糊匹配)
-    meta_vecs, meta_tokens = EMBEDDING.embed_document_hybrid([keywords, abstract])
+    meta_vecs, meta_tokens = model.get_embedding().embed_document_hybrid(
+        [keywords, abstract]
+    )
     keywords_sparse = meta_vecs[0]["sparse"]
     abstract_dense = meta_vecs[1]["dense"]
 
@@ -279,7 +282,7 @@ def step_6_insert_docs_and_query_id(
     abstract_dense: list[float],
 ) -> int:
     """写入 docs 行并返回 auto_id 主键（pymilvus 版本兼容在 repo 内处理）。"""
-    doc_id = DOCUMENT_REPO.save_meta(
+    doc_id = store.get_document_repo().save_meta(
         task_id=task_id,
         file_title=file_title,
         artifacts=artifacts,
@@ -301,7 +304,9 @@ def step_7_insert_chunks(
     doc_id: int, file_title: str, embedded: list[dict[str, Any]]
 ) -> None:
     """将已向量化的切片写入 minirag_chunks（条数校验在 repo 内处理）。"""
-    DOCUMENT_REPO.save_chunks(doc_id=doc_id, file_title=file_title, embedded=embedded)
+    store.get_document_repo().save_chunks(
+        doc_id=doc_id, file_title=file_title, embedded=embedded
+    )
 
 
 @trace_node(desc="文档嵌入入库", need_push=True)

@@ -75,6 +75,11 @@ class InMemoryEventBus:
         with self._lock:
             return len(self._channels)
 
+    def clear_all(self) -> None:
+        """清空全部通道（测试隔离用；生产由 TTL 清扫）。"""
+        with self._lock:
+            self._channels.clear()
+
     def sweep(self, ttl_seconds: float) -> int:
         """清掉 `ttl_seconds` 内无任何读写的通道，返回清理数量。"""
         cutoff = time.monotonic() - ttl_seconds

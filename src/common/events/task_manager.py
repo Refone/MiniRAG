@@ -384,6 +384,11 @@ class TaskManager:
                 self._tasks.pop(cid, None)
             self._tasks.pop(task_id, None)
 
+    def clear_all(self) -> None:
+        """清空全部任务（测试隔离用；生产由 TTL 清扫）。"""
+        with self._lock:
+            self._tasks.clear()
+
     def sweep(self, ttl_seconds: float) -> int:
         """清掉 `ttl_seconds` 内无状态更新的任务，返回清理数量。"""
         cutoff = time.time() - ttl_seconds

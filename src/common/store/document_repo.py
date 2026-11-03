@@ -21,11 +21,12 @@ from __future__ import annotations
 import json
 import time
 from dataclasses import dataclass
+from functools import lru_cache
 from pathlib import Path
 
 from pydantic import ValidationError
 
-from common.client import MILVUS_CLIENT, MINIO_CLIENT
+from common import client
 from common.client.milvus_client import (
     MilvusChunksItem,
     MilvusDocsField,
@@ -70,7 +71,7 @@ def _read_object_bytes(proxy_url: str, label: str, doc_id: int) -> bytes:
     """按代理路径读回 MinIO 对象全文，对象缺失/读取失败视为文档不可用。"""
     object_name = _object_name_from_proxy_url(proxy_url)
     try:
-        _, chunk_iter = MINIO_CLIENT.get_object_stream(object_name)
+        _, chunk_iter = client.get_minio_client().get_object_stream(object_name)
         return b"".join(chunk_iter)
     except Exception as e:
         raise DocumentNotFoundError(
@@ -105,19 +106,19 @@ class DocumentRepo:
     # ------------------------------------------------------------------ 读
     def count(self) -> int:
         """docs 集合行数（文档列表分页用）。"""
-        return MILVUS_CLIENT.count_docs()
+        return client.get_milvus_client().count_docs()
 
     def list_page(self, offset: int, limit: int) -> list[dict]:
         """按 id 降序分页返回 docs 标量列（不含向量）。"""
-        return MILVUS_CLIENT.query_docs_page(offset=offset, limit=limit)
+        return client.get_milvus_client().query_docs_page(offset=offset, limit=limit)
 
     def get(self, doc_id: int) -> dict | None:
         """按主键取单行标量列；不存在返回 None。"""
-        return MILVUS_CLIENT.query_doc_by_id(doc_id)
+        return client.get_milvus_client().query_doc_by_id(doc_id)
 
     def get_detail(self, doc_id: int) -> DocDetail | None:
         """详情 = 行元数据 + final markdown 原文 + chunks.json；行缺失返回 None。"""
-        row = MILVUS_CLIENT.query_doc_by_id(doc_id)
+        row = client.get_milvus_client().query_doc_by_id(doc_id)
         if row is None:
             return None
 
@@ -141,15 +142,15 @@ class DocumentRepo:
 
         按 file_title 兜底清理历史遗留行，避免新旧行并存导致检索双份命中。
         """
-        old_rows = MILVUS_CLIENT.query_doc_rows_by_file_title(file_title)
+        old_rows = client.get_milvus_client().query_doc_rows_by_file_title(file_title)
         old_ids = [row["id"] for row in old_rows]
 
-        minio_objects = MINIO_CLIENT.clear_doc_artifacts(file_title)
+        minio_objects = client.get_minio_client().clear_doc_artifacts(file_title)
 
         try:
-            MILVUS_CLIENT.delete_chunks_by_doc_ids(old_ids)
-            MILVUS_CLIENT.delete_chunks_by_file_title(file_title)
-            MILVUS_CLIENT.delete_docs_by_file_title(file_title)
+            client.get_milvus_client().delete_chunks_by_doc_ids(old_ids)
+            client.get_milvus_client().delete_chunks_by_file_title(file_title)
+            client.get_milvus_client().delete_docs_by_file_title(file_title)
         except Exception as e:
             raise RuntimeError(
                 f"同名覆盖清理旧文档失败: file_title={file_title}, error={e}"
@@ -162,7 +163,7 @@ class DocumentRepo:
 
         任一步失败抛 RuntimeError（不自动补偿：残留对象可在同名覆盖导入时被清理）。
         """
-        row = MILVUS_CLIENT.query_doc_by_id(doc_id)
+        row = client.get_milvus_client().query_doc_by_id(doc_id)
         if row is None:
             raise DocumentNotFoundError(f"文档不存在: doc_id={doc_id}")
 
@@ -183,24 +184,24 @@ class DocumentRepo:
         """
         origin_url = ""
         if origin is not None and origin.is_file():
-            origin_url = MINIO_CLIENT.upload_file(
-                prefix=MINIO_CLIENT.doc_artifact_prefix(
+            origin_url = client.get_minio_client().upload_file(
+                prefix=client.get_minio_client().doc_artifact_prefix(
                     ENV_CONFIG.minio.origin_dir, file_title
                 ),
                 as_name=origin.name,
                 file_path=str(origin),
             )
 
-        markdown_url = MINIO_CLIENT.upload_file(
-            prefix=MINIO_CLIENT.doc_artifact_prefix(
+        markdown_url = client.get_minio_client().upload_file(
+            prefix=client.get_minio_client().doc_artifact_prefix(
                 ENV_CONFIG.minio.markdown_dir, file_title
             ),
             as_name=markdown.name,
             file_path=str(markdown),
         )
 
-        chunks_url = MINIO_CLIENT.upload_file(
-            prefix=MINIO_CLIENT.doc_artifact_prefix(
+        chunks_url = client.get_minio_client().upload_file(
+            prefix=client.get_minio_client().doc_artifact_prefix(
                 ENV_CONFIG.minio.chunks_dir, file_title
             ),
             as_name=chunks.name,
@@ -225,7 +226,7 @@ class DocumentRepo:
         abstract_dense: list[float],
     ) -> int:
         """写入 minirag_docs 一行并返回 auto_id 主键。"""
-        ret = MILVUS_CLIENT.insert(
+        ret = client.get_milvus_client().insert(
             collection_name=ENV_CONFIG.milvus.collection_docs,
             data=[
                 MilvusDocsItem(
@@ -262,7 +263,7 @@ class DocumentRepo:
             logger.warning("切片向量列表为空, 直接跳过写入")
             return 0
 
-        ret = MILVUS_CLIENT.insert(
+        ret = client.get_milvus_client().insert(
             collection_name=ENV_CONFIG.milvus.collection_chunks,
             data=[
                 MilvusChunksItem(
@@ -296,7 +297,7 @@ class DocumentRepo:
     ) -> DeleteResult:
         """按固定顺序删除：三制品 →（图片）→ chunks → docs。"""
         try:
-            minio_objects = MINIO_CLIENT.clear_doc_artifacts(file_title)
+            minio_objects = client.get_minio_client().clear_doc_artifacts(file_title)
         except Exception as e:
             raise RuntimeError(
                 f"清理 MinIO 制品失败: doc_id={doc_id}, "
@@ -305,7 +306,7 @@ class DocumentRepo:
 
         if with_images:
             try:
-                minio_objects += MINIO_CLIENT.clear_doc_images(file_title)
+                minio_objects += client.get_minio_client().clear_doc_images(file_title)
             except Exception as e:
                 raise RuntimeError(
                     f"清理 MinIO 图片失败: doc_id={doc_id}, "
@@ -313,12 +314,12 @@ class DocumentRepo:
                 )
 
         try:
-            MILVUS_CLIENT.delete_chunks_by_doc_ids([doc_id])
+            client.get_milvus_client().delete_chunks_by_doc_ids([doc_id])
         except Exception as e:
             raise RuntimeError(f"删除 minirag_chunks 失败: doc_id={doc_id}, error={e}")
 
         try:
-            MILVUS_CLIENT.delete_doc_by_id(doc_id)
+            client.get_milvus_client().delete_doc_by_id(doc_id)
         except Exception as e:
             raise RuntimeError(f"删除 minirag_docs 失败: doc_id={doc_id}, error={e}")
 
@@ -337,7 +338,7 @@ class DocumentRepo:
         if isinstance(ret_ids, int):
             return ret_ids
 
-        doc_id = MILVUS_CLIENT.query_doc_id(task_id, file_title)
+        doc_id = client.get_milvus_client().query_doc_id(task_id, file_title)
         if doc_id is None:
             raise RuntimeError(
                 f"docs 写入后查回 doc_id 失败: "
@@ -346,4 +347,7 @@ class DocumentRepo:
         return doc_id
 
 
-DOCUMENT_REPO = DocumentRepo()
+@lru_cache(maxsize=1)
+def get_document_repo() -> DocumentRepo:
+    """文档仓库；首次调用时构造。"""
+    return DocumentRepo()

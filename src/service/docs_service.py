@@ -1,6 +1,6 @@
 """文档管理页业务编排: 列表 / 详情 / 删除。
 
-数据访问全部走 `DOCUMENT_REPO`（Milvus 行 + MinIO 制品），本层只做 DTO 组装与
+数据访问全部走 `DocumentRepo`（Milvus 行 + MinIO 制品），本层只做 DTO 组装与
 异常翻译（`DocumentNotFoundError` → API 层的 404）。返回形状以
 `common.schema` 领域模型为准（api 层直接用作 response_model）。
 
@@ -10,10 +10,10 @@
 
 from typing import Literal
 
+from common import store
 from common.client.milvus_client import MilvusDocsField
 from common.logging import logger
 from common.schema import DocDetail, DocItem
-from common.store import DOCUMENT_REPO
 
 # 保留原异常名对外暴露：api 层按 docs_service.DocNotFoundError 捕获
 from common.store.document_repo import DocumentNotFoundError as DocNotFoundError
@@ -34,7 +34,7 @@ def _derive_doc_type(origin_file_url: str) -> Literal["pdf", "markdown"]:
 
 def count_docs() -> int:
     """文档总数（分页信封 total 用）。"""
-    return DOCUMENT_REPO.count()
+    return store.get_document_repo().count()
 
 
 def list_docs(offset: int, limit: int) -> list[DocItem]:
@@ -43,7 +43,7 @@ def list_docs(offset: int, limit: int) -> list[DocItem]:
     doc_id 以 string 返回: Milvus auto_id 为 INT64 雪花 ID,
     超过 JS Number.MAX_SAFE_INTEGER, JSON 传输必须用字符串避免精度丢失。
     """
-    rows = DOCUMENT_REPO.list_page(offset=offset, limit=limit)
+    rows = store.get_document_repo().list_page(offset=offset, limit=limit)
 
     items = []
     for row in rows:
@@ -65,16 +65,16 @@ def list_docs(offset: int, limit: int) -> list[DocItem]:
 
 def get_doc_detail(doc_id: int) -> DocDetail:
     """文档详情: 标题 + final markdown 原文 + 切块 + keywords/abstract。"""
-    detail = DOCUMENT_REPO.get_detail(doc_id)
+    detail = store.get_document_repo().get_detail(doc_id)
     if detail is None:
         raise DocNotFoundError(f"文档不存在: doc_id={doc_id}")
     return detail
 
 
 def delete_doc(doc_id: int) -> None:
-    """删除文档及级联数据（顺序与同名覆盖流程共用 `DOCUMENT_REPO`）。
+    """删除文档及级联数据（顺序与同名覆盖流程共用 `DocumentRepo`）。
 
     - 行不存在: `DocNotFoundError`（API 返回 404）
     - 任一步失败: `RuntimeError`（API 返回 500，不自动补偿）
     """
-    DOCUMENT_REPO.delete_by_id(doc_id)
+    store.get_document_repo().delete_by_id(doc_id)

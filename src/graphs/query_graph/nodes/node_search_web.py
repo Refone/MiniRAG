@@ -1,16 +1,7 @@
-import asyncio
-import json
-
-import httpx2
-from mcp import ClientSession
-from mcp.client.streamable_http import streamable_http_client
-from mcp_types import CallToolResult
-
-from common.config.app_config import APP_CONFIG
-from common.config.env_config import ENV_CONFIG
+from common import client
 from common.events.tracing import step_log, trace_node
 from common.logging import logger
-from graphs.query_graph.query_graph_state import QueryGraphState, WebSearchResult
+from graphs.query_graph.query_graph_state import QueryGraphState
 
 
 @step_log(desc="校验并获取数据")
@@ -22,53 +13,9 @@ def step_1_validate_and_get_data(state: QueryGraphState) -> tuple[bool, str]:
     return web_search_enable, rewritten_query
 
 
-async def _call_mcp_tool(rewritten_query: str):
-    api_key = ENV_CONFIG.dashscope.api_key
-    if not api_key:
-        raise ValueError("DASHSCOPE_API_KEY 未配置")
-
-    url = ENV_CONFIG.dashscope.web_search_mcp_url
-    tool_name = ENV_CONFIG.dashscope.web_search_mcp_tool_name
-    headers = {"Authorization": f"Bearer {api_key}"}
-
-    async with httpx2.AsyncClient(
-        headers=headers,
-        timeout=APP_CONFIG.mcp_timeout,
-    ) as http_client:
-        async with streamable_http_client(url, http_client=http_client) as (
-            read,
-            write,
-        ):
-            async with ClientSession(read, write) as session:
-                await session.initialize()
-
-                result: CallToolResult = await session.call_tool(
-                    tool_name,
-                    {
-                        "query": rewritten_query,
-                        "count": APP_CONFIG.mcp_web_search_count,
-                    },
-                )
-
-    return result
-
-
 @step_log(desc="调用 MCP 工具进行网络搜索")
-def step_2_call_mcp_tool(rewritten_query: str) -> list[WebSearchResult]:
-    try:
-        result = asyncio.run(_call_mcp_tool(rewritten_query))
-    except Exception as e:
-        logger.warning(f"MCP 调用失败: {e}")
-        result = None
-
-    if not result:
-        return []
-
-    # MCP 返回的是封装为 str 的 json
-    result_text: str = result.content[0].text
-    data_json: list[WebSearchResult] = json.loads(result_text).get("pages", [])
-
-    return data_json
+def step_2_call_mcp_tool(rewritten_query: str) -> list[dict]:
+    return client.search_web(rewritten_query)
 
 
 @trace_node(desc="互联网搜索", need_push=True)
