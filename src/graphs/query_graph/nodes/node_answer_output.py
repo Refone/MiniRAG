@@ -8,22 +8,24 @@ from common.prompt.prompt_final_answer import PromptFinalAnswer
 from common.schema.token_usage import TokenUsage
 from common.store import CHAT_HISTORY_MANAGER
 from common.store.chat_history import MessageRole
-from graphs.query_graph.query_graph_state import QueryGraphState, RerankResult
+from graphs.query_graph.query_graph_state import DataFrom, QueryGraphState, RerankResult
 
 
 def step_1_validate_and_get_data(state: QueryGraphState):
-    answer = state.get("answer")
     session_id = state.get("session_id")
     rewritten_query = state.get("rewritten_query")
-    rerank_results = state.get("rerank_results")
+    rerank_results = state.get("rerank_results") or []
+    suspect_titles = state.get("suspect_titles") or []
 
-    return answer, session_id, rewritten_query, rerank_results
+    return session_id, rewritten_query, rerank_results, suspect_titles
 
 
 def step_2_format_prompt(
-    rewritten_query: str, session_id: str, rerank_results: list[RerankResult]
-) -> str:
-
+    rewritten_query: str,
+    session_id: str,
+    rerank_results: list[RerankResult],
+    suspect_titles: list[str],
+) -> tuple[str, bool]:
     history_summary = CHAT_HISTORY_MANAGER.summary_history(session_id=session_id)
 
     reference = ""
@@ -35,9 +37,19 @@ def step_2_format_prompt(
             f"---\n"
         )
 
-    return PromptFinalAnswer(
-        reference=reference, history=history_summary, question=rewritten_query
+    # 以精排结果的实际来源判定: 文库切片为空即兜底, 不依赖 confirm_list
+    no_doc_match = not any(
+        item.get("data_from") == DataFrom.MILVUS for item in rerank_results
+    )
+    prompt = PromptFinalAnswer(
+        reference=reference,
+        history=history_summary,
+        question=rewritten_query,
+        no_doc_match=no_doc_match,
+        suspect_titles=suspect_titles,
     ).prompt
+
+    return prompt, no_doc_match
 
 
 def step_3_call_llm_generate_answer(
@@ -87,32 +99,29 @@ def step_4_save_message_and_push_final(session_id: str, answer: str) -> None:
 
 @trace_node(desc="答案输出", need_push=True)
 def node_answer_output(state: QueryGraphState) -> QueryGraphState:
-
     (
-        answer,
         session_id,
         rewritten_query,
         rerank_results,
+        suspect_titles,
     ) = step_1_validate_and_get_data(state)
 
-    if answer:
-        # 提前终止路径 (无确认文档): 本节点无模型调用, 计量增量为 0
-        step_4_save_message_and_push_final(session_id, answer)
-        return {}
-    else:
-        answer_prompt = step_2_format_prompt(
-            rewritten_query, session_id, rerank_results
-        )
-        logger.info(f"生成的答案提示: {answer_prompt}")
+    answer_prompt, no_doc_match = step_2_format_prompt(
+        rewritten_query, session_id, rerank_results, suspect_titles
+    )
+    logger.info(
+        f"回答模式: {'fallback（未命中文库）' if no_doc_match else 'library（命中文库）'}, "
+        f"参考资料条数: {len(rerank_results)}"
+    )
+    logger.info(f"生成的答案提示: {answer_prompt}")
 
-        answer, answer_tokens = step_3_call_llm_generate_answer(
-            session_id, answer_prompt
-        )
-        push_usage_delta(session_id, "llm", answer_tokens)
-        logger.info(f"最终答案: {answer}")
+    answer, answer_tokens = step_3_call_llm_generate_answer(session_id, answer_prompt)
+    push_usage_delta(session_id, "llm", answer_tokens)
+    logger.info(f"最终答案: {answer}")
 
-        step_4_save_message_and_push_final(session_id, answer)
+    step_4_save_message_and_push_final(session_id, answer)
 
+    # 答案不写回 state, 仅返回本节点的计量增量
     return {"token_meter": TokenUsage(llm_tokens=answer_tokens)}
 
 

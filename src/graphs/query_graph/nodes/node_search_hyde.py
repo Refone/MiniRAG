@@ -61,6 +61,11 @@ def node_search_hyde(state: QueryGraphState) -> QueryGraphState:
     logger.info(f"是否启用HyDE 搜索: {hyde_enable}")
     logger.info(f"确认文档 doc_id: {doc_ids}, 查询概括: {rewritten_query}")
 
+    if not doc_ids:
+        # 无确认文档时不做假设性回答: 空 doc_ids 会让检索退化为全库扫描
+        logger.info("没有确认匹配的文档, 跳过 HyDE 搜索")
+        return {"hyde_recalls": []}
+
     if not hyde_enable:
         return {"hyde_recalls": []}
 

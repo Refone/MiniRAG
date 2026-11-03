@@ -83,7 +83,7 @@ def step_5_docs_match_results(
     返回:
     tuple[list[int], list[int], dict[int, str]]:
     - confirm_list: 确认文档 id 列表 (二级召回的唯一定位源)
-    - suspect_list: 疑似文档 id 列表 (仅 confirm 为空时用于终止提示)
+    - suspect_list: 疑似文档 id 列表 (仅 confirm 为空时用于兜底提示)
     - doc_titles: doc_id -> file_title 展示映射
 
     阈值说明: 疑似文档不参与二级召回, 故确认阈值已适当放宽 (docs_confirm_threshold),
@@ -155,20 +155,17 @@ def node_intent_recognize(state: QueryGraphState) -> QueryGraphState:
     )
     state["confirm_list"] = confirm_list
     state["suspect_list"] = suspect_list
+    state["suspect_titles"] = [
+        title
+        for title in (doc_titles.get(doc_id, "") for doc_id in suspect_list)
+        if title
+    ]
 
-    # 无确认文档时终止查询流程: 疑似文档仅用于提示, 不参与二级召回
-    if not confirm_list:
-        if suspect_list:
-            suspect_titles = (
-                "《"
-                + "》《".join(doc_titles.get(doc_id, "") for doc_id in suspect_list)
-                + "》"
-            )
-            state["answer"] = (
-                f"文库暂无内容与您的查询内容匹配，可能相关的文档有{suspect_titles}"
-            )
-        else:
-            state["answer"] = "文库暂无内容与您的查询内容匹配"
+    # 无确认文档时不终止: 向量化 / HyDE 节点内部判空, 由网络搜索与答案节点兜底
+    if confirm_list:
+        logger.info("存在确认匹配文档, 进入二级召回")
+    else:
+        logger.info("无确认匹配文档, 继续网络搜索/通识兜底")
 
     step_6_save_chat_message(
         original_query=original_query,

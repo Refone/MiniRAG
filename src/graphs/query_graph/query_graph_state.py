@@ -55,15 +55,14 @@ class QueryGraphState(TypedDict):
 
     # minirag_docs 一级召回匹配结果 (对象为文档)
     confirm_list: list[int]  # 确认匹配的文档 id 列表 (二级召回唯一 doc_id 源)
-    suspect_list: list[int]  # 疑似匹配的文档 id 列表 (confirm 为空时用于终止提示)
+    suspect_list: list[int]  # 疑似匹配的文档 id 列表 (confirm 为空时用于兜底提示)
+    suspect_titles: list[str]  # 疑似文档标题 (兜底回答时提示用户)
 
     embedding_recalls: list[MilvusChunksRecall]  # 向量化查询匹配结果
     hyde_recalls: list[MilvusChunksRecall]  # HyDE 搜索匹配结果
     web_matches: list[WebSearchResult]  # 互联网搜索匹配结果
 
     rerank_results: list[RerankResult]  # 重排序结果
-
-    answer: str  # 最终回答
 
     # Token 计量累计值 (纯数据, 可 JSON 序列化): 消耗 token 的节点在结束时
     # 返回本节点的增量, 通道经 sum_token_usage reducer 逐字段累加;
@@ -79,11 +78,11 @@ _DEFAULT_STATE: QueryGraphState = {
     "rewritten_query": "",
     "confirm_list": [],
     "suspect_list": [],
+    "suspect_titles": [],
     "embedding_recalls": [],
     "hyde_recalls": [],
     "web_matches": [],
     "rerank_results": [],
-    "answer": "",
     "token_meter": {
         "llm_tokens": 0,
         "vlm_tokens": 0,

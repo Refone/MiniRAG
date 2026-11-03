@@ -248,9 +248,22 @@ def node_rrf_and_rerank(state: QueryGraphState) -> QueryGraphState:
     fused_results = step_2_rrf_fusion(embedding_recalls, hyde_recalls)
     logger.info(f"最终融合切片数量: {len(fused_results)}")
 
-    rerank_results, refine_tokens, rerank_tokens = step_3_rerank(
-        state.get("session_id") or "", rewritten_query, fused_results, web_matches
-    )
+    if not fused_results and not web_matches:
+        # 文库与网络搜索结果都为空: 无候选可精排, 空进空出 (答案节点走通识回答)
+        logger.warning("文库切片与网络搜索结果均为空, 跳过重排序")
+        return {"rerank_results": [], "token_meter": TokenUsage()}
+
+    try:
+        rerank_results, refine_tokens, rerank_tokens = step_3_rerank(
+            state.get("session_id") or "", rewritten_query, fused_results, web_matches
+        )
+    except Exception:
+        # 无文库切片时精排只是增强项: 降级为无参考内容, 保证兜底答案仍能产出
+        if fused_results:
+            raise
+        logger.exception("兜底路径重排序失败, 降级为通识回答")
+        return {"rerank_results": [], "token_meter": TokenUsage()}
+
     logger.info(f"重排序结果: {rerank_results}")
     logger.info(f"重排序结果数量: {len(rerank_results)}")
 
