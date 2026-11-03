@@ -10,9 +10,14 @@ import threading
 import time
 from dataclasses import dataclass, field
 from enum import StrEnum
-from typing import TypedDict
+from typing import NotRequired, TypedDict
 
 from common.logging import logger
+
+# 节点内进度的展示约束：单行、短文本，避免把业务大文本塞进 SSE
+_DETAIL_TEXT_MAX_CHARS = 80
+_DETAIL_METRICS_MAX_KEYS = 8
+_DETAIL_METRIC_STR_MAX_CHARS = 64
 
 
 class TaskStatus(StrEnum):
@@ -33,6 +38,50 @@ class ChildSpec(TypedDict):
     title: str
     path: str
     index: int
+
+
+class ProgressDetail(TypedDict):
+    """节点内进度：快照的可选字段，由节点经 `report_progress` 写入。
+
+    示例:
+    {
+        "node": "PDF 转 Markdown",
+        "text": "24 页 · 解析中 12/24 页 · 已等 48s",
+        "metrics": {"stage": "parsing", "done": 12, "total": 24},
+    }
+    """
+
+    node: str
+    text: str
+    metrics: NotRequired[dict[str, str | int | float]]
+
+
+def _normalize_detail(
+    node: str,
+    text: str,
+    metrics: dict[str, str | int | float] | None,
+) -> ProgressDetail:
+    """裁剪文案、过滤指标：只保留单行短文本与标量键值。"""
+    detail: ProgressDetail = {
+        "node": node,
+        "text": " ".join(str(text).split())[:_DETAIL_TEXT_MAX_CHARS],
+    }
+    if not metrics:
+        return detail
+
+    clean: dict[str, str | int | float] = {}
+    for key, value in metrics.items():
+        if len(clean) >= _DETAIL_METRICS_MAX_KEYS:
+            break
+        if isinstance(value, bool):
+            continue
+        if isinstance(value, (int, float)):
+            clean[str(key)] = value
+        elif isinstance(value, str):
+            clean[str(key)] = value[:_DETAIL_METRIC_STR_MAX_CHARS]
+    if clean:
+        detail["metrics"] = clean
+    return detail
 
 
 @dataclass
@@ -78,6 +127,7 @@ class TaskEntry:
     failed: list[str] = field(default_factory=list)
     error: str = ""
     result: dict[str, str] = field(default_factory=dict)
+    detail: ProgressDetail | None = None
     created_at: float = field(default_factory=time.time)
     updated_at: float = field(default_factory=time.time)
 
@@ -121,7 +171,28 @@ class TaskManager:
             payload["failed_list"] = list(entry.failed)
         if entry.error:
             payload["error"] = entry.error
+        if entry.detail:
+            # 拷贝一层，避免调用方改到进程内状态
+            detail = dict(entry.detail)
+            if "metrics" in detail:
+                detail["metrics"] = dict(detail["metrics"])
+            payload["detail"] = detail
         return payload
+
+    def set_detail(
+        self,
+        task_id: str,
+        node: str,
+        text: str,
+        metrics: dict[str, str | int | float] | None = None,
+    ) -> None:
+        """写入当前节点进度（裁剪后覆盖）。不推送，推送由调用侧决定。"""
+        with self._lock:
+            if self._parent_is_terminal(task_id):
+                return
+            entry = self._ensure(task_id)
+            entry.detail = _normalize_detail(node, text, metrics)
+            self._touch(entry)
 
     def add_running(self, task_id: str, node: str) -> None:
         """节点开始：加入 running（去重）。不推送，推送由调用侧决定。"""
@@ -146,6 +217,8 @@ class TaskManager:
                 entry.done.append(node)
             if node in entry.running:
                 entry.running.remove(node)
+            if entry.detail is not None and entry.detail["node"] == node:
+                entry.detail = None
             self._touch(entry)
 
     def add_failed(self, task_id: str, node: str, error: str = "") -> None:
@@ -162,6 +235,8 @@ class TaskManager:
                 entry.failed.append(node)
             if node in entry.running:
                 entry.running.remove(node)
+            if entry.detail is not None and entry.detail["node"] == node:
+                entry.detail = None
             if error:
                 # 保留最深层节点异常，不让外层包装异常覆盖
                 entry.error = entry.error or error

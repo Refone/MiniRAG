@@ -9,6 +9,7 @@
 """
 
 import time
+from contextvars import ContextVar
 from functools import wraps
 from typing import Any, Callable
 
@@ -111,6 +112,33 @@ def _publish_progress(trace_id: str) -> None:
         EVENT_BUS.push(parent_id, SSEEvent.CHILD_PROGRESS, snapshot)
 
 
+_current_node: ContextVar[tuple[str, str] | None] = ContextVar(
+    "current_node", default=None
+)
+
+
+def report_progress(
+    text: str,
+    metrics: dict[str, str | int | float] | None = None,
+) -> None:
+    """节点内进度上报：写入任务状态并立刻推一帧快照。
+
+    仅在 `trace_node` 执行上下文内有效；线程池 worker / 脚本直调时静默跳过
+    （ContextVar 不跨线程传播，worker 应把结果带回主线程后再上报）。
+    """
+    context = _current_node.get()
+    if context is None:
+        return
+    trace_id, node_name = context
+    try:
+        TASK_MANAGER.set_detail(trace_id, node=node_name, text=text, metrics=metrics)
+        _publish_progress(trace_id)
+    except Exception:
+        logger.opt(exception=True).debug(
+            "节点进度上报失败: trace_id={}, node={}", trace_id, node_name
+        )
+
+
 def _task_trace(node_name: str, *, need_push: bool = False) -> Callable[..., Any]:
     """任务追踪包装: 开始时记 running, 成功结束时记 done, 失败时记 failed。
 
@@ -127,18 +155,22 @@ def _task_trace(node_name: str, *, need_push: bool = False) -> Callable[..., Any
         @wraps(func)
         def wrapper(state, *args, **kwargs):
             trace_id = _trace_id(state)
-            TASK_MANAGER.add_running(trace_id, node_name)
-            if need_push:
-                _publish_progress(trace_id)
+            token = _current_node.set((trace_id, node_name))
             try:
-                result = func(state, *args, **kwargs)
-            except Exception as e:
-                TASK_MANAGER.add_failed(trace_id, node_name, str(e))
-                raise
-            TASK_MANAGER.add_done(trace_id, node_name)
-            if need_push:
-                _publish_progress(trace_id)
-            return result
+                TASK_MANAGER.add_running(trace_id, node_name)
+                if need_push:
+                    _publish_progress(trace_id)
+                try:
+                    result = func(state, *args, **kwargs)
+                except Exception as e:
+                    TASK_MANAGER.add_failed(trace_id, node_name, str(e))
+                    raise
+                TASK_MANAGER.add_done(trace_id, node_name)
+                if need_push:
+                    _publish_progress(trace_id)
+                return result
+            finally:
+                _current_node.reset(token)
 
         return wrapper
 

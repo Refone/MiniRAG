@@ -18,9 +18,11 @@ class _AppConfig:
     md_image_surrounding_context_max_chars: int = 500
 
     # MinerU 请求等待参数
-    per_page_est_wait_time: float = 0.5
     per_page_max_wait_time: float = 10.0
     poll_interval: float = 5.0
+    # MinerU 请求超时 (秒): 轻量 API 与文件传输分开
+    mineru_api_timeout: int = 30
+    mineru_transfer_timeout: int = 300
 
     # TCP 可达等待时长
     tcp_reachability_timeout: int = 10

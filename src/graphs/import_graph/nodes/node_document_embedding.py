@@ -1,12 +1,12 @@
 import json
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Any
 
 from common.config.app_config import APP_CONFIG
 from common.config.env_config import ENV_CONFIG
 from common.events.metering import push_usage_delta
-from common.events.tracing import step_log, trace_node
+from common.events.tracing import report_progress, step_log, trace_node
 from common.logging import logger
 from common.model import EMBEDDING, LLM
 from common.model.metering import message_usage_tokens
@@ -177,6 +177,13 @@ def _format_chunk_content(chunk: Chunk) -> str:
     return "\n".join(lines)
 
 
+def _load_chunks(chunks_path: Path) -> list[Chunk]:
+    """读取切分结果（提前加载, 便于在 LLM 阶段就给出切片总数）。"""
+    return [
+        Chunk(**item) for item in json.loads(chunks_path.read_text(encoding="utf-8"))
+    ]
+
+
 def _vectorize_chunks(
     chunks_list: list[Chunk],
 ) -> tuple[list[dict[str, Any]], int]:
@@ -196,14 +203,36 @@ def _vectorize_chunks(
         [_format_chunk_content(chunk) for chunk in chunks_list[i : i + batch_size]]
         for i in range(0, len(chunks_list), batch_size)
     ]
+    total_batches = len(batches)
+    chunk_total = len(chunks_list)
 
-    # 各 worker 独立返回 (向量, token), 无需共享状态或锁
+    # 各 worker 独立返回 (向量, token), 无需共享状态或锁;
+    # 结果按 index 回填, 保持「批次 ↔ 向量」顺序不变。
+    batch_results: list[Any] = [None] * total_batches
     with ThreadPoolExecutor(max_workers=APP_CONFIG.max_concurrency) as pool:
-        batch_results = list(pool.map(EMBEDDING.embed_document_hybrid, batches))
+        future_to_index = {
+            pool.submit(EMBEDDING.embed_document_hybrid, batch): index
+            for index, batch in enumerate(batches)
+        }
+        for done, future in enumerate(as_completed(future_to_index), start=1):
+            index = future_to_index[future]
+            batch_results[index] = future.result()
+            report_progress(
+                f"{chunk_total} 个切片 · 向量化 {done}/{total_batches} 批",
+                {
+                    "stage": "embedding",
+                    "done": done,
+                    "total": total_batches,
+                    "chunks": chunk_total,
+                },
+            )
 
     embedded: list[dict[str, Any]] = []
     total_tokens = 0
-    for batch_texts, (batch_vecs, batch_tokens) in zip(batches, batch_results):
+    for batch_texts, result in zip(batches, batch_results):
+        if result is None:
+            raise RuntimeError("向量化结果缺失: 批次未返回数据")
+        batch_vecs, batch_tokens = result
         if len(batch_vecs) != len(batch_texts):
             raise ValueError(
                 f"向量化结果数量与切片数量不一致: "
@@ -286,34 +315,46 @@ def node_document_embedding(state: ImportGraphState) -> ImportGraphState:
         step_1_validate_and_get_data(state)
     )
 
-    # 2. 同名覆盖: 先完整删除旧文档 (chunks + docs + MinIO 制品)
+    # 2. 提前读取切片: 让 LLM / 向量化阶段能给出总数
+    chunks_list = _load_chunks(chunks_path)
+    chunk_total = len(chunks_list)
+    batch_size = ENV_CONFIG.dashscope.embedding_batch_size
+    batch_total = (chunk_total + batch_size - 1) // batch_size
+
+    # 3. 同名覆盖: 先完整删除旧文档 (chunks + docs + MinIO 制品)
     step_2_delete_old_doc(file_title)
 
-    # 3. 上传新三份制品至 MinIO
+    # 4. 上传新三份制品至 MinIO
     artifacts = step_3_upload_artifacts(
         file_title, md_path, chunks_path, origin_file_path, origin_file_type
     )
 
-    # 4. LLM 生成文档关键词与摘要
+    # 5. LLM 生成文档关键词与摘要
+    report_progress(
+        f"{chunk_total} 个切片 · 生成关键词与摘要",
+        {"stage": "llm", "chunks": chunk_total},
+    )
     md_content = md_path.read_text(encoding="utf-8")
     keywords, abstract, llm_tokens = step_4_generate_keywords_abstract(
         file_title, md_content
     )
     push_usage_delta(task_id, "llm", llm_tokens)
 
-    # 5. 向量化 (docs 元数据 + chunks)
-    chunks_list = list(
-        map(
-            lambda x: Chunk(**x),
-            json.loads(chunks_path.read_text(encoding="utf-8")),
-        )
+    # 6. 向量化 (docs 元数据 + chunks)
+    report_progress(
+        f"{chunk_total} 个切片 · 向量化元数据",
+        {"stage": "embedding", "done": 0, "total": batch_total, "chunks": chunk_total},
     )
     keywords_sparse, abstract_dense, embedded, embedding_tokens = step_5_vectorize(
         keywords, abstract, chunks_list
     )
     push_usage_delta(task_id, "embedding", embedding_tokens)
 
-    # 6. 写入 docs 并查回 doc_id
+    # 7. 写入 docs + chunks
+    report_progress(
+        f"{chunk_total} 个切片 · 写入向量库",
+        {"stage": "writing", "chunks": chunk_total},
+    )
     doc_id = step_6_insert_docs_and_query_id(
         task_id=task_id,
         file_title=file_title,

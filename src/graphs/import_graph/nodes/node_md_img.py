@@ -1,6 +1,6 @@
 import html
 import re
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import TypedDict
 
@@ -10,7 +10,7 @@ from common.client import MINIO_CLIENT
 from common.config.app_config import APP_CONFIG
 from common.config.env_config import ENV_CONFIG
 from common.events.metering import push_usage_delta
-from common.events.tracing import step_log, trace_node
+from common.events.tracing import report_progress, step_log, trace_node
 from common.logging import logger
 from common.model import VLM
 from common.model.metering import message_usage_tokens
@@ -210,14 +210,27 @@ def step_3_image_summary(
         return image_info["name"], description, tokens
 
     workers = min(APP_CONFIG.max_concurrency, len(image_info_list))
-    with ThreadPoolExecutor(max_workers=workers) as pool:
-        results = pool.map(process_image, image_info_list)
+    total = len(image_info_list)
+    # 每 10% 上报一次, 避免几十张图把 SSE 帧刷满
+    progress_step = max(1, total // 10)
+    report_progress(
+        f"{total} 张图片 · 生成摘要 0/{total}",
+        {"stage": "vlm", "done": 0, "total": total},
+    )
 
     summary_dict: dict[str, str] = {}
     total_tokens = 0
-    for name, description, tokens in results:
-        summary_dict[name] = description
-        total_tokens += tokens
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        futures = [pool.submit(process_image, info) for info in image_info_list]
+        for done, future in enumerate(as_completed(futures), start=1):
+            name, description, tokens = future.result()
+            summary_dict[name] = description
+            total_tokens += tokens
+            if done % progress_step == 0 or done == total:
+                report_progress(
+                    f"{total} 张图片 · 生成摘要 {done}/{total}",
+                    {"stage": "vlm", "done": done, "total": total},
+                )
 
     return summary_dict, total_tokens
 
@@ -252,6 +265,16 @@ def step_4_upload_images_get_url(
         logger.info(f"{prefix} 覆盖删除 {del_cnt} 张图片")
 
     # 依次上传图片, 云端文件名为出现顺序序号 + 原始后缀: 1.jpg, 2.png ...
+    total = len(image_info_list)
+    progress_step = max(1, total // 10)
+    failed = 0
+
+    if total:
+        report_progress(
+            f"{total} 张图片 · 上传中 0/{total}",
+            {"stage": "upload", "done": 0, "total": total},
+        )
+
     for seq, image in enumerate(image_info_list, start=1):
         seq_name = f"{seq}{image['path'].suffix}"
         try:
@@ -261,7 +284,24 @@ def step_4_upload_images_get_url(
             image_url_dict[image["name"]] = url
             logger.debug(f"{image['name']} -> {seq_name} 上传成功: {url}")
         except Exception as e:
+            failed += 1
             logger.warning(f"{image['name']} -> {seq_name} 上传失败, 跳过. error: {e}")
+
+        if seq % progress_step == 0 or seq == total:
+            if failed:
+                text = (
+                    f"{total} 张图片 · 上传中 {seq - failed}/{total} · {failed} 张失败"
+                )
+                metrics = {
+                    "stage": "upload",
+                    "done": seq,
+                    "total": total,
+                    "failed": failed,
+                }
+            else:
+                text = f"{total} 张图片 · 上传中 {seq}/{total}"
+                metrics = {"stage": "upload", "done": seq, "total": total}
+            report_progress(text, metrics)
 
     return image_url_dict
 
@@ -352,6 +392,8 @@ def node_md_img(state: ImportGraphState) -> ImportGraphState:
 
     # 2. 扫描 images 目录, 获取图片信息列表
     image_info_list = step_2_scan_images(md_path, md_content)
+    if not image_info_list:
+        report_progress("无内联图片", {"stage": "vlm", "done": 0, "total": 0})
 
     # 3. 请求 VLM 获取图片摘要
     # {"<图片名>" : "<摘要>"}

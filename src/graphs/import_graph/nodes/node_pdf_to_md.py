@@ -8,7 +8,7 @@ from pypdf import PdfReader
 from common.config.app_config import APP_CONFIG
 from common.config.env_config import ENV_CONFIG
 from common.config.path_config import IMPORT_TMP_DIR
-from common.events.tracing import step_log, trace_node
+from common.events.tracing import report_progress, step_log, trace_node
 from common.logging import logger
 from graphs.import_graph.import_graph_state import ImportGraphState
 
@@ -80,8 +80,19 @@ def step_2_upload_and_poll(pdf_path: Path, page_cnt: int) -> str:
         "is_ocr": True,
     }
 
+    # 通知前端: 已进入上传阶段 (页数在入口已确定)
+    report_progress(
+        f"{page_cnt} 页 · 正在上传",
+        {"stage": "uploading", "total": page_cnt},
+    )
+
     # 1. 上传申请
-    apply_resp = requests.post(apply_url, headers=headers, json=payload)
+    apply_resp = requests.post(
+        apply_url,
+        headers=headers,
+        json=payload,
+        timeout=APP_CONFIG.mineru_api_timeout,
+    )
     if apply_resp.status_code != 200:
         raise requests.HTTPError(f"MinerU 上传文件失败: {apply_resp.text}")
 
@@ -105,7 +116,11 @@ def step_2_upload_and_poll(pdf_path: Path, page_cnt: int) -> str:
         # 纯净版的请求头,不随意携带代理的参数
         session.trust_env = False
 
-        upload_resp = session.put(upload_url, data=pdf_path.read_bytes())
+        upload_resp = session.put(
+            upload_url,
+            data=pdf_path.read_bytes(),
+            timeout=APP_CONFIG.mineru_transfer_timeout,
+        )
         if upload_resp.status_code != 200:
             raise requests.RequestException(f"上传文件失败: {upload_resp.text}")
 
@@ -113,26 +128,33 @@ def step_2_upload_and_poll(pdf_path: Path, page_cnt: int) -> str:
     poll_url = f"{ENV_CONFIG.mineru.base_url}/extract-results/batch/{batch_id}"
     logger.debug(f"上传文件成功, 轮询 url: {poll_url}")
 
-    # 预计等待时间
-    est_time = APP_CONFIG.per_page_est_wait_time * page_cnt
     # 轮询间隔时间
     interval_time = APP_CONFIG.poll_interval
     # 最大等待时间
     max_wait_time = APP_CONFIG.per_page_max_wait_time * page_cnt + 30
 
     start = time.time()
-    logger.debug(
-        f"预计等待时间: {est_time}s, 轮询间隔: {interval_time}s, 最大等待时间: {max_wait_time}s"
+    logger.debug(f"轮询间隔: {interval_time}s, 最大等待时间: {max_wait_time}s")
+
+    last_page = 0
+    report_progress(
+        f"{page_cnt} 页 · 排队中 · 已等 0s",
+        {"stage": "queued", "elapsed_ms": 0},
     )
-    time.sleep(max(0, est_time - interval_time))
+
     while True:
         time.sleep(interval_time)
+        elapsed = time.time() - start
 
-        if time.time() - start > max_wait_time:
+        if elapsed > max_wait_time:
             raise requests.Timeout("转换超时")
 
         try:
-            poll_resp = requests.get(poll_url, headers=headers)
+            poll_resp = requests.get(
+                poll_url,
+                headers=headers,
+                timeout=APP_CONFIG.mineru_api_timeout,
+            )
         except Exception:
             logger.debug(f"请求异常, {interval_time}s 后重试")
             continue
@@ -147,19 +169,57 @@ def step_2_upload_and_poll(pdf_path: Path, page_cnt: int) -> str:
             raise requests.RequestException(f"MinerU 解析失败: {poll_resp_data['msg']}")
 
         extract_result = poll_resp_data["data"]["extract_result"][0]
-        if extract_result["state"] == "done":
+        state = extract_result["state"]
+        elapsed_ms = int(elapsed * 1000)
+
+        if state == "done":
             zip_url = extract_result["full_zip_url"]
             if not zip_url:
                 raise requests.RequestException(
                     f"MinerU 解析完毕, zip 地址异常: {poll_resp_data['msg']}"
                 )
+            report_progress(
+                f"{page_cnt} 页 · 转换完成 · 正在下载",
+                {"stage": "downloading", "elapsed_ms": elapsed_ms},
+            )
             logger.debug(f"MinerU 解析完毕, zip 地址: {zip_url}")
             return zip_url
-        elif extract_result["state"] == "failed":
+
+        if state == "failed":
             raise requests.RequestException(f"MinerU 解析失败: {poll_resp_data['msg']}")
+
+        # 仍在处理中: 有页进度就报页进度, 否则按排队阶段报已等待时长
+        progress = extract_result.get("extract_progress") or {}
+        total_pages = int(progress.get("total_pages") or 0)
+        extracted_pages = int(progress.get("extracted_pages") or 0)
+
+        if total_pages > 0:
+            # MinerU 按批上报, 页数可能跳变, 这里钳制为单调递增
+            last_page = max(last_page, min(extracted_pages, total_pages))
+            report_progress(
+                f"{page_cnt} 页 · 解析中 {last_page}/{total_pages} 页 · "
+                f"已等 {int(elapsed)}s",
+                {
+                    "stage": "parsing",
+                    "done": last_page,
+                    "total": total_pages,
+                    "elapsed_ms": elapsed_ms,
+                },
+            )
         else:
-            # 仍在处理中, 继续轮询
-            logger.debug(f"解析未完成, {interval_time}s 后重试")
+            if state == "pending":
+                report_progress(
+                    f"{page_cnt} 页 · 排队中 · 已等 {int(elapsed)}s",
+                    {"stage": "queued", "elapsed_ms": elapsed_ms},
+                )
+            else:
+                # running / converting 但服务端未给出页进度
+                report_progress(
+                    f"{page_cnt} 页 · 解析中 · 已等 {int(elapsed)}s",
+                    {"stage": "parsing", "elapsed_ms": elapsed_ms},
+                )
+
+        logger.debug(f"解析未完成, {interval_time}s 后重试")
 
 
 @step_log("下载并解压")
@@ -173,7 +233,9 @@ def step_3_download_and_unzip(zip_url: str, file_title: str) -> Path:
     md_dir = IMPORT_TMP_DIR
     md_dir.mkdir(parents=True, exist_ok=True)
 
-    download_response = requests.get(zip_url)
+    download_response = requests.get(
+        zip_url, timeout=APP_CONFIG.mineru_transfer_timeout
+    )
     if download_response.status_code != 200:
         raise requests.RequestException(f"下载 zip 文件失败: {download_response.text}")
 
