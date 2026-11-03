@@ -149,11 +149,17 @@ class FakeChatHistory:
 
 
 class FakeTokenUsage:
-    def __init__(self) -> None:
+    def __init__(self, error: Exception | None = None) -> None:
         self.calls: list[dict] = []
         self.usage = empty_token_usage()
+        self.error = error
+
+    def _raise_if_error(self) -> None:
+        if self.error is not None:
+            raise self.error
 
     def add_usage(self, session_id: str, user_ip: str, scope, usage) -> None:
+        self._raise_if_error()
         self.calls.append(
             {
                 "session_id": session_id,
@@ -165,9 +171,11 @@ class FakeTokenUsage:
         self.usage = sum_token_usage(self.usage, usage)
 
     def get_usage(self, session_id: str):
+        self._raise_if_error()
         return build_snapshot(session_id, query=ModelTokenUsage(**self.usage))
 
     def clear_usage(self, session_id: str) -> int:
+        self._raise_if_error()
         return 0
 
 
@@ -178,10 +186,19 @@ class FakeMilvus:
         self,
         docs_hits: list[dict] | None = None,
         chunks_hits: list[dict] | None = None,
+        recorder: list | None = None,
+        doc_row: dict | None = None,
     ) -> None:
         self.docs_hits = docs_hits or []
         self.chunks_hits = chunks_hits or []
         self.calls: list[tuple] = []
+        self.recorder = recorder
+        self.doc_row = doc_row
+
+    def _record(self, *call) -> None:
+        self.calls.append(call)
+        if self.recorder is not None:
+            self.recorder.append(("milvus", *call))
 
     def hybrid_search_docs(self, texts: list[str], limit: int = 0):
         self.calls.append(("hybrid_search_docs", list(texts)))
@@ -202,24 +219,24 @@ class FakeMilvus:
         return []
 
     def query_doc_by_id(self, doc_id: int) -> dict | None:
-        self.calls.append(("query_doc_by_id", doc_id))
-        return None
+        self._record("query_doc_by_id", doc_id)
+        return self.doc_row
 
     def query_doc_rows_by_file_title(self, file_title: str) -> list[dict]:
-        self.calls.append(("query_doc_rows_by_file_title", file_title))
+        self._record("query_doc_rows_by_file_title", file_title)
         return []
 
     def delete_chunks_by_doc_ids(self, doc_ids: list[int]) -> None:
-        self.calls.append(("delete_chunks_by_doc_ids", list(doc_ids)))
+        self._record("delete_chunks_by_doc_ids", list(doc_ids))
 
     def delete_chunks_by_file_title(self, file_title: str) -> None:
-        self.calls.append(("delete_chunks_by_file_title", file_title))
+        self._record("delete_chunks_by_file_title", file_title)
 
     def delete_docs_by_file_title(self, file_title: str) -> None:
-        self.calls.append(("delete_docs_by_file_title", file_title))
+        self._record("delete_docs_by_file_title", file_title)
 
     def delete_doc_by_id(self, doc_id: int) -> None:
-        self.calls.append(("delete_doc_by_id", doc_id))
+        self._record("delete_doc_by_id", doc_id)
 
     def insert(self, collection_name: str, data: list[dict]) -> dict:
         self.calls.append(("insert", collection_name, len(data)))
@@ -231,15 +248,28 @@ class FakeMilvus:
 
 
 class FakeMinio:
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        recorder: list | None = None,
+        fail_on: str | None = None,
+    ) -> None:
         self.objects: dict[str, bytes] = {}
         self.calls: list[tuple] = []
+        self.recorder = recorder
+        self.fail_on = fail_on
+
+    def _record(self, *call) -> None:
+        self.calls.append(call)
+        if self.recorder is not None:
+            self.recorder.append(("minio", *call))
+        if self.fail_on == call[0]:
+            raise RuntimeError(f"fake minio failure: {call[0]}")
 
     def upload_file(self, *, prefix: str, as_name: str, file_path: str) -> str:
         object_name = f"{prefix}/{as_name}"
         with open(file_path, "rb") as f:
             self.objects[object_name] = f.read()
-        self.calls.append(("upload_file", object_name))
+        self._record("upload_file", object_name)
         return f"/api/files/{object_name}"
 
     @staticmethod
@@ -247,20 +277,57 @@ class FakeMinio:
         return f"{doc_dir}/{file_title}"
 
     def clear_doc_artifacts(self, file_title: str) -> int:
-        self.calls.append(("clear_doc_artifacts", file_title))
+        self._record("clear_doc_artifacts", file_title)
         return 0
 
     def clear_doc_images(self, file_title: str) -> int:
-        self.calls.append(("clear_doc_images", file_title))
+        self._record("clear_doc_images", file_title)
         return 0
 
     def clear_dir_if_exist(self, prefix: str) -> int:
-        self.calls.append(("clear_dir_if_exist", prefix))
+        self._record("clear_dir_if_exist", prefix)
         return 0
 
     def get_object_stream(self, object_name: str):
-        self.calls.append(("get_object_stream", object_name))
+        self._record("get_object_stream", object_name)
         data = self.objects.get(object_name)
         if data is None:
             raise FileNotFoundError(object_name)
         return "application/octet-stream", iter([data])
+
+
+class FakeDocumentRepo:
+    def __init__(
+        self,
+        rows: list[dict] | None = None,
+        detail=None,
+        error: Exception | None = None,
+    ) -> None:
+        self.rows = rows or []
+        self.detail = detail
+        self.error = error
+        self.calls: list[tuple] = []
+
+    def count(self) -> int:
+        self.calls.append(("count",))
+        if self.error is not None:
+            raise self.error
+        return len(self.rows)
+
+    def list_page(self, offset: int, limit: int) -> list[dict]:
+        self.calls.append(("list_page", offset, limit))
+        if self.error is not None:
+            raise self.error
+        return self.rows[offset : offset + limit]
+
+    def get_detail(self, doc_id: int):
+        self.calls.append(("get_detail", doc_id))
+        if self.error is not None:
+            raise self.error
+        return self.detail
+
+    def delete_by_id(self, doc_id: int):
+        self.calls.append(("delete_by_id", doc_id))
+        if self.error is not None:
+            raise self.error
+        return None

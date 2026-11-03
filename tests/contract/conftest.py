@@ -7,9 +7,14 @@ install_model_guard()
 
 
 @pytest.fixture
-def client():
-    from api.main import app
+def app():
+    from api.main import app as fastapi_app
 
+    return fastapi_app
+
+
+@pytest.fixture
+def client(app):
     test_client = TestClient(app)  # 不用 with：不触发 lifespan/startup_checks
     yield test_client
     test_client.close()
