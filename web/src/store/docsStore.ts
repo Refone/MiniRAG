@@ -89,6 +89,7 @@ function childFromFork(child: ForkChild): ImportChildTask {
     running: [],
     failed: [],
     error: "",
+    detail: null,
   };
 }
 
@@ -261,6 +262,7 @@ export const useDocsStore = create<DocsStoreState>()((set, get) => ({
                     status: "interrupted",
                     running: [],
                     stoppedAt: stamp,
+                    detail: null,
                   },
             ),
           });
@@ -329,6 +331,7 @@ export const useDocsStore = create<DocsStoreState>()((set, get) => ({
                     done,
                     running: [],
                     failed,
+                    detail: null,
                   });
                   freezeChildren(fileId, "complete");
                   console.log(`[import] 任务 ${taskId} 处理完成`);
@@ -350,6 +353,7 @@ export const useDocsStore = create<DocsStoreState>()((set, get) => ({
                     done,
                     running: [],
                     failed,
+                    detail: null,
                   });
                   freezeChildren(fileId, "failed");
                   console.error(`[import] 任务 ${taskId} 处理失败`);
@@ -362,6 +366,7 @@ export const useDocsStore = create<DocsStoreState>()((set, get) => ({
                     done,
                     running,
                     failed,
+                    detail: d.detail ?? null,
                   });
                 }
               },
@@ -374,7 +379,8 @@ export const useDocsStore = create<DocsStoreState>()((set, get) => ({
                     `[import] 未知子任务状态：${d.status}（child ${d.child_id}）`,
                   );
                   return;
-                }                const status = d.status as ImportChildStatus;
+                }
+                const status = d.status as ImportChildStatus;
                 if (!hasChild(fileId, d.child_id)) {
                   console.warn(
                     `[import] 收到未登记子任务进度，可能丢失 fork 事件：${d.child_id}`,
@@ -396,6 +402,7 @@ export const useDocsStore = create<DocsStoreState>()((set, get) => ({
                       running: [],
                       failed,
                       error: d.error ?? c.error,
+                      detail: d.detail ?? null,
                     };
                   }
 
@@ -409,6 +416,7 @@ export const useDocsStore = create<DocsStoreState>()((set, get) => ({
                       running,
                       failed,
                       error: d.error ?? c.error,
+                      detail: d.detail ?? null,
                     };
                   }
 
@@ -422,6 +430,7 @@ export const useDocsStore = create<DocsStoreState>()((set, get) => ({
                       running: [],
                       failed: [],
                       error: "",
+                      detail: null,
                     };
                   }
 
@@ -435,6 +444,7 @@ export const useDocsStore = create<DocsStoreState>()((set, get) => ({
                     running: [],
                     failed: failed.length > 0 ? failed : c.failed,
                     error: d.error || c.error || "处理失败",
+                    detail: null,
                   };
                 });
               },
@@ -464,7 +474,11 @@ export const useDocsStore = create<DocsStoreState>()((set, get) => ({
                 if (!parentTerminal) {
                   parentTerminal = true;
                   // 服务端未给终态就关流: 按断连处理, 不伪造完成
-                  updateFile(fileId, { status: "failed", running: [] });
+                  updateFile(fileId, {
+                    status: "failed",
+                    running: [],
+                    detail: null,
+                  });
                   freezeChildren(fileId, "failed");
                 }
                 delete esMap[fileId];
@@ -476,7 +490,11 @@ export const useDocsStore = create<DocsStoreState>()((set, get) => ({
                 useTokenUsageStore.getState().clearPending("upload", taskId);
                 if (!parentTerminal) {
                   parentTerminal = true;
-                  updateFile(fileId, { status: "failed", running: [] });
+                  updateFile(fileId, {
+                    status: "failed",
+                    running: [],
+                    detail: null,
+                  });
                   freezeChildren(fileId, "failed");
                 }
                 delete esMap[fileId];
@@ -498,6 +516,7 @@ export const useDocsStore = create<DocsStoreState>()((set, get) => ({
             done: [],
             failed: [],
             running: [],
+            detail: null,
             forked: false,
             children: [],
           };

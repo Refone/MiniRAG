@@ -16,6 +16,16 @@ export interface ProgressView {
   status: TaskStatus;
 }
 
+/** 节点内进度（后端 progress / child-progress 的可选 detail） */
+export interface ProgressDetail {
+  /** 与 running_list 中的节点显示名对齐 */
+  node: string;
+  /** 单行文案，由后端生成 */
+  text: string;
+  /** 进度指标：stage / done / total / chunks ... */
+  metrics?: Record<string, string | number>;
+}
+
 /** 父任务 SSE 状态事件载荷（/api/query/sse 与 /api/upload/sse 的 progress） */
 export interface StatusResponse {
   status: TaskStatus;
@@ -23,6 +33,8 @@ export interface StatusResponse {
   running_list?: string[];
   /** 失败节点（仅失败时下发；父任务 / 旧后端可能为空） */
   failed_list?: string[];
+  /** 节点内进度（旧后端无此字段） */
+  detail?: ProgressDetail;
   answer?: string;
   error?: string;
 }
@@ -34,6 +46,8 @@ export interface ChildProgressResponse {
   done_list?: string[];
   running_list?: string[];
   failed_list?: string[];
+  /** 节点内进度（旧后端无此字段） */
+  detail?: ProgressDetail;
   error?: string;
 }
 

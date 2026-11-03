@@ -1,6 +1,6 @@
 /** 文档管理域类型契约（含 API 请求/响应 DTO） */
 
-import type { TaskStatus } from "./app";
+import type { ProgressDetail, TaskStatus } from "./app";
 
 /** 文档管理页预览模式 */
 export type PreviewMode = "markdown" | "chunks" | "features";
@@ -30,6 +30,8 @@ export interface ImportChildTask {
   running: string[];
   failed: string[];
   error: string;
+  /** 节点内进度（旧后端 / 无进度时为 null） */
+  detail?: ProgressDetail | null;
 }
 
 /** 导入任务文件条目（展示态） */
@@ -43,6 +45,8 @@ export interface ImportFile {
   done: string[];
   failed: string[];
   running: string[];
+  /** 节点内进度（旧后端 / 无进度时为 null） */
+  detail?: ProgressDetail | null;
   /** ZIP fork 状态：fork 前 children 为空 */
   forked: boolean;
   children: ImportChildTask[];

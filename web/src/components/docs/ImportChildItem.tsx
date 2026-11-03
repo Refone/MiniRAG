@@ -38,7 +38,8 @@ export const ImportChildItem = memo(function ImportChildItem({
   if (child.status === "pending") {
     summaryText = "等待开始";
   } else if (child.status === "processing") {
-    summaryText = `已耗时 ${elapsedText} · ${child.running[0] || "处理中"}`;
+    const detailText = child.detail ? ` · ${child.detail.text}` : "";
+    summaryText = `已耗时 ${elapsedText} · ${child.running[0] || "处理中"}${detailText}`;
   } else if (child.status === "complete") {
     summaryText = `耗时 ${elapsedText}`;
   } else if (child.status === "failed") {
@@ -52,7 +53,13 @@ export const ImportChildItem = memo(function ImportChildItem({
   const lines: StatusLogLine[] = [
     ...child.done.map((text) => ({ kind: "done" as const, text })),
     ...child.failed.map((text) => ({ kind: "failed" as const, text })),
-    ...child.running.map((text) => ({ kind: "running" as const, text })),
+    ...child.running.map((text) => {
+      const detail = child.detail;
+      return {
+        kind: "running" as const,
+        text: detail && detail.node === text ? `${text} · ${detail.text}` : text,
+      };
+    }),
   ];
 
   // 展示含后缀的文件名；title/path 都来自服务端，React 默认转义

@@ -143,7 +143,7 @@ HAK180资料包.zip   2048.00 KB   处理中...
 
 - 覆盖：导入链路的 PDF 转 Markdown、Markdown 图片识别、文档嵌入入库；ZIP 子任务经 `child-progress` 自动获得。
 - 不做：任务取消 / 中止、任务详情回放、查询节点摘要、文档切分过程进度（CPU 秒级）、在线图片下载节点（另立需求）、前端交互 demo。
-- 前端接入量：4 个文件（`types/app.ts`、`types/docs.ts`、`store/docsStore.ts`、`components/docs/ImportTaskItem.tsx`），约 30 行。**旧前端不改可正常运行，但看不到新文案**；后端可先行交付并用 SSE 帧验收。
+- 前端接入量：5 个文件（`types/app.ts`、`types/docs.ts`、`store/docsStore.ts`、`components/docs/ImportTaskItem.tsx`、`components/docs/ImportChildItem.tsx`），约 40 行。**旧前端不改可正常运行，但看不到新文案**；后端可先行交付并用 SSE 帧验收。
 
 ## 6. 验收要点
 

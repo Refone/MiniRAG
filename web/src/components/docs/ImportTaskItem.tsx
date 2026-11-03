@@ -19,7 +19,13 @@ export const ImportTaskItem = memo(function ImportTaskItem({
   const lines: StatusLogLine[] = [
     ...file.done.map((n) => ({ kind: "done" as const, text: n })),
     ...file.failed.map((n) => ({ kind: "failed" as const, text: n })),
-    ...file.running.map((n) => ({ kind: "running" as const, text: n })),
+    ...file.running.map((n) => {
+      const detail = file.detail;
+      return {
+        kind: "running" as const,
+        text: detail && detail.node === n ? `${n} · ${detail.text}` : n,
+      };
+    }),
   ];
 
   const [now, setNow] = useState(() => Date.now());
@@ -89,7 +95,7 @@ export const ImportTaskItem = memo(function ImportTaskItem({
             listClassName="log-list"
             open={parentOpen}
             onToggle={setParentOpen}
-            summary={`已耗时 ${elapsedText}，点击收起 / 展开`}
+            summary={`已耗时 ${elapsedText}${file.detail ? ` · ${file.detail.text}` : ""}，点击收起 / 展开`}
             lines={lines}
           />
         </div>
