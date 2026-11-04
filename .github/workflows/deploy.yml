@@ -9,13 +9,28 @@
 #   DEPLOY_PORT       可选，SSH 端口，默认 22
 #
 # 服务器要求: 已 git clone、当前分支 main、存在未入库的 .env、部署用户有 Docker 权限。
-# 详细步骤见 docs/ci-cd.md。
+# 详细步骤见 docs/notes/ci-cd.md。
 
 name: Deploy Production
 
 on:
   push:
     branches: [main]
+    # 只改这些非运行时代码时不触发部署；若同一次 push 还改了 src/web/docker 等，
+    # paths-ignore 不会生效，仍会正常部署。
+    paths-ignore:
+      - "docs/**"
+      - "tests/**"
+      - "tools/**"
+      - ".agents/**"
+      - ".github/**"
+      - "web/e2e/**"
+      - "web/.storybook/**"
+      - "web/playwright.config.ts"
+      - "README.md"
+      - "AGENTS.md"
+      - ".pre-commit-config.yaml"
+      - ".env.example"
   workflow_dispatch:
     inputs:
       mirror:

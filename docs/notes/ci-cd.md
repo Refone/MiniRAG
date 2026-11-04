@@ -224,11 +224,18 @@ ssh-keyscan -H -p 22 <SERVER> 2>/dev/null
 
 workflow 文件：[.github/workflows/deploy.yml](../.github/workflows/deploy.yml)
 
-> 推送“包含 deploy.yml 的这次提交”本身也会触发一次部署。
-> 建议先把服务器和 secrets 配好，再推送 workflow。
+> 推送“包含 deploy.yml 的这次提交”本身**不会**触发部署：`.github/**` 已在
+> `paths-ignore` 中。配置好服务器和 secrets 后，用 Actions 页面的 `Run workflow`
+> 手动跑一次，或等下一次运行时代码 push。
 
 - `push` 到 `main`：自动部署，默认 `--mirror cn`；
+  - 只有 `docs/`、`tests/`、`tools/`、`.agents/`、`.github/`、`web/e2e/`、
+    `web/.storybook/` 以及 README/AGENTS 等非运行时代码变更时，Deploy Production
+    会被 `paths-ignore` 跳过；
+  - 同一次 push 只要包含 `src/`、`web/src/`、`docker/`、`pyproject.toml`、
+    `uv.lock` 等运行时代码，仍会正常部署；
 - Actions 页面手动 `Run workflow`：可选择 `cn` / `auto` / `global` 镜像策略；
+  `workflow_dispatch` 不受路径过滤影响；
 - `concurrency: deploy-production`：同一时间只跑一个部署，后续任务排队，
   不会中途取消正在进行的部署。
 
