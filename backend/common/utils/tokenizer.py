@@ -1,6 +1,6 @@
 """本地 Token 计算工具 (Qwen tokenizer, 离线)。
 
-加载固定项目资源 ``src/common/model/qwen.tiktoken`` 词表, 用 tiktoken 离线计算
+加载固定项目资源 ``backend/common/model/qwen.tiktoken`` 词表, 用 tiktoken 离线计算
 token, 与阿里云 AI 搜索开放平台 Token 计算 API 的结果一致:
     - "苹果"           -> 1 token
     - "测试用例"       -> 3 tokens
@@ -21,7 +21,7 @@ from pathlib import Path
 
 import tiktoken
 
-# 固定项目资源: 词表文件在 src/common/model/ 下（数据文件依赖, 不是模块依赖）
+# 固定项目资源: 词表文件在 backend/common/model/ 下（数据文件依赖, 不是模块依赖）
 _VOCAB_PATH = Path(__file__).parents[1] / "model" / "qwen.tiktoken"
 
 # --------------------------------------------------------------------------- #

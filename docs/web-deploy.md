@@ -22,7 +22,7 @@ python minirag.py reset          # 清空持久化存储并重置数据库
 `reset` 会停止三个 compose 文件对应的容器，删除 `docker/volumes` 下的 etcd / Milvus / MinIO 数据、
 `mini-rag_mongodb_data` / `mini-rag_mongodb_config` 命名卷，以及 `var/uploads`、
 `var/import`、`var/tmp`；默认随后重启 infra 与已构建的前后端，由
-`src/api/startup_checks.py` 重建 Milvus 集合与 MinIO bucket。常用参数：
+`backend/api/startup_checks.py` 重建 Milvus 集合与 MinIO bucket。常用参数：
 
 ```shell
 python minirag.py deploy --dry-run       # 只打印计划
@@ -73,8 +73,8 @@ Linux 修改 `/etc/docker/daemon.json` 后重启 docker；Docker Desktop 在设�
 
 ```shell
 # 本地开发
-uvicorn --app-dir src api.main:app --reload        # 后端 :8000
-cd web && npm run dev                              # 前端 :5173 (代理 /api → :8000)
+uvicorn --app-dir backend api.main:app --reload        # 后端 :8000
+cd frontend && npm run dev                              # 前端 :5173 (代理 /api → :8000)
 
 # 一键容器化 (按顺序拉起)
 # 后端配置 (密钥/模型等) 由仓库根目录 .env 经 env_file 注入容器,

@@ -1,7 +1,7 @@
 import type { StorybookConfig } from "@storybook/react-vite";
 
 /**
- * Storybook 配置（组件工作台）：Vite 构建器直接复用 web/vite.config.ts，
+ * Storybook 配置（组件工作台）：Vite 构建器直接复用 frontend/vite.config.ts，
  * 因此 `@ → src` 别名、React 插件与开发代理都与应用保持一致。
  */
 const config: StorybookConfig = {

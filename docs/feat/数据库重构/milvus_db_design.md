@@ -1,5 +1,8 @@
 # Milvus 数据库设计
 
+<!-- docs-layout: 2026-11 -->
+> 状态：暂缓 / 研究稿 · 不作为动工依据；路径为当时记录。索引见 [docs/feat/README.md](../README.md)。
+
 > ⚠️ **历史版本**: 本文档描述的是 `minirag_item_name` / `minirag_chunks` 旧表设计,
 > 已被 `Milvus minirag_docs_meta db design.md` 及重构定案
 > `Milvus DB Refactor.md` 取代, 仅作历史参考。

@@ -1,5 +1,8 @@
 # Session-MVVM PRD V0
 
+<!-- docs-layout: 2026-11 -->
+> 状态：已完结（历史快照） · 文中 `src/`、`web/` 为 2026-11 目录改名前的路径，当前对应 `backend/`、`frontend/`；代码现状以仓库为准。索引见 [docs/feat/README.md](../README.md)。
+
 ## 现状
 
 目前的页面有两个 Tab，分别是“会话列表”和“会话详情”。

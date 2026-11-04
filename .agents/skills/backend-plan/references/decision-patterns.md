@@ -42,7 +42,7 @@
 
 | 族 | 必答问题 | 本仓既有先例 |
 | --- | --- | --- |
-| 身份与标识 | 谁生成 ID、生命周期多久、浏览器会话还是聊天会话、匿名怎么算、IP 从哪取（反代后是 `X-Forwarded-For`，容器网络里是网关地址；本仓目前**没有**取 IP 的先例，要新写） | `session_id` 由前端生成并存 localStorage（`web/src/store/chatStore.ts:31`），`/api/query` 原样透传 |
+| 身份与标识 | 谁生成 ID、生命周期多久、浏览器会话还是聊天会话、匿名怎么算、IP 从哪取（反代后是 `X-Forwarded-For`，容器网络里是网关地址；本仓目前**没有**取 IP 的先例，要新写） | `session_id` 由前端生成并存 localStorage（`frontend/src/store/chatStore.ts:31`），`/api/query` 原样透传 |
 | 存储选型 | 需要向量/检索 → Milvus；会话与明细 → Mongo；制品与图片 → MinIO；短生命周期实时态 → 进程内（带 TTL） | `chat_history`(Mongo)、docs/chunks(Milvus)、三制品(MinIO)、`TASK_MANAGER`(进程内) |
 | 实时性 | 增量推送 / 请求返回即快照 / 前端轮询，选哪个、为什么 | `SSEEvent` 家族 + `sse_stream`；通道必须先 `create` |
 | 写入时机与频率 | 每次模型调用写一次、请求结束写一次、还是内存聚合后定期落库；hot path 多一次写库能否接受 | 现状：一次查询就有 5~6 次模型调用（意图识别、HyDE、查询向量化、重排、答案生成，另有可选的融合结论），写入频率是必答项 |
@@ -68,7 +68,7 @@
 
 抽取方法：**demo 元素 → 它其实要求后端什么 → 落到方案哪一章**。
 
-以 `docs/feat/Token统计/demo.html`（当前进行中的需求）为例：
+以 `docs/feat/Token统计/demo.html`（历史范例）为例：
 
 | demo 里的事实 | 对后端的真实要求 | 落到哪 |
 | --- | --- | --- |
@@ -132,7 +132,7 @@
 3. 存量数据怎么办——清库、迁移还是容忍？
 4. 失败一半怎么办——补偿、忽略，还是返回部分成功？
 5. 多 worker 或服务重启后会怎样？方案是否默认了进程内状态？
-6. 端点前缀与 `web/nginx.conf`、docker healthcheck 对得上吗？
+6. 端点前缀与 `frontend/nginx.conf`、docker healthcheck 对得上吗？
 7. 谁在什么时候调用？失败后前端看到什么？
 8. 新增配置项谁来配？`.env.example` 同步了吗？
 9. 会不会留下孤儿数据/对象（MinIO 目录、Milvus 行、Mongo 记录）？

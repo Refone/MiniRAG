@@ -29,8 +29,8 @@
 
 | 文件 | 类型 | 改动 |
 | --- | --- | --- |
-| `src/api/main.py` | 改 | ... |
-| `src/service/<x>_service.py` | 新增 | ... |
+| `backend/api/main.py` | 改 | ... |
+| `backend/service/<x>_service.py` | 新增 | ... |
 
 ## 4. 内部重要变更
 

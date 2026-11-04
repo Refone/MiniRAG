@@ -1,5 +1,8 @@
 # 查询兜底机制
 
+<!-- docs-layout: 2026-11 -->
+> 状态：已完结（历史快照） · 文中 `src/`、`web/` 为 2026-11 目录改名前的路径，当前对应 `backend/`、`frontend/`；代码现状以仓库为准。索引见 [docs/feat/README.md](../README.md)。
+
 ## 现状
 
 当前现状，在 `src/graphs/query_graph/nodes/node_intent_recognize.py` 中，如果没有文档与查询匹配，会直接回答兜底文案 "文库暂无内容与您的查询内容匹配"。

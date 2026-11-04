@@ -16,7 +16,7 @@ name: Deploy Production
 on:
   push:
     branches: [main]
-    # 只改这些非运行时代码时不触发部署；若同一次 push 还改了 src/web/docker 等，
+    # 只改这些非运行时代码时不触发部署；若同一次 push 还改了 backend/frontend/docker 等，
     # paths-ignore 不会生效，仍会正常部署。
     paths-ignore:
       - "docs/**"
@@ -24,9 +24,9 @@ on:
       - "tools/**"
       - ".agents/**"
       - ".github/**"
-      - "web/e2e/**"
-      - "web/.storybook/**"
-      - "web/playwright.config.ts"
+      - "frontend/e2e/**"
+      - "frontend/.storybook/**"
+      - "frontend/playwright.config.ts"
       - "README.md"
       - "AGENTS.md"
       - ".pre-commit-config.yaml"

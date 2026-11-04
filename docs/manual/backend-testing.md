@@ -63,7 +63,7 @@ patch_accessors(monkeypatch, llm=FakeLLM(), milvus=FakeMilvus())
 2. 断言消息写清「期望 vs 实际」，禁止裸 `assert x`。
 3. 只测契约与不变式：API/SSE 形状、状态机、删除顺序、计量口径、图路由。**不测**日志文案、私有步骤调用次数、prompt 全文快照、真实模型输出。
 4. 新增行为先写测试跑红再实现；每个线上 bug 补一条回归用例。
-5. 不改测试来适配实现；接口/事件契约变更需同步 `web/e2e/mock-server` 与本文档。
+5. 不改测试来适配实现；接口/事件契约变更需同步 `frontend/e2e/mock-server` 与本文档。
 6. 禁止在默认套件里 `sleep`、随机、连真实服务；需要外部依赖时用 `patch_accessors` / `dependency_overrides`。
 
 ## API key

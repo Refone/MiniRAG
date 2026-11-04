@@ -17,7 +17,7 @@ def test_import__no_key_no_infra__api_main_imports():
     env = os.environ.copy()
     env.update(
         {
-            "PYTHONPATH": str(ROOT / "src"),
+            "PYTHONPATH": str(ROOT / "backend"),
             "DASHSCOPE_API_KEY": "",
             "MINERU_API_KEY": "",
             "MONGODB_URI": "mongodb://127.0.0.1:1/?serverSelectionTimeoutMS=200",

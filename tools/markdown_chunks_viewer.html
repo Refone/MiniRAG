@@ -7,7 +7,7 @@
     <!--
       Markdown Chunks Viewer —— 单文件工具, 双击打开即可 (file:// 也能用), 无后端、无网络请求。
 
-      生成数据:  python src/utils/markdown_splitter.py     # -> var/tmp/chunks.json
+      生成数据:  PYTHONPATH=backend python -m common.utils.markdown_splitter     # -> var/tmp/chunks.json
       载入数据:  把 var/tmp/chunks.json 拖进窗口, 或点右上角「打开 JSON」
 
       三种视图:  merge = 按 level / title_stack 把 chunks 拼回全文
@@ -823,7 +823,7 @@ body.dragging .drop-overlay { display: flex; }
  * 不发任何网络请求, 也不执行 Python。数据完全来自你拖进来的 JSON 文件:
  *
  *   1) 命令行生成数据:
- *        python src/utils/markdown_splitter.py     # -> var/tmp/chunks.json
+ *        PYTHONPATH=backend python -m common.utils.markdown_splitter     # -> var/tmp/chunks.json
  *
  *   2) 直接双击 tools/markdown_chunks_viewer.html (file:// 也能用),
  *      把 var/tmp/chunks.json 拖进窗口 —— 或者点右上角「打开 JSON」选择文件。
@@ -1397,7 +1397,7 @@ function renderDropzone() {
       <span class="dropzone-title">把 chunks.json 拖到这里</span>
       <span class="dropzone-sub">或点右上角「打开 JSON」选择文件</span>
       <span class="dropzone-hint">
-        文件由 <code>python src/utils/markdown_splitter.py</code> 生成到 <code>var/tmp/chunks.json</code>
+        文件由 <code>PYTHONPATH=backend python -m common.utils.markdown_splitter</code> 生成到 <code>var/tmp/chunks.json</code>
       </span>
     </button>`);
 }
@@ -1411,7 +1411,7 @@ function renderError() {
       ${escapeHtml(state.error.message || state.error)}<br /><br />
       期望的格式是一个 chunk 数组:<br />
       <code>[{"content": "…", "level": 2, "title_stack": ["第一章", "习题"]}, …]</code><br /><br />
-      可以用 <code>python src/utils/markdown_splitter.py</code> 生成,
+      可以用 <code>PYTHONPATH=backend python -m common.utils.markdown_splitter</code> 生成,
       然后重新把文件拖进来。
     </div>`);
 }

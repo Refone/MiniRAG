@@ -229,10 +229,10 @@ workflow 文件：[.github/workflows/deploy.yml](../.github/workflows/deploy.yml
 > 手动跑一次，或等下一次运行时代码 push。
 
 - `push` 到 `main`：自动部署，默认 `--mirror cn`；
-  - 只有 `docs/`、`tests/`、`tools/`、`.agents/`、`.github/`、`web/e2e/`、
-    `web/.storybook/` 以及 README/AGENTS 等非运行时代码变更时，Deploy Production
+  - 只有 `docs/`、`tests/`、`tools/`、`.agents/`、`.github/`、`frontend/e2e/`、
+    `frontend/.storybook/` 以及 README/AGENTS 等非运行时代码变更时，Deploy Production
     会被 `paths-ignore` 跳过；
-  - 同一次 push 只要包含 `src/`、`web/src/`、`docker/`、`pyproject.toml`、
+  - 同一次 push 只要包含 `backend/`、`frontend/src/`、`docker/`、`pyproject.toml`、
     `uv.lock` 等运行时代码，仍会正常部署；
 - Actions 页面手动 `Run workflow`：可选择 `cn` / `auto` / `global` 镜像策略；
   `workflow_dispatch` 不受路径过滤影响；

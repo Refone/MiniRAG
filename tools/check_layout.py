@@ -23,7 +23,7 @@ ROOT = Path(__file__).resolve().parents[1]
 README = ROOT / "README.md"
 SECTION = "## 目录约定"
 
-# | `src/` | ✅ | 后端源码 ... |
+# | `backend/` | ✅ | 后端源码 ... |
 ROW = re.compile(r"^\|\s*`([^`]+)`\s*\|\s*(✅|❌)\s*\|")
 
 

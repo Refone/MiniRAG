@@ -7,7 +7,7 @@ whenToUse: 需要把 docs/feat/<需求名>/PRD.md 的页面需求可视化，或
 # 前端交互 demo（demo.html）
 
 把需求文档转成**评审可直接双击打开**的单文件原型，呈现「页面布局 + 动画效果 + 交互逻辑」。
-原型只回答「长什么样、怎么动、点了会怎样」：不写真实接口、不接后端、不提前改 `web/src`。
+原型只回答「长什么样、怎么动、点了会怎样」：不写真实接口、不接后端、不提前改 `frontend/src`。
 
 ## 产出契约
 
@@ -17,7 +17,7 @@ whenToUse: 需要把 docs/feat/<需求名>/PRD.md 的页面需求可视化，或
 | 形态 | 单文件、零依赖、`file://` 双击可开；不新增图片文件（图标内联 SVG，图片用内联 SVG/渐变占位） |
 | 规模 | 模板自带约 950 行（令牌 + 骨架 + 示例），替换示例后通常 900–1500 行；超过 1800 行先考虑拆状态或按 tab 分组 |
 | 数据 | 全部 `MOCK` 常量，MiniRAG 语境（知识库、文档、分块、检索、导入任务），不用 lorem ipsum |
-| 归属 | AI 只写文件，不 `git add/commit`；人类评审通过后才动 `web/src` 和后端改动方案 |
+| 归属 | AI 只写文件，不 `git add/commit`；人类评审通过后才动 `frontend/src` 和后端改动方案 |
 
 多页面需求仍是**一个** demo.html，页内用顶栏 tab 或横向滑轨切换；默认不要产出第二个 html。
 
@@ -32,9 +32,9 @@ whenToUse: 需要把 docs/feat/<需求名>/PRD.md 的页面需求可视化，或
 
 ### 2. 对齐现状（让原型像真产品）
 
-读被改动区域的 `web/src`（`pages/`、`components/`、`styles/`），沿用同样的 DOM 轮廓、文案语气与视觉令牌：
+读被改动区域的 `frontend/src`（`pages/`、`components/`、`styles/`），沿用同样的 DOM 轮廓、文案语气与视觉令牌：
 
-- 令牌唯一来源 `web/src/styles/tokens.css`；模板已内联一份，生产变更时覆盖过去。
+- 令牌唯一来源 `frontend/src/styles/tokens.css`；模板已内联一份，生产变更时覆盖过去。
 - 关键尺寸、组件配方、图标规则见 `references/design-system.md`。
 - 页面骨架（navbar、对话区 `max-width: 800px`、文档页左栏 `360px`）照抄，不要自创导航。
 
@@ -93,7 +93,7 @@ grep -nE 'fetch\(|XMLHttpRequest|EventSource|new WebSocket' docs/feat/<需求名
 
 ## 硬性规则（评审当场会挑的）
 
-1. **离线单文件**：无 CDN、无外链字体/图片、无 `fetch`；不引用 `web/` 里的文件。
+1. **离线单文件**：无 CDN、无外链字体/图片、无 `fetch`；不引用 `frontend/` 里的文件。
 2. **主题**：`<html data-theme>` + `<head>` 内联脚本先定主题（防闪白），键名 `minicrag-preview-theme`；右上角可切换；深色下不得出现白卡片、黑字、看不见的边框。
 3. **只用令牌**：颜色/圆角/阴影全部走 `--bg/--surface/--text/--accent/--r-*/--shadow-*`；确需新色，同时加到 `:root` 与 `[data-theme="dark"]` 并起语义名。
 4. **交互真能点**：hover / active / focus-visible 齐全；弹窗 Esc 关闭并还原焦点；toast 自动消失；输入框能打字（回车发送）；tab 能切。
@@ -113,7 +113,7 @@ grep -nE 'fetch\(|XMLHttpRequest|EventSource|new WebSocket' docs/feat/<需求名
 - 固定 `100vh`：移动端地址栏会裁掉底部，用 `100dvh`（模板已处理）。
 - 无限循环装饰动画（加载态除外）。
 - 把 PRD 段落成篇贴进页面：原型是界面，不是文档。
-- 顺手改 `web/src` 或提前写方案设计：越阶段。
+- 顺手改 `frontend/src` 或提前写方案设计：越阶段。
 
 ## 参考
 

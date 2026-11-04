@@ -1,5 +1,8 @@
 # 🎯 任务管理升级 PRD
 
+<!-- docs-layout: 2026-11 -->
+> 状态：已完结（P2 暂缓） · 历史快照；文中 `src/`、`web/` 为当时路径，当前对应 `backend/`、`frontend/`。索引见 [docs/feat/README.md](../README.md)。
+
 ## 现状
 
 我们关注长时任务状态栏的展示和交互体验
