@@ -28,10 +28,12 @@ src     # 后端源码 (以 src/ 为 sys.path 根); 分层规则见 AGENTS.md
     ├── prompt/   # T0 提示词模板
     └── store/    # T4 持久化 (会话历史 / 文档写路径)
 tests   # pytest 分层 + 样例输入
-├── unit/       # 纯逻辑/节点编排 (默认)
-├── contract/   # API/SSE 契约 (默认)
-├── support/    # fakes / seams / helper
-└── fixtures/   # 各节点 __main__ 与 pytest 共用的样例文件
+├── unit/         # 纯逻辑/节点编排 (默认)
+├── contract/     # API/SSE 契约 (默认)
+├── integration/  # 真 infra 启动冒烟 (手动)
+├── live/         # 真模型查询冒烟 (手动)
+├── support/      # fakes / seams / helper
+└── fixtures/     # 各节点 __main__ 与 pytest 共用的样例文件
 tools   # 非生产代码: 维护脚本 + 独立工具
 ├── make_env_example.py     # .env -> .env.example (脱敏)
 ├── reset_db.py             # 清空并重建 Milvus / MinIO / MongoDB

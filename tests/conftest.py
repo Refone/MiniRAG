@@ -11,7 +11,8 @@ if os.getenv("RUN_LIVE_TESTS") != "1":
 
 # 任何 common.* import 之前冻结测试资源名，避免 pytest 收集整棵树时误用生产库。
 os.environ.setdefault("MONGODB_DB_NAME", "minirag_test")
-os.environ.setdefault("MINIO_BUCKET_NAME", "minirag_test")
+# S3/MinIO bucket 名不允许下划线, 其余测试资源仍沿用 minirag_test_* 前缀
+os.environ.setdefault("MINIO_BUCKET_NAME", "minirag-test")
 os.environ.setdefault("MILVUS_COLLECTION_DOCS", "minirag_test_docs")
 os.environ.setdefault("MILVUS_COLLECTION_CHUNKS", "minirag_test_chunks")
 

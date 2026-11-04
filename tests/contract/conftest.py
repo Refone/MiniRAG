@@ -3,7 +3,11 @@ from fastapi.testclient import TestClient
 
 from tests.support.guards import install_model_guard
 
-install_model_guard()
+
+@pytest.fixture(autouse=True)
+def _model_guard(monkeypatch):
+    install_model_guard(monkeypatch)
+    yield
 
 
 @pytest.fixture

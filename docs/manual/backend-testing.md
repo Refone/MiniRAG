@@ -24,8 +24,13 @@ Agent 迭代主路径：
 | --- | --- | --- | --- |
 | `unit` | ✅ | 无 | 纯函数、状态机、节点编排、service 流程 |
 | `contract` | ✅ | 无（TestClient 不起 lifespan） | 路由、状态码/DTO、SSE 帧序、错误翻译 |
-| `integration` | ❌ | 真 Mongo/MinIO/Milvus | 存储读写、启动自检（阶段 3 再建） |
-| `live` | ❌ | 真模型 + key | 模型首包、usage 形状（人工） |
+| `integration` | ❌ | 真 Mongo/MinIO/Milvus | 启动自检幂等 + 真实连接（手动） |
+| `live` | ❌ | 真模型 + key + 本机 infra | 一次真实查询的 final/usage/close（人工） |
+
+真栈用例已建，均不进 CI：
+
+- `tests/integration/test_startup_real.py`：连续两次启动自检 + lifespan + `/api/health`。
+- `tests/live/test_query_smoke.py`：真模型跑一次不联网查询，只断言链路与 usage 形状。
 
 ## 目录与接缝
 
@@ -35,6 +40,8 @@ tests/
 ├── support/           # fakes / seams / sse / api helper（不放 test_*.py）
 ├── unit/              # 纯逻辑与编排
 ├── contract/          # API / SSE 契约
+├── integration/       # 真 infra 启动冒烟（-m integration）
+├── live/              # 真模型查询冒烟（RUN_LIVE_TESTS=1 -m live）
 └── fixtures/          # 节点 __main__ 与 pytest 共用样例（勿移动）
 ```
 
@@ -63,7 +70,8 @@ patch_accessors(monkeypatch, llm=FakeLLM(), milvus=FakeMilvus())
 
 - 默认套件：**不需要真实 key**；根 conftest 注入 dummy 只是防止误用本机 `.env`。
 - `unit/contract` 的模型守卫会在误调真实模型时直接 `AssertionError`。
-- `live` 才读真实 key：`DASHSCOPE_API_KEY`；PDF 冒烟另需 `MINERU_API_KEY`。live 不进 CI、不写进 pre-commit。
+- `live` 才读真实 key：`DASHSCOPE_API_KEY`；PDF 导入冒烟另需 `MINERU_API_KEY`（手动执行，不是 live 用例）。live 不进 CI、不写进 pre-commit。
+- `integration` / `live` 也需要本机 Mongo/MinIO/Milvus；测试资源名由根 `conftest.py` 固定为 `minirag_test` 库、`minirag_test_*` 集合、`minirag-test` bucket（S3/MinIO bucket 名不允许下划线）。
 
 ## CI 与 pre-commit
 
@@ -74,4 +82,5 @@ patch_accessors(monkeypatch, llm=FakeLLM(), milvus=FakeMilvus())
 
 - 空 key / 无 infra 下 `import api.main` 失败：先看 `tests/unit/test_import_hygiene.py`，通常是新单例又在模块底部实例化。
 - 用例间串扰：检查是否漏了唯一 ID 或 `clear_all()`。
+- `live` 报「默认测试禁止访问真实模型访问器」：模型守卫必须用 unit/contract 的 autouse fixture 安装（随 monkeypatch 还原），不能在 conftest import 时全局替换，否则会污染 live。
 - 假件形状漂移：对照真实响应改 `tests/support/fakes.py`；每个模型保留 1 个 live 冒烟校准。
