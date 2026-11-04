@@ -1,0 +1,344 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#101522" />
+    <title>Pong</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        font-family: system-ui, sans-serif;
+        background: #101522;
+        color: #f4f7ff;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        min-height: 100vh;
+        margin: 0;
+        display: grid;
+        place-items: center;
+        padding: 24px;
+      }
+
+      main {
+        width: min(100%, 960px);
+        text-align: center;
+      }
+
+      h1 {
+        margin: 0 0 8px;
+        font-size: clamp(2rem, 6vw, 3.5rem);
+        letter-spacing: 0.18em;
+      }
+
+      .scoreboard {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 24px;
+        margin: 12px 0;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .score {
+        min-width: 2ch;
+        font-size: 2rem;
+        font-weight: 700;
+      }
+
+      .player-label {
+        color: #aab5ca;
+        font-size: 0.75rem;
+        letter-spacing: 0.12em;
+      }
+
+      .game-frame {
+        position: relative;
+        overflow: hidden;
+        border: 1px solid #364158;
+        border-radius: 12px;
+        background: #151d2c;
+        box-shadow: 0 20px 60px #05080f80;
+      }
+
+      canvas {
+        display: block;
+        width: 100%;
+        height: auto;
+        aspect-ratio: 16 / 9;
+      }
+
+      .overlay {
+        position: absolute;
+        inset: 0;
+        display: grid;
+        place-content: center;
+        gap: 14px;
+        padding: 20px;
+        background: #101522bb;
+        backdrop-filter: blur(4px);
+      }
+
+      .overlay[hidden] {
+        display: none;
+      }
+
+      .overlay p {
+        margin: 0;
+        color: #d3d9e7;
+      }
+
+      button {
+        justify-self: center;
+        border: 0;
+        border-radius: 8px;
+        padding: 11px 22px;
+        background: #76f2c2;
+        color: #101522;
+        font: inherit;
+        font-weight: 700;
+        cursor: pointer;
+      }
+
+      button:hover {
+        background: #9af8d5;
+      }
+
+      button:focus-visible {
+        outline: 3px solid white;
+        outline-offset: 3px;
+      }
+
+      .help {
+        margin: 14px 0 0;
+        color: #aab5ca;
+        font-size: 0.9rem;
+      }
+
+      kbd {
+        border: 1px solid #49546a;
+        border-radius: 4px;
+        padding: 2px 6px;
+        color: #f4f7ff;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>PONG</h1>
+      <div class="scoreboard" aria-label="Score">
+        <div>
+          <div class="player-label">YOU</div>
+          <div id="player-score" class="score" aria-live="polite">0</div>
+        </div>
+        <span aria-hidden="true">:</span>
+        <div>
+          <div class="player-label">CPU</div>
+          <div id="cpu-score" class="score" aria-live="polite">0</div>
+        </div>
+      </div>
+      <div class="game-frame">
+        <canvas id="game" width="960" height="540" aria-label="Pong game"></canvas>
+        <section id="overlay" class="overlay">
+          <strong id="overlay-title">Ready to play?</strong>
+          <p id="overlay-message">First to 7 points wins.</p>
+          <button id="start-button" type="button">Start game</button>
+        </section>
+      </div>
+      <p class="help">
+        Move with <kbd>W</kbd>/<kbd>S</kbd> or <kbd>↑</kbd>/<kbd>↓</kbd>
+        <span aria-hidden="true"> · </span>
+        Pause with <kbd>Space</kbd>
+      </p>
+    </main>
+    <script>
+      const canvas = document.querySelector("#game");
+      const ctx = canvas.getContext("2d");
+      const overlay = document.querySelector("#overlay");
+      const overlayTitle = document.querySelector("#overlay-title");
+      const overlayMessage = document.querySelector("#overlay-message");
+      const startButton = document.querySelector("#start-button");
+      const playerScoreLabel = document.querySelector("#player-score");
+      const cpuScoreLabel = document.querySelector("#cpu-score");
+
+      const width = canvas.width;
+      const height = canvas.height;
+      const paddle = { width: 12, height: 96, speed: 460 };
+      const ball = { x: width / 2, y: height / 2, radius: 9, vx: 0, vy: 0 };
+      const player = { x: 32, y: height / 2 - paddle.height / 2, score: 0 };
+      const cpu = { x: width - 32 - paddle.width, y: height / 2 - paddle.height / 2, score: 0 };
+      const keys = new Set();
+      const winningScore = 7;
+      let state = "ready";
+      let lastTime = 0;
+
+      function showOverlay(title, message, buttonText) {
+        overlayTitle.textContent = title;
+        overlayMessage.textContent = message;
+        startButton.textContent = buttonText;
+        overlay.hidden = false;
+      }
+
+      function serve(direction) {
+        ball.x = width / 2;
+        ball.y = height / 2;
+        const angle = (Math.random() * 0.7 - 0.35);
+        const speed = 390;
+        ball.vx = Math.cos(angle) * speed * direction;
+        ball.vy = Math.sin(angle) * speed;
+      }
+
+      function startGame() {
+        if (state === "ready" || state === "gameover") {
+          player.score = 0;
+          cpu.score = 0;
+          playerScoreLabel.textContent = "0";
+          cpuScoreLabel.textContent = "0";
+          player.y = height / 2 - paddle.height / 2;
+          cpu.y = player.y;
+        }
+        state = "playing";
+        overlay.hidden = true;
+        serve(Math.random() < 0.5 ? -1 : 1);
+        lastTime = performance.now();
+      }
+
+      function pauseGame() {
+        if (state === "playing") {
+          state = "paused";
+          showOverlay("Paused", "Take a breather.", "Resume");
+        } else if (state === "paused") {
+          state = "playing";
+          overlay.hidden = true;
+          lastTime = performance.now();
+        }
+      }
+
+      function scorePoint(scorer) {
+        scorer.score += 1;
+        playerScoreLabel.textContent = String(player.score);
+        cpuScoreLabel.textContent = String(cpu.score);
+
+        if (scorer.score >= winningScore) {
+          state = "gameover";
+          const playerWon = scorer === player;
+          showOverlay(
+            playerWon ? "You win!" : "CPU wins!",
+            `${player.score} - ${cpu.score}`,
+            "Play again",
+          );
+          return;
+        }
+
+        serve(scorer === player ? -1 : 1);
+      }
+
+      function update(delta) {
+        if (keys.has("ArrowUp") || keys.has("w") || keys.has("W")) {
+          player.y -= paddle.speed * delta;
+        }
+        if (keys.has("ArrowDown") || keys.has("s") || keys.has("S")) {
+          player.y += paddle.speed * delta;
+        }
+        player.y = Math.max(0, Math.min(height - paddle.height, player.y));
+
+        const cpuCenter = cpu.y + paddle.height / 2;
+        const trackingPoint = ball.x > width * 0.42 ? ball.y : height / 2;
+        const cpuDifference = trackingPoint - cpuCenter;
+        cpu.y += Math.sign(cpuDifference) * Math.min(Math.abs(cpuDifference), 340 * delta);
+        cpu.y = Math.max(0, Math.min(height - paddle.height, cpu.y));
+
+        ball.x += ball.vx * delta;
+        ball.y += ball.vy * delta;
+
+        if (ball.y - ball.radius <= 0 || ball.y + ball.radius >= height) {
+          ball.vy *= -1;
+          ball.y = Math.max(ball.radius, Math.min(height - ball.radius, ball.y));
+        }
+
+        if (
+          ball.vx < 0 &&
+          ball.x - ball.radius <= player.x + paddle.width &&
+          ball.x > player.x &&
+          ball.y >= player.y &&
+          ball.y <= player.y + paddle.height
+        ) {
+          ball.vx = Math.abs(ball.vx) * 1.04;
+          ball.vy = ((ball.y - (player.y + paddle.height / 2)) / (paddle.height / 2)) * 390;
+          ball.x = player.x + paddle.width + ball.radius;
+        }
+
+        if (
+          ball.vx > 0 &&
+          ball.x + ball.radius >= cpu.x &&
+          ball.x < cpu.x + paddle.width &&
+          ball.y >= cpu.y &&
+          ball.y <= cpu.y + paddle.height
+        ) {
+          ball.vx = -Math.abs(ball.vx) * 1.04;
+          ball.vy = ((ball.y - (cpu.y + paddle.height / 2)) / (paddle.height / 2)) * 390;
+          ball.x = cpu.x - ball.radius;
+        }
+
+        if (ball.x + ball.radius < 0) scorePoint(cpu);
+        if (ball.x - ball.radius > width) scorePoint(player);
+      }
+
+      function draw() {
+        ctx.clearRect(0, 0, width, height);
+        ctx.fillStyle = "#151d2c";
+        ctx.fillRect(0, 0, width, height);
+
+        ctx.setLineDash([12, 14]);
+        ctx.strokeStyle = "#46516a";
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(width / 2, 0);
+        ctx.lineTo(width / 2, height);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        ctx.fillStyle = "#76f2c2";
+        ctx.fillRect(player.x, player.y, paddle.width, paddle.height);
+        ctx.fillStyle = "#a9b5ff";
+        ctx.fillRect(cpu.x, cpu.y, paddle.width, paddle.height);
+        ctx.beginPath();
+        ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
+        ctx.fillStyle = "#f4f7ff";
+        ctx.fill();
+      }
+
+      function frame(time) {
+        const delta = Math.min((time - lastTime) / 1000, 0.03);
+        lastTime = time;
+        if (state === "playing") update(delta);
+        draw();
+        requestAnimationFrame(frame);
+      }
+
+      startButton.addEventListener("click", () => {
+        if (state === "paused") {
+          pauseGame();
+        } else {
+          startGame();
+        }
+      });
+
+      window.addEventListener("keydown", (event) => {
+        if (["ArrowUp", "ArrowDown", " "].includes(event.key)) event.preventDefault();
+        keys.add(event.key);
+        if (event.key === " ") pauseGame();
+      });
+
+      window.addEventListener("keyup", (event) => keys.delete(event.key));
+      window.addEventListener("blur", () => keys.clear());
+
+      requestAnimationFrame(frame);
+    </script>
+  </body>
+</html>
