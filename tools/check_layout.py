@@ -56,13 +56,22 @@ def git_indexed(path: str) -> bool:
 
 
 def git_ignored(path: str) -> bool:
-    """路径是否被 .gitignore 命中 (不要求路径存在)。"""
+    """路径是否被 .gitignore 命中 (不要求路径存在)。
+
+    同时试 `path` 与 `path/`：CI 全新 checkout 没有 `var/`、`docker/volumes/`
+    这类空目录，而带尾斜杠的 ignore 规则只匹配目录；补一次 `path/` 才能
+    在目录不存在时仍判定为已忽略。
+    """
+    candidates = (path,) if path.endswith("/") else (path, f"{path}/")
     try:
-        result = subprocess.run(
-            ["git", "-C", str(ROOT), "check-ignore", "-q", path],
-            capture_output=True,
-        )
-        return result.returncode == 0
+        for candidate in candidates:
+            result = subprocess.run(
+                ["git", "-C", str(ROOT), "check-ignore", "-q", candidate],
+                capture_output=True,
+            )
+            if result.returncode == 0:
+                return True
+        return False
     except FileNotFoundError:  # 没有 git 就跳过该维度
         return True
 
