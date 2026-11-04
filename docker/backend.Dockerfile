@@ -11,7 +11,7 @@ FROM ${PYTHON_IMAGE}
 
 COPY --from=uv /uv /uvx /bin/
 
-ENV PYTHONPATH=/app/src \
+ENV PYTHONPATH=/app/backend \
     PROJECT_ROOT=/app \
     UV_COMPILE_BYTECODE=1 \
     UV_LINK_MODE=copy
@@ -50,7 +50,7 @@ RUN set -eu; \
     fi
 
 # 源码层
-COPY src ./src
+COPY backend ./backend
 
 EXPOSE 8000
 

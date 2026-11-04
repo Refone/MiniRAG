@@ -1,5 +1,8 @@
 # Milvus DB 重构方案（minirag_docs / minirag_chunks）
 
+<!-- docs-layout: 2026-11 -->
+> 状态：暂缓 / 研究稿 · 不作为动工依据；路径为当时记录。索引见 [docs/feat/README.md](../README.md)。
+
 > 状态：**预览稿（已并入第一、二轮评审），待确认**。本文档是基于 `Milvus minirag_docs_meta db design.md` 原始设计，
 > 结合现有代码实现（`milvus_client.py`、导入/查询链路）评审后的定案改动方案。
 > 旧设计文档 `milvus_db_design.md` 将在实施后标记为历史版本。

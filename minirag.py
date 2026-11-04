@@ -42,7 +42,7 @@ BACKEND_DOCKERFILE = DOCKER_DIR / "backend.Dockerfile"
 FRONTEND_DOCKERFILE = DOCKER_DIR / "frontend.Dockerfile"
 ENV_FILE = ROOT / ".env"
 ENV_EXAMPLE = ROOT / ".env.example"
-WEB_DIR = ROOT / "web"
+WEB_DIR = ROOT / "frontend"
 WEB_ENV_FILE = WEB_DIR / ".env"
 WEB_ENV_EXAMPLE = WEB_DIR / ".env.example"
 VAR_DIR = ROOT / "var"
@@ -94,7 +94,7 @@ REQUIRED_PATHS = (
     FRONTEND_DOCKERFILE,
     WEB_DIR / "package.json",
     WEB_DIR / "nginx.conf",
-    ROOT / "src" / "api" / "main.py",
+    ROOT / "backend" / "api" / "main.py",
 )
 
 # (宿主机端口, 用途, 占用它的 compose 容器名)
@@ -987,11 +987,11 @@ def check_local_deps(checker: Checker) -> None:
 
     node_modules = WEB_DIR / "node_modules"
     if node_modules.is_dir():
-        checker.ok("前端依赖", "web/node_modules 已存在")
+        checker.ok("前端依赖", "frontend/node_modules 已存在")
     else:
         checker.warn(
             "前端依赖",
-            "web/node_modules 不存在",
+            "frontend/node_modules 不存在",
             "运行 env_prepare 安装（Docker 构建不需要）",
         )
 
@@ -1529,10 +1529,10 @@ def ensure_env_files(dry_run: bool) -> bool:
 
     if WEB_ENV_EXAMPLE.is_file() and not WEB_ENV_FILE.exists():
         if dry_run:
-            info(f"[dry-run] 将从 web/.env.example 创建 {WEB_ENV_FILE}")
+            info(f"[dry-run] 将从 frontend/.env.example 创建 {WEB_ENV_FILE}")
         else:
             shutil.copyfile(WEB_ENV_EXAMPLE, WEB_ENV_FILE)
-            ok("已创建 web/.env")
+            ok("已创建 frontend/.env")
     return True
 
 
@@ -1701,13 +1701,13 @@ def install_node_deps(
     if (WEB_DIR / "package-lock.json").is_file():
         cmd = [npm, "ci", "--no-audit", "--no-fund"]
     else:
-        warn("缺少 web/package-lock.json", "回退到 npm install")
+        warn("缺少 frontend/package-lock.json", "回退到 npm install")
         cmd = [npm, "install", "--no-audit", "--no-fund"]
     if mirrors.npm_registry:
         info(f"npm registry: {mirrors.npm_registry}")
         cmd.append(f"--registry={mirrors.npm_registry}")
     run_stream(cmd, cwd=WEB_DIR)
-    ok("前端依赖已就绪 (web/node_modules)")
+    ok("前端依赖已就绪 (frontend/node_modules)")
 
 
 def pull_images() -> None:
@@ -1911,7 +1911,7 @@ def cmd_deploy(args: argparse.Namespace) -> int:
         expect_status="ok",
     ):
         fail("前端 /api 反代后端失败")
-        detail("检查 web/nginx.conf 与后端容器状态")
+        detail("检查 frontend/nginx.conf 与后端容器状态")
         return 1
     ok("前端 /api 反代正常")
 

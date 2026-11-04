@@ -26,13 +26,13 @@ env/
 
 # Frontend dependencies and generated output
 node_modules/
-web/dist/
-web/dist-ssr/
-web/storybook-static/
-web/.vite/
-web/.cache/
-web/.eslintcache
-web/.npm-cache/
+frontend/dist/
+frontend/dist-ssr/
+frontend/storybook-static/
+frontend/.vite/
+frontend/.cache/
+frontend/.eslintcache
+frontend/.npm-cache/
 playwright-report/
 test-results/
 blob-report/

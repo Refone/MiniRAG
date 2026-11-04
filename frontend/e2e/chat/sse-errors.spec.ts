@@ -7,7 +7,7 @@ const latestAnswer = (page: import("@playwright/test").Page) =>
   page.locator(".chat-page .msg.bot .markdown").last();
 
 /**
- * P1：SSE 错误两条路径（契约来自 web/src/lib/sse.ts）。
+ * P1：SSE 错误两条路径（契约来自 frontend/src/lib/sse.ts）。
  * - 服务端 event: error（带 data）：错误文案落到回答，随后 __close__ 正常收尾；
  * - 原生连接错误（无 data）：前端主动关流，任务进 failed 终态。
  */

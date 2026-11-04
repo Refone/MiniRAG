@@ -2,8 +2,8 @@
  * E2E 契约 Mock API Server（只给 Playwright 用，不参与构建）
  *
  * 契约来源（后端改动时同步本文件）：
- * - 路由与响应结构：src/api/main.py
- * - SSE 事件名与帧形状：web/src/lib/sse.ts
+ * - 路由与响应结构：backend/api/main.py
+ * - SSE 事件名与帧形状：frontend/src/lib/sse.ts
  *
  * 设计要点：
  * - 原生 node:http，零依赖；前端经 VITE_API_BASE 直连（跨源，所有响应带 CORS 头）；

@@ -1,7 +1,7 @@
 ---
 name: implement
 description: 需求开发 SOP 的「动工」阶段技能：依据 docs/feat/<需求名>/ 下的 PRD、前端交互 demo、后端改动方案（如有）完成核心代码变更，产出待人类提交的核心 commit。前端改动与 demo 逐点对齐，后端按方案的修改清单与对外契约施工，真跑自测后交付。当用户要「动工 / 开工 / 开始实现 / 修改代码 / 按方案施工」，或 SOP 走到「动工」环节时使用。
-whenToUse: 三件套（PRD + demo + 后端改动方案）已评审落定，需要把方案变成 src/ 与 web/ 的真实代码、产出核心 commit 时。
+whenToUse: 三件套（PRD + demo + 后端改动方案）已评审落定，需要把方案变成 backend/ 与 frontend/ 的真实代码、产出核心 commit 时。
 ---
 
 # 需求动工（文档 → 核心 commit）
@@ -14,14 +14,14 @@ whenToUse: 三件套（PRD + demo + 后端改动方案）已评审落定，需�
 
 1. `docs/feat/<需求名>/` 下 PRD 存在；文件名可能不同（如 `需求描述V1.md`、`PRD-V0.md`），以目录内实际为准。
 2. 有后端改动 → `后端改动方案.md` 已评审通过（人类 commit 或明确答复），且文档内无 `⏳` 未决项。
-3. 有前端改动 → `demo.html` 已定稿（人类评审通过）。demo 未评审动 `web/src` = 越阶段。
+3. 有前端改动 → `demo.html` 已定稿（人类评审通过）。demo 未评审动 `frontend/src` = 越阶段。
 4. 基线全绿：动工前先跑一遍 §4 自测命令确认基线，避免在红基线上盖楼；`git status --short` 记下动工前已脏的文件，交付时区分「我的改动 / 原有脏点」。
 
 ## 产出契约
 
 | 项 | 约定 |
 | --- | --- |
-| 代码 | 改动落在 `src/`（后端）与 `web/src/`（前端）；严格按方案「文件修改清单」执行，清单外的改动要在交付回复里说明理由 |
+| 代码 | 改动落在 `backend/`（后端）与 `frontend/src/`（前端）；严格按方案「文件修改清单」执行，清单外的改动要在交付回复里说明理由 |
 | 跟踪 | 变更记录就是 git commit（人类提交）；AI 在交付回复里给文件级改动面总览，不另写实施文档 |
 | 验证脚本 | 一次性脚本放 `var/tmp/`（已 gitignore）或 `uv run python -c '...'`，不散落仓库 |
 | git | 只读（status / log / diff / show）；不 add / commit / push / checkout / reset |
@@ -38,7 +38,7 @@ whenToUse: 三件套（PRD + demo + 后端改动方案）已评审落定，需�
 
 ### 2. 对齐契约（唯一口径）
 
-- **前端 = demo**：DOM 轮廓、每个可达状态（空 / 加载 / 失败 / 终态，不能只做 happy path）、文案、动效参数、视觉令牌都要在 `web/src` 复现；demo 没画的交互不擅自加；mock 数据只当**形状参考**，不当值写死进产品代码。
+- **前端 = demo**：DOM 轮廓、每个可达状态（空 / 加载 / 失败 / 终态，不能只做 happy path）、文案、动效参数、视觉令牌都要在 `frontend/src` 复现；demo 没画的交互不擅自加；mock 数据只当**形状参考**，不当值写死进产品代码。
 - **后端 = 方案**：端点、DTO、错误体、SSE 帧、存储落点严格按「对外契约」与「文件修改清单」施工；方案没写的能力不扩展。
 - PRD / demo / 方案互相矛盾 → **先问人类**，不自行裁定。
 
@@ -61,16 +61,16 @@ whenToUse: 三件套（PRD + demo + 后端改动方案）已评审落定，需�
 
 - 改动必须能过 pre-commit；过不了就不算完成。
 - 单测只覆盖零外部依赖部分（`tests/conftest.py` 约定）；本轮改动的纯函数要补 / 改单测。
-- 涉及 Milvus / MinIO / LLM 的链路：起服务 `uvicorn --app-dir src api.main:app --reload`（:8000）观察 loguru 日志，或对应节点 `__main__` 点火；确认 `.env` 配置与外部服务可用。
+- 涉及 Milvus / MinIO / LLM 的链路：起服务 `uvicorn --app-dir backend api.main:app --reload`（:8000）观察 loguru 日志，或对应节点 `__main__` 点火；确认 `.env` 配置与外部服务可用。
 - 方案的「验收条件」逐条跑、逐条记录结果。
 
 前端：
 
 ```bash
-cd web && npm run build   # tsc --noEmit + vite build，类型检查必须全绿
+cd frontend && npm run build   # tsc --noEmit + vite build，类型检查必须全绿
 ```
 
-- 联调：后端 :8000 + `cd web && npm run dev`（:5173，代理 `/api` → :8000）；组件工作台 `npm run storybook`（:6006，无后端也能看）。
+- 联调：后端 :8000 + `cd frontend && npm run dev`（:5173，代理 `/api` → :8000）；组件工作台 `npm run storybook`（:6006，无后端也能看）。
 - 浏览器走查（对照 demo）：每个状态可直达；console 无 error；明暗主题；1280 / 768 / 390 三档；`prefers-reduced-motion` 降级；点一遍主交互（含弹窗 Esc、toast、tab 切换）。
 - 有回归清单（如 `docs/feat/前端重构/回归清单.md`）逐条核对。
 - DSH 环境用 `browser_open` / `browser_read` / `browser_console` / `browser_screenshot`；会话提供 `frontend-verify` 技能时按其流程走。
@@ -96,7 +96,7 @@ cd web && npm run build   # tsc --noEmit + vite build，类型检查必须全绿
 ## 反模式
 
 - 无 PRD / 方案就凭对话开工。
-- demo 未定稿动 `web/src`；方案有 `⏳` 动 `src/`。
+- demo 未定稿动 `frontend/src`；方案有 `⏳` 动 `backend/`。
 - 跳过自测就交付；临时验证脚本散落在仓库根目录（应进 `var/tmp/`）。
 - 顺手改 demo / 方案 / PRD 正文。
 - 把 demo 的 mock 数值、`bsess-8f2a1c` 这类示例 id 写进产品代码。

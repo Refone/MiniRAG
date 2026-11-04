@@ -4,11 +4,11 @@ on:
   push:
     branches: [main]
     paths:
-      - "web/**"
+      - "frontend/**"
       - ".github/workflows/web-e2e.yml"
   pull_request:
     paths:
-      - "web/**"
+      - "frontend/**"
       - ".github/workflows/web-e2e.yml"
   workflow_dispatch:
 
@@ -22,14 +22,14 @@ jobs:
     timeout-minutes: 15
     defaults:
       run:
-        working-directory: web
+        working-directory: frontend
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
         with:
           node-version: lts/*
           cache: npm
-          cache-dependency-path: web/package-lock.json
+          cache-dependency-path: frontend/package-lock.json
       - name: Install dependencies
         run: npm ci
       - name: Install Playwright browsers
@@ -46,6 +46,6 @@ jobs:
         with:
           name: playwright-report
           path: |
-            web/playwright-report/
-            web/test-results/
+            frontend/playwright-report/
+            frontend/test-results/
           retention-days: 30

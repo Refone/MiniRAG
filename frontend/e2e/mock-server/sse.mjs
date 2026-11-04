@@ -2,7 +2,7 @@
  * SSE 帧输出（E2E mock 专用）
  *
  * 帧结构：{ event, data?, delayMs? }
- * - 事件名与 web/src/lib/sse.ts 对齐（progress / fork / child-progress / delta /
+ * - 事件名与 frontend/src/lib/sse.ts 对齐（progress / fork / child-progress / delta /
  *   final / usage / __close__）；
  * - closeMode="end"（默认）：末尾发 __close__ 后正常关流；前端收到后主动 close()，
  *   否则 EventSource 会自动重连；

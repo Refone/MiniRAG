@@ -1,7 +1,10 @@
 # PRD：导入任务阶段内进度反馈（v0 简版）
 
+<!-- docs-layout: 2026-11 -->
+> 状态：待评审（当前有效） · 路径已按 `backend/`、`frontend/` 更新；索引见 [docs/feat/README.md](../README.md)。
+
 > 类型：体验优化 / 可观测性 · 状态：待评审
-> 依据：本轮需求对话（2026-11-03）+ MinerU 接口实测；后端契约见 [后端改动方案.md](docs/feat/任务管理升级2期/后端改动方案.md)。
+> 依据：本轮需求对话（2026-11-03）+ MinerU 接口实测；后端契约见 [后端改动方案.md](后端改动方案.md)。
 > 说明：前端交互 demo 跳过——`detail` 是可选字段，旧前端零改动兼容；新文案的前端接入量见 §5。
 
 ## 1. 当前 SSE 推送文案（现状）
@@ -82,10 +85,10 @@ HAK180资料包.zip   2048.00 KB   处理中...
 
 ## 2. 问题
 
-- 长等待集中在节点内部，SSE 只有节点开始 / 结束 2 帧（[tracing.py](src/common/events/tracing.py:128)）。
-- PDF 首帧盲等 `0.5s × 页数`（[node_pdf_to_md.py](src/graphs/import_graph/nodes/node_pdf_to_md.py:117)），100 页即 45s 静默；上限 `10s × 页数 + 30s`。
-- 图片识别以 `max_concurrency = 8` 并发调 VLM（[node_md_img.py](src/graphs/import_graph/nodes/node_md_img.py:212)），12 张图可能数十秒。
-- 嵌入入库含 1 次 LLM（[node_document_embedding.py](src/graphs/import_graph/nodes/node_document_embedding.py:299)）、`ceil(切片数 / 10)` 批 embedding（[node_document_embedding.py](src/graphs/import_graph/nodes/node_document_embedding.py:194)）与两次写库。
+- 长等待集中在节点内部，SSE 只有节点开始 / 结束 2 帧（[tracing.py](backend/common/events/tracing.py:128)）。
+- PDF 首帧盲等 `0.5s × 页数`（[node_pdf_to_md.py](backend/graphs/import_graph/nodes/node_pdf_to_md.py:117)），100 页即 45s 静默；上限 `10s × 页数 + 30s`。
+- 图片识别以 `max_concurrency = 8` 并发调 VLM（[node_md_img.py](backend/graphs/import_graph/nodes/node_md_img.py:212)），12 张图可能数十秒。
+- 嵌入入库含 1 次 LLM（[node_document_embedding.py](backend/graphs/import_graph/nodes/node_document_embedding.py:299)）、`ceil(切片数 / 10)` 批 embedding（[node_document_embedding.py](backend/graphs/import_graph/nodes/node_document_embedding.py:194)）与两次写库。
 - 用户无法区分「在跑」与「卡死」，只能看着耗时增长。
 
 ## 3. 目标效果

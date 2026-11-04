@@ -3,11 +3,11 @@
 原型的视觉必须和真实前端一致，评审才不会把「原型的临时样式」当成需求。
 唯一来源是仓库里的样式文件，本文件只是**给 demo 用的摘录**：
 
-- 令牌：`web/src/styles/tokens.css`
-- 基础：`web/src/styles/base.css`
-- 骨架/导航：`web/src/styles/layout.css`
-- 通用组件：`web/src/styles/ui.css`
-- 页面：`web/src/styles/chat.css`、`web/src/styles/docs.css`
+- 令牌：`frontend/src/styles/tokens.css`
+- 基础：`frontend/src/styles/base.css`
+- 骨架/导航：`frontend/src/styles/layout.css`
+- 通用组件：`frontend/src/styles/ui.css`
+- 页面：`frontend/src/styles/chat.css`、`frontend/src/styles/docs.css`
 
 生产令牌变更时，用 `tokens.css` 覆盖 `assets/demo-template.html` 里的令牌块；不要在 demo 里另造一套色板。
 

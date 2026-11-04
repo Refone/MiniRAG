@@ -1,5 +1,8 @@
 # Token统计 PRD
 
+<!-- docs-layout: 2026-11 -->
+> 状态：已完结（历史快照） · 文中 `src/`、`web/` 为 2026-11 目录改名前的路径，当前对应 `backend/`、`frontend/`；代码现状以仓库为准。索引见 [docs/feat/README.md](../README.md)。
+
 ## 现状
 
 当前用户使用整个系统，对 Token 的消耗无感知。

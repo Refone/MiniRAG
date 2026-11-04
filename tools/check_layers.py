@@ -22,7 +22,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-SRC = ROOT / "src"
+SRC = ROOT / "backend"
 
 LAYERS = ("api", "service", "graphs", "common")
 
@@ -38,7 +38,7 @@ ALLOWED = {
 WEB_ALLOWED_LAYERS = {"api"}
 WEB_MODULES = {"fastapi", "starlette"}
 
-# common 内部 tier（键为 src/common/<key>... 的第一段）
+# common 内部 tier（键为 backend/common/<key>... 的第一段）
 COMMON_TIERS = {
     "utils": 0,
     "prompt": 0,
@@ -50,7 +50,7 @@ COMMON_TIERS = {
     "events": 3,
     "store": 4,
 }
-COMMON_PACKAGE_TIER = -1  # src/common/__init__.py
+COMMON_PACKAGE_TIER = -1  # backend/common/__init__.py
 
 
 def module_info(path: Path) -> tuple[str, list[str]]:

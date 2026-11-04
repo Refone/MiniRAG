@@ -19,7 +19,7 @@ whenToUse: 需要把 docs/feat/<需求名>/PRD.md（+ demo.html）翻译成后�
 | 规模 | 250–450 行；超过 600 行按阶段拆文件（参考 `docs/feat/任务管理升级/方案设计P1.md` / `方案设计P2.md`） |
 | 必备章节 | AGENTS.md「后端改动方案.md」五章：架构调整 / 文件修改清单 / 内部重要变更 / 对外重要变更 / 验收条件 |
 | 语言 | 中文、表格优先；Mermaid 只画架构与数据流，不画装饰图 |
-| 归属 | AI 只写文档：`src/`、`web/` 只读取证，不写代码、不建集合、不 `git add/commit` |
+| 归属 | AI 只写文档：`backend/`、`frontend/` 只读取证，不写代码、不建集合、不 `git add/commit` |
 
 「信息精简，尽量突出核心改动和设计思路」是硬指标：能一行表格说清的不写三段话。
 
@@ -111,11 +111,11 @@ whenToUse: 需要把 docs/feat/<需求名>/PRD.md（+ demo.html）翻译成后�
 
 # 2) 引用路径是否存在：期望只输出 §3 清单里标「新增」的文件；
 #    出现其它路径 = 引用写错，或清单漏登记（:行号 后缀与占位符会被跳过）
-grep -oE '`(src|web|docker|tools|tests|docs)/[^`]*`' docs/feat/<需求名>/后端改动方案.md \
+grep -oE '`(backend|frontend|docker|tools|tests|docs)/[^`]*`' docs/feat/<需求名>/后端改动方案.md \
   | tr -d '`' | grep -v '[<>*]' | sort -u \
   | while read -r p; do p=${p%%:*}; [ -e "$p" ] || echo "待新建: $p"; done
 
-# 3) 端点清单一览（只认反引号内的整串，避免把 `src/api/main.py` 误算成端点）
+# 3) 端点清单一览（只认反引号内的整串，避免把 `backend/api/main.py` 误算成端点）
 grep -oE '`/api/[a-zA-Z0-9_{}/.-]+`' docs/feat/<需求名>/后端改动方案.md | tr -d '`' | sort -u
 
 # 4) 待拍板清单（每个 ⏳ 都要进交付回复）
@@ -156,7 +156,7 @@ git status --short
 
 ## 硬性规则
 
-1. **只写文档**：`src/`、`web/` 只读；不新增代码文件、不改 schema、不建集合、不做任何 git 写操作。
+1. **只写文档**：`backend/`、`frontend/` 只读；不新增代码文件、不改 schema、不建集合、不做任何 git 写操作。
 2. **证据优先**：现状结论带 `文件:行号`；拿不到证据写 `⏳`，不编造。
 3. **五章必备**：架构调整 / 文件修改清单 / 内部重要变更 / 对外重要变更 / 验收条件，无变更写「无：<一句理由>」，不删章节。
 4. **schema 带示例**：新增或修改的模型必须给 JSON 示例实例（与 AGENTS.md「关键 schema 提供示例数据实例」同源）。
