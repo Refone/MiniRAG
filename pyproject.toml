@@ -17,7 +17,7 @@ authors = [
 requires-python = ">=3.12"
 dependencies = [
     "chunkana>=0.1.6",
-    "dashscope>=1.27.7",
+    "dashscope>=2.0.3",  # 2.x 懒加载 Assistants，避免 import 时弃用告警
     "fastapi>=0.141.1",
     "httpx2>=2.13.0",
     "langchain>=1.4.2",
@@ -36,6 +36,7 @@ dependencies = [
     "pypdf>=6.0.0",
     "requests>=2.34.2",
     "rich>=13.0.0",
+    "starlette>=1.10.0",  # TestClient 不再用 anyio.abc.BlockingPortal 弃用别名
     "tiktoken>=0.7.0",
     "uvicorn>=0.53.0",
 ]
