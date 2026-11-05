@@ -1,9 +1,5 @@
 /* ============ NavBar Token 指示器 ============ */
 .token-meter {
-  --c-llm: var(--accent);
-  --c-vlm: var(--purple);
-  --c-embedding: var(--success);
-  --c-reranker: var(--warning);
   position: relative;
   flex: 0 0 auto;
   display: flex;

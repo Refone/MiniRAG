@@ -15,27 +15,29 @@
 
 | 令牌 | 浅色 | 深色 | 用途 |
 | --- | --- | --- | --- |
-| `--bg` | `#f4f5f7` | `#1b1b1f` | 页面底色 |
+| `--bg` | `#f6f7fb` | `#1b1b1f` | 页面底色 |
 | `--bg-nav` | `#ffffff` | `#161618` | 导航栏 |
 | `--surface` | `#ffffff` | `#202127` | 卡片/弹窗 |
-| `--surface-2` | `#fafbfc` | `#26272e` | 次级面板 |
-| `--surface-hover` | `#f1f2f5` | `#2a2b32` | hover 底 |
-| `--surface-inset` | `#eceef1` | `#161618` | 分段开关底/空徽标 |
-| `--border` | `#e4e6eb` | `#2e2e32` | 常规描边 |
-| `--border-strong` | `#d3d7dd` | `#3c3f44` | hover 描边/滚动条 |
-| `--text` | `#1f2328` | `#dfdfd6` | 主文字 |
-| `--text-2` | `#646c7b` | `#98989f` | 辅助文字 |
-| `--text-3` | `#8b93a1` | `#6f7076` | 弱化文字/未激活 |
-| `--accent` | `#4f46e5` | `#a8b1ff` | 强调（浅色文字用 accent 本身） |
-| `--accent-fill` | `#4f46e5` | `#5a68dd` | 填充按钮/logo |
-| `--accent-soft` | `#eef2ff` | `rgba(100,108,255,.16)` | 选中底 |
-| `--accent-border` | `#c7d2fe` | `rgba(168,177,255,.35)` | 选中描边 |
+| `--surface-2` | `#fafbfe` | `#26272e` | 次级面板 |
+| `--surface-hover` | `#f1f3f9` | `#2a2b32` | hover 底 |
+| `--surface-inset` | `#eceef6` | `#161618` | 分段开关底/空徽标 |
+| `--border` | `rgba(15,23,42,.10)` | `#2e2e32` | 常规描边 |
+| `--border-strong` | `rgba(15,23,42,.20)` | `#3c3f44` | hover 描边/滚动条 |
+| `--text` | `#111827` | `#dfdfd6` | 主文字 |
+| `--text-2` | `#5b6472` | `#98989f` | 辅助文字 |
+| `--text-3` | `#7b8494` | `#6f7076` | 弱化文字/未激活 |
+| `--accent` | `#7c3aed` | `#a8b1ff` | 强调（浅色文字用 accent 本身） |
+| `--accent-fill` | `#7c3aed` | `#5a68dd` | 填充按钮/logo |
+| `--accent-soft` | `rgba(124,58,237,.10)` | `rgba(100,108,255,.16)` | 选中底 |
+| `--accent-border` | `rgba(124,58,237,.30)` | `rgba(168,177,255,.35)` | 选中描边 |
 | `--on-accent` | `#ffffff` | `#ffffff` | 填充按钮上的字 |
-| `--focus` | `#4f46e5` | `#a8b1ff` | 焦点环 |
-| `--success`/`-soft` | `#15803d`/`#dcfce7` | `#3dd68c`/`rgba(16,185,129,.16)` | 成功 |
+| `--focus` | `#7c3aed` | `#a8b1ff` | 焦点环 |
+| `--success`/`-soft` | `#047857`/`#d1fae5` | `#3dd68c`/`rgba(16,185,129,.16)` | 成功 |
 | `--warning`/`-soft` | `#b45309`/`#fef3c7` | `#f9b44e`/`rgba(234,179,8,.14)` | 进行中/注意 |
-| `--danger`/`-soft` | `#b91c1c`/`#fee2e2` | `#f66f81`/`rgba(244,63,94,.16)` | 失败/危险操作 |
-| `--user-bubble` | `#e9ebef` | `#2a2b32` | 用户气泡 |
+| `--danger`/`-soft` | `#c81e1e`/`#fee2e2` | `#f66f81`/`rgba(244,63,94,.16)` | 失败/危险操作 |
+| `--purple`/`-soft` | `#a21caf`/`#fae8ff` | `#c8abfa`/`rgba(159,122,234,.16)` | 切块级别标签（须与 accent 拉开色相）；深色下同时是 VLM 系列色 |
+| `--user-bubble` | `#e9ecf5` | `#2a2b32` | 用户气泡 |
+| `--c-llm` / `--c-vlm` / `--c-embedding` / `--c-reranker` | `#3b82f6` / `#ef4444` / `#16a34a` / `#eab308`（蓝红绿黄） | 沿用 `--accent` / `--purple` / `--success` / `--warning` | Token 指示器四个模型系列 |
 | `--mask` | `rgba(15,23,42,.40)` | `rgba(0,0,0,.55)` | 弹窗遮罩 |
 | `--r-xs…--r-2xl` | 4/6/8/10/12/16 | 同 | 圆角 |
 | `--shadow-card/1/2` | 见 tokens | 深色下减弱或 `none` | 阴影 |
