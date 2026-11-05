@@ -41,6 +41,11 @@ tools   # 非生产代码: 维护脚本 + 独立工具
 ├── check_layout.py         # 校验本文件「目录约定」与磁盘一致
 ├── check_layers.py         # 校验分层依赖与 common 内部 tier
 └── markdown_chunks_viewer.html  # chunks.json 单文件查看器 (双击打开)
+evals   # RAG 评估: 问题集生成、Ragas 打分与报告
+├── eval_questions.csv      # 问题 / 标准答案
+├── ragas_eval.py           # 生成题目 -> 跑 RAG -> Ragas 评估
+├── eval_result.csv         # 逐题上下文、答案与指标
+└── report.md               # Markdown 评估报告
 var     # 运行时产物 (gitignore, 可随时删)
 ├── uploads/  import/       # 上传落盘 / 导入中间产物
 ├── logs/                   # loguru 文件日志 (LOG_FILE_ENABLE=true 时)
@@ -61,6 +66,7 @@ frontend # 前端 (Vite + React)
 | `docs/`           | ✅   | 文档与需求笔记                       |
 | `tests/`          | ✅   | pytest 用例 + 样例输入               |
 | `tools/`          | ✅   | 非生产代码: 维护脚本与独立工具       |
+| `evals/`          | ✅   | RAG 评估问题集、脚本与报告           |
 | `var/`            | ❌   | 运行时产物, 可随时删                 |
 
 > 新增 / 重命名顶层目录时**必须同时改上面结构树与本表**；

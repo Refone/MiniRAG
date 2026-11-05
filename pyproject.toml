@@ -45,8 +45,10 @@ dependencies = [
 dev = [
     "grandalf>=0.8",      # 仅 graph.get_graph().draw_ascii() 的 __main__ 调试需要
     "httpx>=0.28",
+    "langchain-community<0.4",
     "pre-commit>=4.7.0",
     "pytest>=9.2.0",
+    "ragas==0.4.3",
     "ruff>=0.17.3",
 ]
 
