@@ -129,7 +129,7 @@
 - 默认答案是「无。」——大多数需求只是在既有分层里加方法。**为了显得专业而画架构图是反模式。**
 - 真有变化时给：新增/移位模块表（`模块 / tier / 允许依赖`）+ Mermaid 依赖图。
 - 依赖方向必须能通过 `tools/check_layers.py`；同 tier 的不同子包互相 import 是硬违规。
-- 新增顶层目录要同步 `README.md` 的结构树与「目录约定」表，否则 `tools/check_layout.py` 直接红。
+- 新增顶层目录要同步 `tools/check_layout.py` 的 `LAYOUT`，否则 `tools/check_layout.py` 直接红；目录树见 `docs/architecture.md`。
 
 ### §3 文件修改清单
 

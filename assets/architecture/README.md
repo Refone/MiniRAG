@@ -15,21 +15,9 @@
 
 ## 图意
 
-- **主链路**：浏览器 → `React SPA + nginx`（:8080，`/api` 反代）→ `API 层`
-  （FastAPI :8000）→ `服务编排层`（docs / import / query）→ `LangGraph 图`
-  （`import_graph` / `query_graph`）→ `common 共享层`。
-- **后端分层**：主链路 `api → service → graphs → common` 单向依赖；`common`
-  内部 tier 0–4，只允许高 tier 依赖低 tier。分层契约由 `tools/check_layers.py`
-  校验。
-- 为保持主链路可读，图中省略了 `api` / `service` 对 `common` 的直连
-  （schema、events、store 等）；完整层级约束以 `AGENTS.md` 与
-  `tools/check_layers.py` 为准。
-- **运行态**：`TASK_MANAGER` / `EVENT_BUS` 是进程内状态，当前仅支持单 worker；
-  任务进度、子任务状态与答案 delta 经 SSE 由 FastAPI 流式回推。
-- **数据基础设施**：Milvus（docs / chunks 混合向量）、MinIO（Markdown / 图片 /
-  chunks 制品）、MongoDB（会话历史 / Token 计量）。
-- **外部模型与能力**：DeepSeek（答案 LLM）、Qwen / DashScope（Embedding /
-  Reranker / VLM）、MinerU（PDF → Markdown）、Web Search MCP（联网检索）。
+系统架构（分层、主链路、运行态、存储与外部依赖）见 [docs/architecture.md](../../docs/architecture.md)；
+本目录只负责图本身。为保持主链路可读，图中省略了 `api` / `service` 对 `common` 的直连
+（schema、events、store 等）。
 
 引导视图提供四条阅读路径：请求主链路、文档导入链路、问答检索链路、运行态与存储。
 
@@ -52,7 +40,7 @@
 - 编排与基础设施：`docker/compose.infra.yaml`、`docker/compose.backend.yaml`、
   `docker/compose.frontend.yaml`
 - 外部服务地址：`backend/common/config/env_config.py`
-- 分层约束：`AGENTS.md`、`tools/check_layers.py`
+- 分层约束：`docs/architecture.md`、`tools/check_layers.py`
 
 ## 重新生成与验收
 

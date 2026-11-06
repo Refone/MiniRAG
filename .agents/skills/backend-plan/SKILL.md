@@ -191,4 +191,4 @@ git status --short
   - `docs/feat/文档管理页面/后端评审反馈-v0.md`：决策项 → 可选方案 → 答复与落定；
   - `docs/feat/任务管理升级/后端方案-导入任务分叉.md`：长方案的分阶段写法；
   - `docs/feat/Session-MVVM/方案调研-V0.md`：方案之前的选型调研稿。
-- SOP 与架构约束：`AGENTS.md`（「需求开发 SOP」「架构约束」）、`README.md`（目录约定）。
+- SOP 与架构约束：`AGENTS.md`（「需求开发 SOP」「架构约束」）、`docs/architecture.md`（架构与分层）。

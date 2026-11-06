@@ -2,6 +2,8 @@
 
 依据 `backend/graphs/` 当前实现绘制（Archify workflow v2）。每个节点的主文本是**节点功能**，副文本是**节点入口函数**（`@trace_node` 包装的函数名）。
 
+> 系统级架构见 [docs/architecture.md](../../docs/architecture.md)；本文件只记录图与节点级细节。
+
 ## 文件
 
 | 文件                             | 说明                                                                                                              |

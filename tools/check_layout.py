@@ -1,45 +1,41 @@
 #!/usr/bin/env python3
-"""校验 README「目录约定」表与 git 入库布局 / .gitignore 是否一致。
+"""校验顶层目录布局与 LAYOUT 约定是否一致。
 
-README 是目录契约: 结构树和约定表写的是什么, 入库布局就得是什么。
+目录契约写在下面的 LAYOUT 常量里, 不依赖任何文档: 代码是契约的唯一来源。
 本脚本检查三件事:
 
-1. 表里标 ✅ 的路径必须真实存在;
-2. 表里标 ❌ 的路径必须被 .gitignore 命中 (不能误入库);
-3. git 索引中出现的每个顶层目录 (隐藏目录除外) 都必须出现在表里,
+1. 标为入库的路径必须真实存在;
+2. 标为不入库的路径必须被 .gitignore 命中 (不能误入库);
+3. git 索引中出现的每个顶层目录 (隐藏目录除外) 都必须登记在 LAYOUT,
    不能有「黑户」目录。工作区里未跟踪 / 被 ignore 的本地目录不算,
    否则本地临时文件会挡住与它无关的提交。
+
+新增 / 删除 / 重命名顶层目录时改 LAYOUT 即可; 目录树的可读版本见
+docs/architecture.md, 那里只是说明, 不参与校验。
 
 用法: python tools/check_layout.py
 退出码: 0 = 一致, 1 = 有漂移 (输出具体差异)
 """
 
-import re
 import subprocess
 import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-README = ROOT / "README.md"
-SECTION = "## 目录约定"
 
-# | `backend/` | ✅ | 后端源码 ... |
-ROW = re.compile(r"^\|\s*`([^`]+)`\s*\|\s*(✅|❌)\s*\|")
-
-
-def parse_table(text: str) -> dict[str, bool]:
-    """解析约定表 -> {路径: 是否入库}。"""
-    rows: dict[str, bool] = {}
-    in_section = False
-    for line in text.splitlines():
-        if line.startswith("## "):
-            in_section = line.strip() == SECTION
-            continue
-        if in_section:
-            m = ROW.match(line.strip())
-            if m:
-                rows[m.group(1).rstrip("/")] = m.group(2) == "✅"
-    return rows
+# 顶层路径 -> (是否入库, 定位)
+LAYOUT: dict[str, tuple[bool, str]] = {
+    "backend": (True, "后端源码, 以 backend/ 为 sys.path 根"),
+    "frontend": (True, "前端工程 (Vite + React)"),
+    "docker": (True, "编排与镜像定义"),
+    "docker/volumes": (False, "容器 bind mount 数据"),
+    "docs": (True, "文档与需求笔记"),
+    "assets": (True, "文档配图: 架构图 / 流程动图 / 演示 GIF"),
+    "tests": (True, "pytest 用例 + 样例输入"),
+    "tools": (True, "非生产代码: 维护脚本与独立工具"),
+    "evals": (True, "RAG 评估问题集、脚本与报告"),
+    "var": (False, "运行时产物, 可随时删"),
+}
 
 
 def git_indexed(path: str) -> bool:
@@ -77,24 +73,15 @@ def git_ignored(path: str) -> bool:
 
 
 def main() -> int:
-    if not README.is_file():
-        print(f"[FAIL] 找不到 {README}")
-        return 1
-
-    table = parse_table(README.read_text(encoding="utf-8"))
-    if not table:
-        print(f"[FAIL] README 里没解析到「{SECTION}」表格 (表头/格式变了?)")
-        return 1
-
     errors: list[str] = []
 
-    for path, tracked in sorted(table.items()):
+    for path, (tracked, _label) in sorted(LAYOUT.items()):
         full = ROOT / path
         if tracked and not full.exists():
-            errors.append(f"[缺目录] 约定表标为入库, 但不存在: {path}/")
+            errors.append(f"[缺目录] LAYOUT 标为入库, 但不存在: {path}/")
         if not tracked and not git_ignored(path):
             errors.append(
-                f"[漏 ignore] 约定表标为不入库, 但 .gitignore 没命中: {path}/"
+                f"[漏 ignore] LAYOUT 标为不入库, 但 .gitignore 没命中: {path}/"
             )
 
     top_dirs = sorted(
@@ -103,17 +90,17 @@ def main() -> int:
         if p.is_dir() and not p.name.startswith(".") and git_indexed(p.name)
     )
     for name in top_dirs:
-        if not any(entry == name or entry.startswith(f"{name}/") for entry in table):
-            errors.append(f"[未登记] 顶层目录未出现在约定表: {name}/")
+        if not any(entry == name or entry.startswith(f"{name}/") for entry in LAYOUT):
+            errors.append(f"[未登记] 顶层目录未出现在 LAYOUT: {name}/")
 
     if errors:
         print("目录契约不一致:")
         for err in errors:
             print(f"  - {err}")
-        print(f"\n请同步修改 README 的结构树与「{SECTION}」表, 或修正磁盘布局。")
+        print("\n请同步修改 tools/check_layout.py 的 LAYOUT, 或修正磁盘布局。")
         return 1
 
-    print(f"目录契约一致: {len(table)} 条约定, {len(top_dirs)} 个顶层目录 ✓")
+    print(f"目录契约一致: {len(LAYOUT)} 条约定, {len(top_dirs)} 个顶层目录 ✓")
     return 0
 
 

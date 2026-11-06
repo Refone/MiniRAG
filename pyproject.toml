@@ -10,7 +10,7 @@ sources = ["backend"]
 name = "mini-rag"
 version = "0.1.0"
 description = "MiniRag - Minimal RAG Demo"
-readme = "README.md"
+readme = { text = "MiniRAG: 文档导入 → 解析 → 混合检索 → 流式问答的 RAG 工作台。", content-type = "text/markdown" }
 authors = [
     { name = "Refone Leo", email = "710196926@qq.com" }
 ]

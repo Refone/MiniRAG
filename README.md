@@ -1,86 +1,12 @@
 # MiniRAG
 
-## 基本架构
+## 架构
 
-```shell
-minirag.py  # 一键部署脚本: env_check / env_prepare / deploy / reset
-docker  # 容器编排与镜像定义
-├── compose.infra.yaml      # 基础设施: Milvus (etcd + MinIO) / Attu / MongoDB
-├── compose.backend.yaml    # 后端 (FastAPI) :8000
-├── compose.frontend.yaml   # 前端 (nginx) :8080
-├── backend.Dockerfile
-├── frontend.Dockerfile
-└── volumes/                # 容器 bind mount 数据 (gitignore)
-docs    # 项目文档与笔记 (docs/feat/ 按需求组织; 历史需求索引见 docs/feat/README.md)
-assets  # 文档配图与可视化产物: 架构图 / 流程动图 / 演示 GIF
-├── architecture/         # 系统架构图 (SVG + 可交互 HTML + JSON)
-├── workflow-graph/       # 导入 / 查询流程图与动图 (含生成脚本)
-└── showcase/             # README 演示 GIF 与封面
-backend # 后端源码 (以 backend/ 为 sys.path 根); 分层规则见 AGENTS.md
-├── api       # HTTP 层 (入口 / 路由 / DTO / 启动自检 / SSE 传输)
-├── service   # 业务编排层 (把图包装成服务)
-├── graphs    # 核心 LangGraph 处理逻辑
-│   ├── import_graph    # 导入流程: 文档导入-切分-向量化-落库
-│   └── query_graph     # 查询流程: query-向量化-三路召回-生成答案
-└── common    # 唯一共享层 (原顶层 utils/ 已并入)
-    ├── utils/    # T0 纯工具: brief / net / tokenizer / markdown_*
-    ├── config/   # T1 配置: app_config / env_config / path_config
-    ├── logging.py# T2 日志基础设施
-    ├── model/    # T2 LLM / Embedding / Reranker / VLM 封装
-    ├── client/   # T3 Milvus / MinIO / MongoDB 客户端
-    ├── events/   # T3 进程内任务状态 + SSE 通道 + 节点追踪装饰器
-    ├── prompt/   # T0 提示词模板
-    └── store/    # T4 持久化 (会话历史 / 文档写路径)
-tests   # pytest 分层 + 样例输入
-├── unit/         # 纯逻辑/节点编排 (默认)
-├── contract/     # API/SSE 契约 (默认)
-├── integration/  # 真 infra 启动冒烟 (手动)
-├── live/         # 真模型查询冒烟 (手动)
-├── support/      # fakes / seams / helper
-└── fixtures/     # 各节点 __main__ 与 pytest 共用的样例文件
-tools   # 非生产代码: 维护脚本 + 独立工具
-├── make_env_example.py     # .env -> .env.example (脱敏)
-├── reset_db.py             # 清空并重建 Milvus / MinIO / MongoDB
-├── clean_web_cache.py      # 清理浏览器端废弃的 localStorage key
-├── check_layout.py         # 校验本文件「目录约定」与磁盘一致
-├── check_layers.py         # 校验分层依赖与 common 内部 tier
-└── markdown_chunks_viewer.html  # chunks.json 单文件查看器 (双击打开)
-evals   # RAG 评估: 问题集生成、Ragas 打分与报告
-├── eval_questions.csv      # 问题 / 标准答案
-├── ragas_eval.py           # 生成题目 -> 跑 RAG -> Ragas 评估
-├── eval_result.csv         # 逐题上下文、答案与指标
-└── report.md               # Markdown 评估报告
-var     # 运行时产物 (gitignore, 可随时删)
-├── uploads/  import/       # 上传落盘 / 导入中间产物
-├── logs/                   # loguru 文件日志 (LOG_FILE_ENABLE=true 时)
-└── tmp/                    # 节点状态快照 / chunks.json / 临时脚本
-frontend # 前端 (Vite + React)
-├── src/
-└── .env.example            # 前端环境变量模板 (VITE_API_BASE 等)
-```
+分层（`api → service → graphs → common`）、`common` 内部的 tier 划分、请求与任务链路、
+存储与外部依赖，统一见 [docs/architecture.md](docs/architecture.md)。
 
-## 目录约定
-
-| 路径              | 入库 | 定位                                     |
-| ----------------- | ---- | ---------------------------------------- |
-| `backend/`        | ✅   | 后端源码, 以 `backend/` 为 `sys.path` 根 |
-| `frontend/`       | ✅   | 前端工程 (Vite + React)                  |
-| `docker/`         | ✅   | 编排与镜像定义                       |
-| `docker/volumes/` | ❌   | 容器 bind mount 数据                 |
-| `docs/`           | ✅   | 文档与需求笔记                       |
-| `assets/`         | ✅   | 文档配图: 架构图 / 流程动图 / 演示 GIF |
-| `tests/`          | ✅   | pytest 用例 + 样例输入               |
-| `tools/`          | ✅   | 非生产代码: 维护脚本与独立工具       |
-| `evals/`          | ✅   | RAG 评估问题集、脚本与报告           |
-| `var/`            | ❌   | 运行时产物, 可随时删                 |
-
-> 新增 / 重命名顶层目录时**必须同时改上面结构树与本表**；
-> `python tools/check_layout.py` 会校验本表与磁盘是否一致。
->
-> `docs/feat/` 是历史需求快照；目录改名后的路径映射与文档状态见
-> [docs/feat/README.md](docs/feat/README.md)。
->
-> 后端测试的分层、命令与接缝约定见 [docs/manual/backend-testing.md](docs/manual/backend-testing.md)。
+目录是否入库的契约写在 `tools/check_layout.py` 的 `LAYOUT`；新增顶层目录时改那里，
+`python tools/check_layout.py` 会校验。
 
 ## 前端交互 demo（skill）
 

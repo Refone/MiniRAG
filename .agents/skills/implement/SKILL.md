@@ -107,4 +107,4 @@ cd frontend && npm run build   # tsc --noEmit + vite build，类型检查必须�
 ## 参考
 
 - 三件套样例：`docs/feat/Token统计/`（PRD.md + demo.html + 后端改动方案.md）、`docs/feat/文档管理页面/`（评审 → 动工 → 验收全流程）。
-- SOP 与约束：`AGENTS.md`（需求开发 SOP / 代码验证 / 架构约束 / 注释原则）、`README.md`（运行限制 / 目录约定）；分层自查可用 `tools/check_layers.py --list` 看模块 tier 归属。
+- SOP 与约束：`AGENTS.md`（需求开发 SOP / 代码验证 / 架构约束 / 注释原则）、`docs/architecture.md`（架构与分层）；分层自查可用 `tools/check_layers.py --list` 看模块 tier 归属。

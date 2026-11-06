@@ -9,11 +9,11 @@ repos:
       # 格式化 Python 代码
       - id: ruff-format
 
-  # 仓库自带的契约校验（见 AGENTS.md「代码结构规则」）
+  # 仓库自带的契约校验（规则内嵌在 tools/*.py，见 docs/architecture.md）
   - repo: local
     hooks:
       - id: check-layout
-        name: check_layout (README 目录契约)
+        name: check_layout (顶层目录契约)
         entry: .venv/bin/python tools/check_layout.py
         language: system
         pass_filenames: false

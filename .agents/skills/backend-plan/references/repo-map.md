@@ -1,6 +1,7 @@
 # 后端地图（调研起点）
 
-`AGENTS.md`「架构约束」是唯一规则来源；本文件只是**调研索引**：先知道该读哪几个文件，
+`docs/architecture.md` 是架构说明的唯一来源，`AGENTS.md`「架构约束」是约束入口；
+本文件只是**调研索引**：先知道该读哪几个文件，
 再去读它们核实到行号，别拿本文件当证据。所有路径相对仓库根，`backend/` 是 `sys.path` 根
 （import 写 `from common.xxx import ...`，不带 `backend.` 前缀）。
 
@@ -87,7 +88,7 @@ graph LR
 
 ```bash
 .venv/bin/ruff check . && .venv/bin/ruff format --check .   # pre-commit 等价
-.venv/bin/python tools/check_layout.py                      # README 目录契约
+.venv/bin/python tools/check_layout.py                      # 顶层目录契约 (LAYOUT)
 .venv/bin/python tools/check_layers.py                      # 分层依赖 / common tier
 .venv/bin/python tools/check_layers.py --list               # 打印每个模块的层级归属
 .venv/bin/pytest -q                                         # 单测
@@ -103,7 +104,7 @@ uvicorn --app-dir backend api.main:app --reload             # 后端 :8000
 1. **Milvus 没有 schema 迁移**：集合已存在就跳过创建，加/改字段只能 drop 重建，存量数据随之清空。
 2. **单 worker 事实**：`TASK_MANAGER` / `EVENT_BUS` 是进程内状态（TTL 兜底 30 分钟），不跨进程、不跨重启；需要这类能力就得显式提出替换存储。
 3. **INT64 → JS**：`469734951640943804` 超过 `Number.MAX_SAFE_INTEGER`，任何 JSON 里透传数字都会静默丢精度。
-4. **顶层目录契约**：新增顶层目录必须同步 `README.md` 的结构树与「目录约定」表，否则 `check_layout.py` 直接失败。
+4. **顶层目录契约**：新增顶层目录必须同步 `tools/check_layout.py` 的 `LAYOUT`，否则 `check_layout.py` 直接失败；目录树说明在 `docs/architecture.md`。
 5. **上传上限**：`max_upload_bytes` 10 MiB，超限 413 并删除半截文件；方案里涉及上传要做单文件大小假设。
 6. **dev / prod 地址差异**：dev 前端直连 `:8000`（CORS 放开），prod 走 nginx `/api/` 反代；接口路径一律带 `/api` 前缀两端才一致。
 7. **环境变量模板**：`env_config` 加字段后跑 `python tools/make_env_example.py` 同步 `.env.example`，否则部署侧拿不到文档。

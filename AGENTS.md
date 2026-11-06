@@ -94,57 +94,10 @@ AI 阅读文档中尚未回归的测试问题或修改建议，生成代码改�
 
 ## 架构约束
 
+- 架构说明（分层方向、`common` tier、模块职责、请求与任务链路）统一在
+  [docs/architecture.md](docs/architecture.md)，本文件不再重复。
 - 由 `tools/check_layers.py` 检查层级关系，正常改动须遵守，架构调整须同步更新检查脚本。
 - `if __name__ == "__main__":` 块不参与校验。
-
-### 一级模块
-
-一级模块模块仅允许按照下图所示的依赖方向进行直接依赖：
-
-```mermaid
-graph LR
-
-    api --> service
-    api -->common
-    service --> graphs
-    service --> common
-    graphs --> common
-
-    api --> fastapi
-```
-
-### `common` 内部依赖规则
-
-- 核心原则：只允许高 tier 依赖低 tier
-- 同 tier 的不同模块 / 子包之间**禁止**互相依赖；同一子包内部自由。
-
-| tier       | 模块                           | 允许 import       |
-| ---------- | ------------------------------ | ----------------- |
-| **0** 基础 | `utils/`、`prompt/`、`schema/` | 仅标准库 / 第三方 |
-| **1** 配置 | `config/`                      | tier 0            |
-| **2** 设施 | `logging.py`、`model/`         | tier 0,1          |
-| **3** 资源 | `client/`、`events/`           | tier 0,1,2        |
-| **4** 聚合 | `store/`                       | tier 0,1,2,3      |
-
-模块职责：
-
-| 模块         | 职责                                    |
-| ------------ | --------------------------------------- |
-| `schema/`    | 定义全局数据结构约定                    |
-| `utils/`     | 提供通用工具函数                        |
-| `prompt/`    | 管理提示词及相关功能                    |
-| `config/`    | 管理应用配置、环境变量及路径配置        |
-| `logging.py` | 提供日志功能                            |
-| `model/`     | 封装外部模型调用，如 LLM、VLM、Reranker |
-| `client/`    | 封装外部服务客户端，如 Milvus、MinIO    |
-| `events/`    | 提供事件处理功能，如 SSE 订阅与推送     |
-| `store/`     | 提供数据存储功能                        |
-
-`config/` 内部配置划分：
-
-- `app_config`：应用运行时参数。
-- `env_config`：环境变量及外部服务参数，如 API Key。
-- `path_config`：路径相关参数。
 
 ### 单例访问约定（测试可替）
 

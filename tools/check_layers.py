@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""校验分层依赖（AGENTS.md「代码结构规则」的可执行版本）。
+"""校验分层依赖（docs/architecture.md「后端分层」的可执行版本）。
 
 两类规则：
 
@@ -204,7 +204,7 @@ def main(argv: list[str]) -> int:
         print(f"分层校验失败（{len(errors)} 处）：")
         for err in errors:
             print(f"  - {err}")
-        print("\n规则见 AGENTS.md「代码结构规则」。")
+        print("\n分层规则见 docs/architecture.md「后端分层」。")
         return 1
 
     print("分层校验通过 ✓")

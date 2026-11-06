@@ -87,7 +87,6 @@ DATA_MOUNT_TARGETS = {"/etcd", "/var/lib/milvus", "/minio_data"}
 REQUIRED_PATHS = (
     ROOT / "pyproject.toml",
     ROOT / "uv.lock",
-    ROOT / "README.md",
     ENV_EXAMPLE,
     *COMPOSE_FILES,
     BACKEND_DOCKERFILE,
@@ -2011,7 +2010,6 @@ def ensure_wipe_safe(path: Path) -> None:
         raise CommandError([], 1, f"拒绝清空项目根目录或其父目录: {resolved}")
     for marker in (
         ROOT / "pyproject.toml",
-        ROOT / "README.md",
         *COMPOSE_FILES,
     ):
         marker_path = marker.resolve()
