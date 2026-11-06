@@ -1,0 +1,205 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "query_graph 查询流程图",
+    "locale": "zh-CN",
+    "output": "var/tmp/graph-flows/query-graph-flow.html",
+    "animation": "trace",
+    "quality_profile": "showcase",
+    "views": [
+      {
+        "id": "main-path",
+        "label": "主链路",
+        "focus": [
+          "intent",
+          "embedding",
+          "rrf",
+          "answer"
+        ],
+        "note": "向量召回始终执行，是唯一的主链路；HyDE 与联网搜索按开关挂接。"
+      },
+      {
+        "id": "parallel-recall",
+        "label": "三路并行召回",
+        "focus": [
+          "intent",
+          "embedding",
+          "hyde",
+          "web",
+          "rrf"
+        ],
+        "note": "同一 superstep 并行执行，三路各写一个 state 通道。"
+      },
+      {
+        "id": "fallback",
+        "label": "兜底与降级",
+        "focus": [
+          "rrf",
+          "answer"
+        ],
+        "note": "文库与联网都为空时跳过精排，答案节点按通识回答。"
+      }
+    ],
+    "legend": {
+      "mode": "hidden"
+    }
+  },
+  "lanes": [
+    {
+      "id": "hyde",
+      "label": "HyDE"
+    },
+    {
+      "id": "main",
+      "label": "主链路"
+    },
+    {
+      "id": "web",
+      "label": "联网"
+    }
+  ],
+  "mainPath": [
+    "intent",
+    "embedding",
+    "rrf",
+    "answer"
+  ],
+  "nodes": [
+    {
+      "id": "intent",
+      "lane": "main",
+      "col": 0,
+      "type": "backend",
+      "label": "意图识别与查询改写",
+      "sublabel": "node_intent_recognize",
+      "width": 175
+    },
+    {
+      "id": "embedding",
+      "lane": "main",
+      "col": 1,
+      "type": "backend",
+      "label": "文档内向量召回",
+      "sublabel": "node_search_embedding",
+      "width": 170
+    },
+    {
+      "id": "hyde",
+      "lane": "hyde",
+      "col": 1,
+      "type": "backend",
+      "label": "假设性答案召回",
+      "sublabel": "node_search_hyde",
+      "width": 165
+    },
+    {
+      "id": "web",
+      "lane": "web",
+      "col": 1,
+      "type": "backend",
+      "label": "联网搜索补充",
+      "sublabel": "node_search_web",
+      "width": 160
+    },
+    {
+      "id": "rrf",
+      "lane": "main",
+      "col": 2,
+      "type": "backend",
+      "label": "RRF 融合与精排",
+      "sublabel": "node_rrf_and_rerank",
+      "width": 170
+    },
+    {
+      "id": "answer",
+      "lane": "main",
+      "col": 3,
+      "type": "backend",
+      "label": "生成答案并推流",
+      "sublabel": "node_answer_output",
+      "width": 165
+    }
+  ],
+  "edges": [
+    {
+      "id": "intent-embedding",
+      "from": "intent",
+      "to": "embedding",
+      "label": "始终",
+      "role": "main",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "intent-hyde",
+      "from": "intent",
+      "to": "hyde",
+      "label": "enable_hyde",
+      "role": "branch",
+      "fromSide": "top",
+      "toSide": "left"
+    },
+    {
+      "id": "intent-web",
+      "from": "intent",
+      "to": "web",
+      "label": "enable_web_search",
+      "role": "branch",
+      "fromSide": "bottom",
+      "toSide": "left"
+    },
+    {
+      "id": "embedding-rrf",
+      "from": "embedding",
+      "to": "rrf",
+      "label": "embedding_recalls",
+      "role": "main"
+    },
+    {
+      "id": "hyde-rrf",
+      "from": "hyde",
+      "to": "rrf",
+      "label": "hyde_recalls"
+    },
+    {
+      "id": "web-rrf",
+      "from": "web",
+      "to": "rrf",
+      "label": "web_matches"
+    },
+    {
+      "id": "rrf-answer",
+      "from": "rrf",
+      "to": "answer",
+      "label": "rerank_results",
+      "role": "main"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "扇出即并行",
+      "items": [
+        "after_node_intent_recognize 返回节点名列表，LangGraph 在同一步并行执行",
+        "三路分别写 embedding_recalls / hyde_recalls / web_matches，无需 reducer"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "两层排序",
+      "items": [
+        "RRF 只融合文库两路；联网结果直接进入 Reranker 统一精排",
+        "动态 TopK 先做分数下限，再做断崖截断"
+      ]
+    },
+    {
+      "dot": "violet",
+      "title": "终态与兜底",
+      "items": [
+        "无确认文档也不早停，由检索节点内部判空、答案节点兜底",
+        "answer 之后是 END；arun_query 统一 flush token 用量并推 CLOSE"
+      ]
+    }
+  ]
+}

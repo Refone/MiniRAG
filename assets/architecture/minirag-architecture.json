@@ -1,0 +1,416 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "MiniRAG 系统架构",
+    "locale": "zh-CN",
+    "output": "assets/architecture/minirag-architecture.html",
+    "quality_profile": "showcase",
+    "views": [
+      {
+        "id": "request-path",
+        "label": "请求主链路",
+        "focus": [
+          "users",
+          "web",
+          "api",
+          "service",
+          "graphs",
+          "common"
+        ],
+        "note": "浏览器经 nginx 反代进入 FastAPI，服务层编排 LangGraph，图通过 common 访问数据与模型。"
+      },
+      {
+        "id": "import-pipeline",
+        "label": "文档导入链路",
+        "focus": [
+          "users",
+          "web",
+          "api",
+          "service",
+          "graphs",
+          "mineru",
+          "qwen",
+          "minio",
+          "milvus"
+        ],
+        "note": "PDF / Markdown / ZIP 经 MinerU 转换、图片识别、递归切分与嵌入，产出写入 MinIO 与 Milvus。"
+      },
+      {
+        "id": "query-pipeline",
+        "label": "问答检索链路",
+        "focus": [
+          "web",
+          "api",
+          "service",
+          "graphs",
+          "qwen",
+          "search",
+          "deepseek",
+          "milvus"
+        ],
+        "note": "意图改写后三路召回（向量 / HyDE / 联网），RRF 融合与精排后由 DeepSeek 流式生成答案。"
+      },
+      {
+        "id": "state-and-stores",
+        "label": "运行态与存储",
+        "focus": [
+          "api",
+          "common",
+          "milvus",
+          "minio",
+          "mongodb"
+        ],
+        "note": "任务状态与 SSE 通道留在进程内；会话历史、Token 计量、文档制品与向量分别落库。"
+      }
+    ],
+    "viewBox": [
+      1240,
+      688
+    ]
+  },
+  "components": [
+    {
+      "id": "users",
+      "type": "external",
+      "label": "浏览器",
+      "sublabel": "Web 客户端",
+      "pos": [
+        40,
+        300
+      ],
+      "size": [
+        110,
+        62
+      ]
+    },
+    {
+      "id": "web",
+      "type": "frontend",
+      "label": "React SPA + nginx",
+      "sublabel": ":8080 · /api 反代",
+      "brand": "react",
+      "pos": [
+        188,
+        300
+      ],
+      "size": [
+        148,
+        62
+      ]
+    },
+    {
+      "id": "api",
+      "type": "backend",
+      "label": "API 层",
+      "sublabel": "FastAPI :8000",
+      "brand": "fastapi",
+      "pos": [
+        398,
+        300
+      ],
+      "size": [
+        134,
+        62
+      ],
+      "tag": "路由 · SSE · 自检"
+    },
+    {
+      "id": "service",
+      "type": "backend",
+      "label": "服务编排层",
+      "sublabel": "docs · import · query",
+      "pos": [
+        566,
+        300
+      ],
+      "size": [
+        136,
+        62
+      ]
+    },
+    {
+      "id": "graphs",
+      "type": "backend",
+      "label": "LangGraph 图",
+      "sublabel": "import_graph · query_graph",
+      "pos": [
+        736,
+        300
+      ],
+      "size": [
+        148,
+        62
+      ]
+    },
+    {
+      "id": "common",
+      "type": "backend",
+      "label": "common 共享层",
+      "sublabel": "model · client · store · events",
+      "pos": [
+        566,
+        430
+      ],
+      "size": [
+        318,
+        64
+      ],
+      "tag": "tier 0–4"
+    },
+    {
+      "id": "milvus",
+      "type": "database",
+      "label": "Milvus",
+      "sublabel": "docs / chunks 混合向量",
+      "pos": [
+        470,
+        590
+      ],
+      "size": [
+        150,
+        60
+      ]
+    },
+    {
+      "id": "minio",
+      "type": "database",
+      "label": "MinIO",
+      "sublabel": "Markdown · 图片 · chunks",
+      "pos": [
+        650,
+        590
+      ],
+      "size": [
+        150,
+        60
+      ]
+    },
+    {
+      "id": "mongodb",
+      "type": "database",
+      "label": "MongoDB",
+      "sublabel": "会话历史 · Token 计量",
+      "brand": "mongodb",
+      "pos": [
+        830,
+        590
+      ],
+      "size": [
+        158,
+        60
+      ]
+    },
+    {
+      "id": "deepseek",
+      "type": "external",
+      "label": "DeepSeek",
+      "sublabel": "答案生成 LLM",
+      "brand": "deepseek",
+      "pos": [
+        1016,
+        70
+      ],
+      "size": [
+        164,
+        58
+      ]
+    },
+    {
+      "id": "qwen",
+      "type": "external",
+      "label": "Qwen / DashScope",
+      "sublabel": "Embedding · Rerank · VLM",
+      "brand": "qwen",
+      "pos": [
+        1016,
+        185
+      ],
+      "size": [
+        164,
+        58
+      ]
+    },
+    {
+      "id": "mineru",
+      "type": "external",
+      "label": "MinerU",
+      "sublabel": "PDF → Markdown",
+      "pos": [
+        1016,
+        300
+      ],
+      "size": [
+        164,
+        58
+      ]
+    },
+    {
+      "id": "search",
+      "type": "external",
+      "label": "Web Search MCP",
+      "sublabel": "联网检索",
+      "pos": [
+        1016,
+        415
+      ],
+      "size": [
+        164,
+        58
+      ]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "backend 容器 · FastAPI 单 worker",
+      "wraps": [
+        "api",
+        "service",
+        "graphs",
+        "common"
+      ],
+      "pad": 20
+    },
+    {
+      "kind": "region",
+      "label": "数据基础设施 · Docker Compose",
+      "wraps": [
+        "milvus",
+        "minio",
+        "mongodb"
+      ],
+      "pad": 18
+    },
+    {
+      "kind": "region",
+      "label": "外部模型与能力 · HTTPS",
+      "wraps": [
+        "deepseek",
+        "qwen",
+        "mineru",
+        "search"
+      ],
+      "pad": 20
+    }
+  ],
+  "connections": [
+    {
+      "id": "users-to-web",
+      "from": "users",
+      "to": "web",
+      "label": "HTTP",
+      "variant": "emphasis"
+    },
+    {
+      "id": "web-to-api",
+      "from": "web",
+      "to": "api",
+      "label": "反代",
+      "variant": "emphasis",
+      "labelDx": -10
+    },
+    {
+      "id": "api-to-service",
+      "from": "api",
+      "to": "service",
+      "label": "调用"
+    },
+    {
+      "id": "service-to-graphs",
+      "from": "service",
+      "to": "graphs",
+      "label": "编排"
+    },
+    {
+      "id": "graphs-to-common",
+      "from": "graphs",
+      "to": "common",
+      "label": "访问器",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "common-to-milvus",
+      "from": "common",
+      "to": "milvus",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "common-to-minio",
+      "from": "common",
+      "to": "minio",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "common-to-mongodb",
+      "from": "common",
+      "to": "mongodb",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "common-to-deepseek",
+      "from": "common",
+      "to": "deepseek",
+      "variant": "dashed",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "common-to-qwen",
+      "from": "common",
+      "to": "qwen",
+      "variant": "dashed",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "common-to-mineru",
+      "from": "common",
+      "to": "mineru",
+      "variant": "dashed",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "common-to-search",
+      "from": "common",
+      "to": "search",
+      "variant": "dashed",
+      "fromSide": "right",
+      "toSide": "left"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "分层契约",
+      "items": [
+        "api → service → graphs → common 单向依赖",
+        "common 内部 tier 0–4，只允许高 tier 依赖低 tier",
+        "tools/check_layers.py 校验层级，backend 启动自检校验三类基础设施"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "运行态与流式推送",
+      "items": [
+        "TASK_MANAGER / EVENT_BUS 为进程内状态，当前仅支持单 worker",
+        "任务进度、子任务状态与答案 delta 经 SSE 由 FastAPI 流式回推",
+        "外部依赖统一经访问器惰性构造，测试可用 seam 替换"
+      ]
+    },
+    {
+      "dot": "violet",
+      "title": "数据与模型",
+      "items": [
+        "Milvus 存 docs / chunks 混合向量（稠密 + 稀疏）",
+        "MinIO 存 Markdown、图片与 chunks；MongoDB 存会话历史与 Token 用量",
+        "DeepSeek 生成答案；Qwen Embedding / Reranker / VLM 负责向量、精排与识图"
+      ]
+    }
+  ]
+}

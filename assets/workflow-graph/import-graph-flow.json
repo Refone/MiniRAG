@@ -1,0 +1,244 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "import_graph 导入流程图",
+    "locale": "zh-CN",
+    "output": "var/tmp/graph-flows/import-graph-flow.html",
+    "animation": "trace",
+    "quality_profile": "showcase",
+    "views": [
+      {
+        "id": "pdf-path",
+        "label": "PDF 主链路",
+        "focus": [
+          "entry",
+          "pdf",
+          "md_img",
+          "split",
+          "embedding"
+        ],
+        "note": "PDF 先转 Markdown，再进入 md_tail 子图完成图片、切分与入库。"
+      },
+      {
+        "id": "zip-path",
+        "label": "压缩包扇出",
+        "focus": [
+          "entry",
+          "md_zip",
+          "md_fork",
+          "md_img"
+        ],
+        "note": "解压校验后按 md 文件数开 Send 分支，每个 md 独立走一遍尾巴。"
+      },
+      {
+        "id": "shared-tail",
+        "label": "共用 md_tail",
+        "focus": [
+          "md_img",
+          "split",
+          "embedding"
+        ],
+        "note": "三条链路共用同一段子图，行为完全一致。"
+      }
+    ],
+    "legend": {
+      "mode": "hidden"
+    }
+  },
+  "lanes": [
+    {
+      "id": "md",
+      "label": "独立 Markdown"
+    },
+    {
+      "id": "main",
+      "label": "PDF"
+    },
+    {
+      "id": "zip",
+      "label": "ZIP"
+    }
+  ],
+  "mainPath": [
+    "entry",
+    "pdf",
+    "md_img",
+    "split",
+    "embedding"
+  ],
+  "nodes": [
+    {
+      "id": "entry",
+      "lane": "main",
+      "col": 0,
+      "type": "backend",
+      "label": "识别文件类型",
+      "sublabel": "node_entry",
+      "width": 120
+    },
+    {
+      "id": "pdf",
+      "lane": "main",
+      "col": 1,
+      "type": "backend",
+      "label": "PDF 转 Markdown",
+      "sublabel": "node_pdf_to_md",
+      "width": 140
+    },
+    {
+      "id": "standalone",
+      "lane": "md",
+      "col": 1,
+      "type": "backend",
+      "label": "整理独立 Markdown",
+      "sublabel": "node_process_standalone_md",
+      "width": 155
+    },
+    {
+      "id": "md_zip",
+      "lane": "zip",
+      "col": 1,
+      "type": "backend",
+      "label": "解压并校验压缩包",
+      "sublabel": "node_process_md_zip",
+      "width": 140
+    },
+    {
+      "id": "md_fork",
+      "lane": "zip",
+      "col": 2,
+      "type": "backend",
+      "label": "拆分 md 子任务",
+      "sublabel": "node_md_fork",
+      "width": 125
+    },
+    {
+      "id": "md_img",
+      "lane": "main",
+      "col": 2,
+      "type": "backend",
+      "label": "图片识别与替换",
+      "sublabel": "node_md_img",
+      "width": 130
+    },
+    {
+      "id": "split",
+      "lane": "main",
+      "col": 3,
+      "type": "backend",
+      "label": "按标题递归切分",
+      "sublabel": "node_document_split",
+      "width": 135
+    },
+    {
+      "id": "embedding",
+      "lane": "main",
+      "col": 4,
+      "type": "backend",
+      "label": "嵌入并写入向量库",
+      "sublabel": "node_document_embedding",
+      "width": 145
+    }
+  ],
+  "edges": [
+    {
+      "id": "entry-pdf",
+      "from": "entry",
+      "to": "pdf",
+      "label": "pdf",
+      "role": "main",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "entry-standalone",
+      "from": "entry",
+      "to": "standalone",
+      "label": "markdown",
+      "role": "branch",
+      "fromSide": "top",
+      "toSide": "left"
+    },
+    {
+      "id": "entry-zip",
+      "from": "entry",
+      "to": "md_zip",
+      "label": "markdown-zip",
+      "role": "branch",
+      "fromSide": "bottom",
+      "toSide": "left"
+    },
+    {
+      "id": "pdf-md_img",
+      "from": "pdf",
+      "to": "md_img",
+      "label": "markdown_file_path",
+      "role": "main",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "standalone-md_img",
+      "from": "standalone",
+      "to": "md_img",
+      "label": "markdown_file_path",
+      "fromSide": "right",
+      "toSide": "top"
+    },
+    {
+      "id": "zip-fork",
+      "from": "md_zip",
+      "to": "md_fork",
+      "label": "解压校验"
+    },
+    {
+      "id": "fork-md_img",
+      "from": "md_fork",
+      "to": "md_img",
+      "label": "Send × N",
+      "fromSide": "top",
+      "toSide": "bottom"
+    },
+    {
+      "id": "md_img-split",
+      "from": "md_img",
+      "to": "split",
+      "label": "fixed md",
+      "role": "main"
+    },
+    {
+      "id": "split-embedding",
+      "from": "split",
+      "to": "embedding",
+      "label": "chunks_json_path",
+      "role": "main"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "三种输入，同一条尾巴",
+      "items": [
+        "独立 md / PDF / 压缩包最终都进入 md_tail 子图，行为一致",
+        "node_md_tail_branch 包装子图，并收口子任务的 complete / failed"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "压缩包动态扇出",
+      "items": [
+        "node_md_fork 先物化 md_children，再按文件数 Send 到 node_md_tail",
+        "每个 md 拥有独立 child_task_id 与 state，只回写三个结果字段"
+      ]
+    },
+    {
+      "dot": "violet",
+      "title": "写入与计量",
+      "items": [
+        "入库节点先按标题删旧文档，再上传制品、写 docs / chunks",
+        "token_meter 以本分支增量回写父图，由 sum_token_usage 折叠"
+      ]
+    }
+  ]
+}

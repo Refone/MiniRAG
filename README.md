@@ -12,6 +12,10 @@ docker  # 容器编排与镜像定义
 ├── frontend.Dockerfile
 └── volumes/                # 容器 bind mount 数据 (gitignore)
 docs    # 项目文档与笔记 (docs/feat/ 按需求组织; 历史需求索引见 docs/feat/README.md)
+assets  # 文档配图与可视化产物: 架构图 / 流程动图 / 演示 GIF
+├── architecture/         # 系统架构图 (SVG + 可交互 HTML + JSON)
+├── workflow-graph/       # 导入 / 查询流程图与动图 (含生成脚本)
+└── showcase/             # README 演示 GIF 与封面
 backend # 后端源码 (以 backend/ 为 sys.path 根); 分层规则见 AGENTS.md
 ├── api       # HTTP 层 (入口 / 路由 / DTO / 启动自检 / SSE 传输)
 ├── service   # 业务编排层 (把图包装成服务)
@@ -64,6 +68,7 @@ frontend # 前端 (Vite + React)
 | `docker/`         | ✅   | 编排与镜像定义                       |
 | `docker/volumes/` | ❌   | 容器 bind mount 数据                 |
 | `docs/`           | ✅   | 文档与需求笔记                       |
+| `assets/`         | ✅   | 文档配图: 架构图 / 流程动图 / 演示 GIF |
 | `tests/`          | ✅   | pytest 用例 + 样例输入               |
 | `tools/`          | ✅   | 非生产代码: 维护脚本与独立工具       |
 | `evals/`          | ✅   | RAG 评估问题集、脚本与报告           |
