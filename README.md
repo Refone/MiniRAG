@@ -1,6 +1,21 @@
+<div align="center">
+
+<img height="120" src="assets/brand/logo.svg" alt="MiniRAG" />
+
 # MiniRAG
 
-**把一堆文档变成可以追问的资料库。**
+**把一堆文档，变成可以追问的资料库。**
+
+Self-hosted. Hybrid retrieval. Streaming answers. One workspace for all your documents.
+
+[![Python 3.12](https://img.shields.io/badge/Python-3.12-3776AB?style=flat-square&logo=python&logoColor=white)](pyproject.toml) [![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=flat-square&logo=fastapi&logoColor=white)](backend/api/main.py) [![LangGraph](https://img.shields.io/badge/LangGraph-1C3C3C?style=flat-square&logo=langgraph&logoColor=white)](backend/graphs)
+<br />
+[![React 19](https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react&logoColor=black)](frontend/package.json) [![Milvus](https://img.shields.io/badge/Milvus-00A1EA?style=flat-square&logo=milvus&logoColor=white)](docs/architecture.md) [![Docker Compose](https://img.shields.io/badge/Docker_Compose-2496ED?style=flat-square&logo=docker&logoColor=white)](docs/web-deploy.md)
+
+[快速开始](#快速开始) | [系统架构](docs/architecture.md) | [部署手册](docs/setup.md) | [实测演示](#演示)
+
+</div>
+
 上传 PDF / Markdown，自动解析、切分、向量化；提问时走多路召回与精排，
 答案通过 SSE 逐字流式返回。后端、前端与存储都能本地一键部署，模型经 DashScope / MinerU 接入。
 
@@ -29,7 +44,17 @@
 
 ## 演示
 
+全流程演示（深色模式）：ZIP 导入 → 导入任务状态 → Token 统计 → 文档预览 → 图文问答 → 查询任务状态 → 查询 Token 消耗。
+动态 demo 源文件：[assets/showcase/overview-demo.html](assets/showcase/overview-demo.html)
+
+<img src="assets/showcase/overview-demo.gif" width="720" alt="MiniRAG 全流程演示">
+
+<details>
+<summary>查询演示</summary>
+
 <img src="assets/showcase/query-demo.gif" width="720" alt="查询演示">
+
+</details>
 
 <details>
 <summary>文档导入演示</summary>
@@ -67,25 +92,25 @@ cd frontend && npm run storybook                   # 组件工作台 :6006
 
 ## 技术栈
 
-| 层     | 选型                                                              |
-| ------ | ----------------------------------------------------------------- |
-| 后端   | Python 3.12 · FastAPI · LangGraph · Pydantic · uv                 |
-| 前端   | React 19 · Vite 6 · TypeScript · Zustand · Storybook · Playwright |
-| 存储   | Milvus（docs / chunks 混合向量）· MinIO（原文与制品）· MongoDB（会话 / 计量） |
-| 模型   | DeepSeek（DashScope 兼容模式，回答）· Qwen（Embedding / Rerank / VLM）· MinerU（PDF 解析） |
-| 部署   | Docker Compose（nginx 反代 + 单 worker FastAPI）                  |
+| 层   | 选型                                                                                       |
+| ---- | ------------------------------------------------------------------------------------------ |
+| 后端 | Python 3.12 · FastAPI · LangGraph · Pydantic · uv                                          |
+| 前端 | React 19 · Vite 6 · TypeScript · Zustand · Storybook · Playwright                          |
+| 存储 | Milvus（docs / chunks 混合向量）· MinIO（原文与制品）· MongoDB（会话 / 计量）              |
+| 模型 | DeepSeek（DashScope 兼容模式，回答）· Qwen（Embedding / Rerank / VLM）· MinerU（PDF 解析） |
+| 部署 | Docker Compose（nginx 反代 + 单 worker FastAPI）                                           |
 
 ## 文档
 
-| 想了解                     | 看这里                                                        |
-| -------------------------- | ------------------------------------------------------------- |
-| 分层、主链路、存储与外部依赖 | [docs/architecture.md](docs/architecture.md)                  |
+| 想了解                       | 看这里                                                                    |
+| ---------------------------- | ------------------------------------------------------------------------- |
+| 分层、主链路、存储与外部依赖 | [docs/architecture.md](docs/architecture.md)                              |
 | 环境检查、一键部署、镜像源   | [docs/setup.md](docs/setup.md) · [docs/web-deploy.md](docs/web-deploy.md) |
-| 后端测试分层与写法           | [docs/manual/backend-testing.md](docs/manual/backend-testing.md) |
-| 端到端测试（Playwright）     | [docs/manual/e2e-testing.md](docs/manual/e2e-testing.md)       |
-| 自动部署与回滚               | [docs/notes/ci-cd.md](docs/notes/ci-cd.md)                     |
-| 需求过程与历史决策           | [docs/feat/README.md](docs/feat/README.md)                     |
-| 架构图 / 流程图的源文件       | [assets/architecture/README.md](assets/architecture/README.md) |
+| 后端测试分层与写法           | [docs/manual/backend-testing.md](docs/manual/backend-testing.md)          |
+| 端到端测试（Playwright）     | [docs/manual/e2e-testing.md](docs/manual/e2e-testing.md)                  |
+| 自动部署与回滚               | [docs/notes/ci-cd.md](docs/notes/ci-cd.md)                                |
+| 需求过程与历史决策           | [docs/feat/README.md](docs/feat/README.md)                                |
+| 架构图 / 流程图的源文件      | [assets/architecture/README.md](assets/architecture/README.md)            |
 
 ## 已知限制
 
