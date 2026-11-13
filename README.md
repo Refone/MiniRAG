@@ -18,23 +18,20 @@ Minimal Demo for RAG
 
 LLM 能力 + 专业文档参考 = 更好的回答
 
-[快速开始](#快速开始) | [系统架构](docs/architecture.md) | [部署手册](docs/setup.md) | [实测演示](#演示)
-
 <img src="assets/showcase/overview-demo.gif" width="1200" alt="MiniRAG 全流程演示"><br/>
 <span style="color: #888;">全流程演示</span>
 
 <br/>
 
+[导入流程](#导入流程) | [查询流程](#查询流程) | [项目结构](#项目结构) | [快速开始](#快速开始)
+
 </div>
 
-## 文档导入
+## 导入流程
 
 <div align="center">
-<img src="assets/workflow-graph/import-graph-flow.animated.svg" width="880" alt="文档导入流程">
-<span style="color: #888;">文档导入流程图</span>
-</div>
-
-<br/>
+<img src="assets/workflow-graph/import-graph-flow.animated.svg" width="880" alt="文档导入流程"><br/>
+<span style="color: #888;">文档导入流程图</span><br/>
 
 | 节点名称                     | 节点功能说明                                                                                                        |
 | ---------------------------- | ------------------------------------------------------------------------------------------------------------------- |
@@ -47,19 +44,13 @@ LLM 能力 + 专业文档参考 = 更好的回答
 | `node_document_split`        | 文档切分节点。<br>根据标题层级递归切分 Markdown 文档，生成可向量化的文档切片。                                      |
 | `node_document_embedding`    | 信息入库节点。<br>三类制品（原始文档、处理后文档、切片文件）分别上传 MinIO。<br>文档摘要、切片、向量化入库 Milvus。 |
 
-<details>
-<summary>Playwright 真实录制</summary>
-<div align="center">
-<img src="assets/showcase/import-demo.gif" width="720" alt="导入演示">
 </div>
-</details>
 
 ## 查询流程
 
 <div align="center">
-<img src="assets/workflow-graph/query-graph-flow.animated.svg" width="880" alt="查询流程">
-<span style="color: #888;">信息查询流程图</span>
-</div>
+<img src="assets/workflow-graph/query-graph-flow.animated.svg" width="880" alt="查询流程"><br/>
+<span style="color: #888;">信息查询流程图</span><br/>
 
 | 节点名称                | 节点功能说明                                                                          |
 | ----------------------- | ------------------------------------------------------------------------------------- |
@@ -70,12 +61,7 @@ LLM 能力 + 专业文档参考 = 更好的回答
 | `node_rrf_and_rerank`   | RRF 融合与重排序节点。<br>对多源检索结果进行 RRF 融合，并调用 Reranker 模型进行精排。 |
 | `node_answer_output`    | 答案输出节点。<br>整合多源检索结果，让 LLM 进行总结归纳。生成最终答案并返回给前端。   |
 
-<details>
-<summary>Playwright 真实录制</summary>
-<div align="center">
-<img src="assets/showcase/query-demo.gif" width="720" alt="查询演示">
 </div>
-</details>
 
 ## 项目结构
 
