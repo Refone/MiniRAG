@@ -1,0 +1,172 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1180" viewBox="0 0 1600 1180">
+<defs>
+  <marker id="arrow" markerWidth="6" markerHeight="6" refX="5" refY="2.5" orient="auto"><path d="M0,0 L0,5 L6,2.5 z" fill="var(--arrow)"/></marker>
+  <marker id="arrowBlue" markerWidth="6" markerHeight="6" refX="5" refY="2.5" orient="auto"><path d="M0,0 L0,5 L6,2.5 z" fill="var(--main-arrow)"/></marker>
+  <style>
+  :root {
+    color-scheme: light dark;
+    fill: var(--text);
+    --bg:#f6f7fb; --surface:#ffffff; --text:#20283e;
+    --text-secondary:#4c5870; --muted:#5b677e; --muted-strong:#526079;
+    --neutral-border:#d5dce7; --backend-bg:#edf0f6; --backend-border:#bbc6d8;
+    --frontend-bg:#eef2ff; --frontend-border:#b7c5ed; --frontend-soft-border:#cfd8f2; --frontend-text:#445bb2;
+    --badge-bg:#e6ebff; --badge-text:#445bb2;
+    --api-border:#a5b8e4; --api-bg:#e7edff;
+    --service-border:#a1c8b9; --service-bg:#e6f3ed; --service-text:#246b56;
+    --graph-border:#bcaadb; --graph-bg:#eee8f8; --graph-text:#70509c;
+    --graph-panel-1:#f8f5fc; --graph-panel-2:#f3eff9; --graph-soft-border:#d8cde9;
+    --common-border:#d9be89; --common-bg:#f6edd8; --common-text:#895f20;
+    --common-panel:#fcf8ee; --common-soft-border:#e6d9bb;
+    --infra-bg:#edf5f6; --infra-border:#accbd0; --infra-soft-border:#c9dde0; --infra-text:#2c6e7c;
+    --entry-bg:#f7efea; --entry-border:#dec6b6; --entry-text:#925b3c;
+    --arrow:#77859d; --main-arrow:#5167c6;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg:#11151e; --surface:#1c2330; --text:#e5eaf4;
+      --text-secondary:#bdc7d9; --muted:#95a3ba; --muted-strong:#aab8cd;
+      --neutral-border:#364153; --backend-bg:#161c27; --backend-border:#424e63;
+      --frontend-bg:#1b253e; --frontend-border:#435783; --frontend-soft-border:#354668; --frontend-text:#abc0ff;
+      --badge-bg:#283658; --badge-text:#c4d2ff;
+      --api-border:#536b9a; --api-bg:#263554;
+      --service-border:#476f62; --service-bg:#233d35; --service-text:#94d3b8;
+      --graph-border:#6a5689; --graph-bg:#352b48; --graph-text:#ccb5ee;
+      --graph-panel-1:#282334; --graph-panel-2:#2e273e; --graph-soft-border:#4c3f62;
+      --common-border:#7e6945; --common-bg:#3f3525; --common-text:#e5c38b;
+      --common-panel:#2d2a24; --common-soft-border:#534a37;
+      --infra-bg:#1a2c33; --infra-border:#3d6471; --infra-soft-border:#314e5a; --infra-text:#93cbd5;
+      --entry-bg:#342a26; --entry-border:#705849; --entry-text:#ddba9e;
+      --arrow:#8696af; --main-arrow:#98afff;
+    }
+  }
+
+    text{font-family:Inter,"Noto Sans CJK SC","Microsoft YaHei",sans-serif}
+    .title{font-size:30px;font-weight:700;fill:var(--text)}.subtitle{font-size:14px;fill:var(--muted)}
+    .layer{font-size:17px;font-weight:700}.name{font-size:16px;font-weight:700}
+    .desc{font-size:12px;fill:var(--muted-strong)}.small{font-size:12px;fill:var(--text-secondary)}
+    .tiny{font-size:11px;fill:var(--muted)}.mono{font-family:ui-monospace,Consolas,monospace;font-size:12px}
+    .panel{stroke-width:1.5}.node{stroke-width:1.2}
+    .flow{fill:none;stroke:var(--arrow);stroke-width:2.4;marker-end:url(#arrow)}
+    .mainflow{fill:none;stroke:var(--main-arrow);stroke-width:3;marker-end:url(#arrowBlue)}
+    .dash{stroke-dasharray:6 5}
+    .flow-label{fill:var(--main-arrow)}
+</style>
+</defs>
+<rect width="1600" height="1180" fill="var(--bg)"/>
+<text x="64" y="55" class="title">MiniRAG · 系统架构</text>
+<text x="64" y="82" class="subtitle">分层职责、核心调用链与工程支撑结构</text>
+<rect x="1320" y="34" width="216" height="38" rx="19" fill="var(--badge-bg)"/>
+<text x="1428" y="58" text-anchor="middle" font-size="13" font-weight="700" fill="var(--badge-text)">主调用方向</text>
+
+<!-- Frontend -->
+<rect x="64" y="112" width="1472" height="104" rx="14" fill="var(--frontend-bg)" stroke="var(--frontend-border)" class="panel"/>
+<text x="88" y="142" class="layer" fill="var(--frontend-text)">前端层</text>
+<rect x="250" y="128" width="1248" height="68" rx="10" fill="var(--surface)" stroke="var(--frontend-soft-border)" class="node"/>
+<text x="276" y="157" class="name">frontend/ · React 19 + Vite 6</text>
+<text x="276" y="180" class="desc">src/ · pages  /  components  /  store  /  lib  /  hooks  /  types  /  styles</text>
+
+<!-- backend boundary -->
+<rect x="64" y="242" width="1472" height="642" rx="16" fill="var(--backend-bg)" stroke="var(--backend-border)" stroke-width="1.6"/>
+<text x="88" y="273" class="layer">backend/ · Python 源码根（sys.path 根）</text>
+<text x="1505" y="273" text-anchor="end" class="tiny">后端核心调用链</text>
+
+<!-- API -->
+<rect x="100" y="302" width="1400" height="86" rx="11" fill="var(--surface)" stroke="var(--api-border)" class="node"/>
+<rect x="100" y="302" width="154" height="86" rx="11" fill="var(--api-bg)"/>
+<text x="177" y="339" text-anchor="middle" class="name" fill="var(--frontend-text)">api/</text>
+<text x="177" y="362" text-anchor="middle" class="tiny">HTTP 层</text>
+<text x="284" y="337" class="name">路由 · DTO · SSE 传输 · 启动自检</text>
+<text x="284" y="361" class="desc">接收请求、定义接口契约，并通过 SSE 向客户端传递事件</text>
+
+<!-- service -->
+<rect x="100" y="416" width="1400" height="86" rx="11" fill="var(--surface)" stroke="var(--service-border)" class="node"/>
+<rect x="100" y="416" width="154" height="86" rx="11" fill="var(--service-bg)"/>
+<text x="177" y="453" text-anchor="middle" class="name" fill="var(--service-text)">service/</text>
+<text x="177" y="476" text-anchor="middle" class="tiny">业务编排</text>
+<text x="284" y="451" class="name">docs  ·  import  ·  query</text>
+<text x="284" y="475" class="desc">组织文档管理、导入与查询等应用级业务流程</text>
+
+<!-- graphs -->
+<rect x="100" y="530" width="1400" height="166" rx="11" fill="var(--surface)" stroke="var(--graph-border)" class="node"/>
+<rect x="100" y="530" width="154" height="166" rx="11" fill="var(--graph-bg)"/>
+<text x="177" y="598" text-anchor="middle" class="name" fill="var(--graph-text)">graphs/</text>
+<text x="177" y="621" text-anchor="middle" class="tiny">LangGraph 图</text>
+<rect x="284" y="548" width="574" height="130" rx="9" fill="var(--graph-panel-1)" stroke="var(--graph-soft-border)"/>
+<text x="306" y="575" class="name" fill="var(--graph-text)">import_graph/ · 导入图</text>
+<text x="306" y="600" class="desc">解析</text><text x="342" y="600" class="desc">→</text>
+<text x="370" y="600" class="desc">图片处理</text><text x="442" y="600" class="desc">→</text>
+<text x="470" y="600" class="desc">切分</text><text x="514" y="600" class="desc">→</text>
+<text x="542" y="600" class="desc">入库</text>
+<text x="306" y="646" class="tiny">文档内容解析、图像处理、文本分块与持久化</text>
+<rect x="882" y="548" width="594" height="130" rx="9" fill="var(--graph-panel-2)" stroke="var(--graph-soft-border)"/>
+<text x="904" y="575" class="name" fill="var(--graph-text)">query_graph/ · 查询图</text>
+<text x="904" y="600" class="desc">改写</text><text x="946" y="600" class="desc">→</text>
+<text x="974" y="600" class="desc">多路召回</text><text x="1050" y="600" class="desc">→</text>
+<text x="1078" y="600" class="desc">融合精排</text><text x="1154" y="600" class="desc">→</text>
+<text x="1182" y="600" class="desc">生成</text>
+<text x="904" y="646" class="tiny">查询理解、并行检索、结果融合排序与答案生成</text>
+
+<!-- common -->
+<rect x="100" y="724" width="1400" height="136" rx="11" fill="var(--surface)" stroke="var(--common-border)" class="node"/>
+<rect x="100" y="724" width="154" height="136" rx="11" fill="var(--common-bg)"/>
+<text x="177" y="783" text-anchor="middle" class="name" fill="var(--common-text)">common/</text>
+<text x="177" y="806" text-anchor="middle" class="tiny">唯一共享层</text>
+<g>
+<rect x="278" y="742" width="286" height="48" rx="7" fill="var(--common-panel)" stroke="var(--common-soft-border)"/>
+<text x="294" y="762" class="name" font-size="14">config/</text><text x="294" y="779" class="tiny">运行参数 / 环境变量 / 路径</text>
+<rect x="578" y="742" width="286" height="48" rx="7" fill="var(--common-panel)" stroke="var(--common-soft-border)"/>
+<text x="594" y="762" class="name" font-size="14">model/</text><text x="594" y="779" class="tiny">LLM / VLM / Embedding / Reranker</text>
+<rect x="878" y="742" width="286" height="48" rx="7" fill="var(--common-panel)" stroke="var(--common-soft-border)"/>
+<text x="894" y="762" class="name" font-size="14">client/</text><text x="894" y="779" class="tiny">Milvus / MinIO / MongoDB / MinerU / WebSearch</text>
+<rect x="1178" y="742" width="286" height="48" rx="7" fill="var(--common-panel)" stroke="var(--common-soft-border)"/>
+<text x="1194" y="762" class="name" font-size="14">events/</text><text x="1194" y="779" class="tiny">SSE 总线 / 任务表 / Token 计量</text>
+<rect x="278" y="800" width="286" height="44" rx="7" fill="var(--common-panel)" stroke="var(--common-soft-border)"/>
+<text x="294" y="827" class="name" font-size="14">store/</text><text x="365" y="827" class="tiny">会话历史 / 文档仓储 / 用量存储</text>
+<rect x="578" y="800" width="286" height="44" rx="7" fill="var(--common-panel)" stroke="var(--common-soft-border)"/>
+<text x="594" y="827" class="name" font-size="14">prompt/</text><text x="670" y="827" class="tiny">Prompt 模板</text>
+<rect x="878" y="800" width="286" height="44" rx="7" fill="var(--common-panel)" stroke="var(--common-soft-border)"/>
+<text x="894" y="827" class="name" font-size="14">schema/</text><text x="970" y="827" class="tiny">全局数据结构</text>
+<rect x="1178" y="800" width="286" height="44" rx="7" fill="var(--common-panel)" stroke="var(--common-soft-border)"/>
+<text x="1194" y="827" class="name" font-size="14">utils/</text><text x="1260" y="827" class="tiny">切分 / 图片 / Token 工具</text>
+</g>
+
+<!-- main arrows -->
+<path d="M800 216 V298" class="mainflow"/>
+<path d="M800 388 V412" class="mainflow"/>
+<path d="M800 502 V526" class="mainflow"/>
+<path d="M800 696 V720" class="mainflow"/>
+<text x="818" y="235" class="tiny flow-label" fill="var(--main-arrow)">HTTP / SSE</text>
+
+<!-- external services -->
+<rect x="64" y="910" width="1472" height="112" rx="14" fill="var(--infra-bg)" stroke="var(--infra-border)" class="panel"/>
+<text x="88" y="940" class="layer" fill="var(--infra-text)">外部服务与基础设施</text>
+<g fill="var(--surface)" stroke="var(--infra-soft-border)">
+<rect x="88" y="956" width="250" height="48" rx="8"/><rect x="356" y="956" width="250" height="48" rx="8"/>
+<rect x="624" y="956" width="250" height="48" rx="8"/><rect x="892" y="956" width="250" height="48" rx="8"/>
+<rect x="1160" y="956" width="350" height="48" rx="8"/>
+</g>
+<g text-anchor="middle" class="small">
+<text x="213" y="985">模型服务 · LLM / VLM / Embedding</text>
+<text x="481" y="985">向量数据库 · Milvus</text>
+<text x="749" y="985">对象存储 · MinIO</text>
+<text x="1017" y="985">文档与数据 · MongoDB</text>
+<text x="1335" y="985">MinerU · WebSearch · 其他服务</text>
+</g>
+<path d="M800 860 V906" class="flow dash"/>
+
+<!-- engineering support -->
+<rect x="64" y="1044" width="1080" height="104" rx="13" fill="var(--bg)" stroke="var(--neutral-border)" class="panel"/>
+<text x="88" y="1072" class="layer">工程支撑与项目资源</text>
+<g class="small" text-anchor="middle">
+<rect x="88" y="1084" width="150" height="42" rx="7" fill="var(--surface)" stroke="var(--neutral-border)"/><text x="163" y="1110">docker/</text>
+<rect x="250" y="1084" width="150" height="42" rx="7" fill="var(--surface)" stroke="var(--neutral-border)"/><text x="325" y="1110">tests/</text>
+<rect x="412" y="1084" width="150" height="42" rx="7" fill="var(--surface)" stroke="var(--neutral-border)"/><text x="487" y="1110">evals/</text>
+<rect x="574" y="1084" width="150" height="42" rx="7" fill="var(--surface)" stroke="var(--neutral-border)"/><text x="649" y="1110">tools/</text>
+<rect x="736" y="1084" width="150" height="42" rx="7" fill="var(--surface)" stroke="var(--neutral-border)"/><text x="811" y="1110">docs/</text>
+<rect x="898" y="1084" width="150" height="42" rx="7" fill="var(--surface)" stroke="var(--neutral-border)"/><text x="973" y="1110">assets/ · var/</text>
+</g>
+<rect x="1164" y="1044" width="372" height="104" rx="13" fill="var(--entry-bg)" stroke="var(--entry-border)" class="panel"/>
+<text x="1188" y="1072" class="layer" fill="var(--entry-text)">项目入口与依赖</text>
+<text x="1188" y="1097" class="mono">minirag.py</text><text x="1300" y="1097" class="tiny">env_check / env_prepare / deploy / reset</text>
+<text x="1188" y="1122" class="mono">pyproject.toml  ·  uv.lock</text>
+</svg>

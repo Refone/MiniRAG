@@ -119,13 +119,13 @@
       "id": "service",
       "type": "backend",
       "label": "服务编排层",
-      "sublabel": "docs · import · query",
+      "sublabel": "import_service · query_service",
       "pos": [
         566,
         300
       ],
       "size": [
-        136,
+        156,
         62
       ]
     },
@@ -135,7 +135,7 @@
       "label": "LangGraph 图",
       "sublabel": "import_graph · query_graph",
       "pos": [
-        736,
+        752,
         300
       ],
       "size": [
@@ -162,13 +162,13 @@
       "id": "milvus",
       "type": "database",
       "label": "Milvus",
-      "sublabel": "docs / chunks 混合向量",
+      "sublabel": "docs 特征数据 · chunks 混合向量",
       "pos": [
         470,
         590
       ],
       "size": [
-        150,
+        164,
         60
       ]
     },
@@ -178,7 +178,7 @@
       "label": "MinIO",
       "sublabel": "Markdown · 图片 · chunks",
       "pos": [
-        650,
+        664,
         590
       ],
       "size": [
@@ -193,7 +193,7 @@
       "sublabel": "会话历史 · Token 计量",
       "brand": "mongodb",
       "pos": [
-        830,
+        844,
         590
       ],
       "size": [
@@ -205,7 +205,7 @@
       "id": "deepseek",
       "type": "external",
       "label": "DeepSeek",
-      "sublabel": "答案生成 LLM",
+      "sublabel": "意图识别 · 答案生成 LLM",
       "brand": "deepseek",
       "pos": [
         1016,

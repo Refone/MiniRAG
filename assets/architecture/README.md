@@ -9,7 +9,11 @@
 | ----------------------------- | ---------------------------------------------------------- |
 | `minirag-architecture.html`   | 交付产物：自包含交互式 HTML（内联 SVG）                    |
 | `minirag-architecture.json`   | Archify 规格源文件；改图后重新 `deliver` 即可              |
+| `minirag-architecture-v3.svg` | 双主题静态 SVG：保留 v2 布局，优化明暗配色与文字对比度     |
 | `README.md`                   | 本说明                                                     |
+
+`minirag-architecture-v3.svg` 随系统明暗模式自动切换，独立于交互式 HTML 维护；
+下方重新生成命令仅针对 HTML，不会更新该 SVG。
 
 验收截图不随仓库保留；需要复查时按下方命令重新生成。
 
@@ -67,11 +71,11 @@ ARCHIFY_CHROME_NO_SANDBOX=1 node ~/.agents/skills/archify/bin/archify.mjs \
 ```text
 diagram_type: architecture
 validation: 9/9 showcase, 0 errors, 0 warnings
-specification_sha256: f8db9fb321969543afe3819e03af53fd36d5428caf74f2abbbeb3c4949702366
-artifact_sha256: 738e38c939a25b90fd539cd9bc115bdba1f98457c6a658abbd959b46be2312e2
+specification_sha256: 84c365c6acbb246915950e99bac6d7dc96a9f8ead34a1c5f60c9288c7e6adcc2
+artifact_sha256: a7b0d664d1fe5b0007558604693ed81d50dd6e5d97875d24c1034ba545dad445
 visual_check: pass（四个视口无横向/纵向溢出；明暗主题截图已人工走查）
 visual_review: passed
 ```
 
-视觉检查的最小投影节点文字约为 6.68px（1440×900，读取态），2048×1320 下约为
-8.9px；如需放大阅读，可使用查看器内置缩放。
+视觉检查的最小投影节点文字约为 6.15px（1440×900，读取态），2048×1320 下约为
+8.2px；如需放大阅读，可使用查看器内置缩放。
