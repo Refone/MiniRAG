@@ -18,8 +18,8 @@ Minimal Demo for RAG
 
 LLM 能力 + 专业文档参考 = 更好的回答
 
-<img src="assets/showcase/overview-demo.gif" width="1200" alt="MiniRAG 全流程演示"><br/>
-<span style="color: #888;">全流程演示</span>
+<img src="https://github.com/Refone/MiniRAG/releases/download/v2.0/overview-demo.gif" width="1200" alt="MiniRAG 全流程演示"><br/>
+<span style="color: #888;">全流程交互演示</span>
 
 <br/>
 

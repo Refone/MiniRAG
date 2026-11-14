@@ -1194,7 +1194,7 @@
   <div class="overlay hide" id="endOverlay">
     <div class="ov-card">
       <span class="ov-logo" aria-hidden="true"><svg viewBox="0 0 120 120"><use href="#brand-logo" /></svg></span>
-      <h1>演示结束</h1>
+      <h1>MiniRAG</h1>
     </div>
   </div>
 
@@ -1953,7 +1953,7 @@
     ACTS.push(function (skip) {
       progress(0.02);
       mark("intro_start");
-      return wait(2400).then(function () {
+      return wait(1200).then(function () {
         mark("intro_end");
         introOverlay.classList.add("hide");
         return wait(700);
@@ -2366,7 +2366,7 @@
         cursor.classList.remove("show");
         endOverlay.classList.remove("hide");
         mark("end");
-        return wait(2600);
+        return wait(1300);
       });
     });
 
