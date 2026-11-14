@@ -4,6 +4,17 @@
 
 <h1>MiniRAG</h1>
 
+<h3><samp>Minimal Demo for RAG</samp></h3>
+
+$$
+LLM + Docs = Better Answers
+$$
+
+<img src="https://github.com/Refone/MiniRAG/releases/download/v2.0/overview-demo.gif" width="1200" alt="MiniRAG 全流程演示"><br/>
+<sub><i>全流程交互演示</i></sub>
+
+<br/>
+
 [![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=flat-square&logo=fastapi&logoColor=white)](backend/api/main.py)
 [![React 19](https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react&logoColor=white)](frontend/package.json)
 [![Python 3.12](https://img.shields.io/badge/Python-3.12-3776AB?style=flat-square&logo=python&logoColor=white)](pyproject.toml)
@@ -14,15 +25,6 @@
 [![MongoDB](https://img.shields.io/badge/MongoDB-Json_Store-47A248?style=flat-square&logo=mongodb&logoColor=white)](docker/compose.infra.yaml)
 [![MinerU](https://img.shields.io/badge/MinerU-PDF_Parser-8C46FF?style=flat-square)](backend/common/client/mineru_client.py)
 
-Minimal Demo for RAG
-
-LLM 能力 + 专业文档参考 = 更好的回答
-
-<img src="https://github.com/Refone/MiniRAG/releases/download/v2.0/overview-demo.gif" width="1200" alt="MiniRAG 全流程演示"><br/>
-<span style="color: #888;">全流程交互演示</span>
-
-<br/>
-
 [导入流程](#导入流程) | [查询流程](#查询流程) | [项目结构](#项目结构) | [快速开始](#快速开始)
 
 </div>
@@ -31,7 +33,7 @@ LLM 能力 + 专业文档参考 = 更好的回答
 
 <div align="center">
 <img src="assets/workflow-graph/import-graph-flow.animated.svg" width="880" alt="文档导入流程"><br/>
-<span style="color: #888;">文档导入流程图</span><br/>
+<sub><i>文档导入流程图</i></sub><br/><br/>
 
 | 节点名称                     | 节点功能说明                                                                                                        |
 | ---------------------------- | ------------------------------------------------------------------------------------------------------------------- |
@@ -50,7 +52,7 @@ LLM 能力 + 专业文档参考 = 更好的回答
 
 <div align="center">
 <img src="assets/workflow-graph/query-graph-flow.animated.svg" width="880" alt="查询流程"><br/>
-<span style="color: #888;">信息查询流程图</span><br/>
+<sub><i>信息查询流程图</i></sub><br/><br/>
 
 | 节点名称                | 节点功能说明                                                                          |
 | ----------------------- | ------------------------------------------------------------------------------------- |
@@ -65,43 +67,18 @@ LLM 能力 + 专业文档参考 = 更好的回答
 
 ## 项目结构
 
-<div align="center">
-<img src="assets/architecture/minirag-architecture-v3.svg" width="880" alt="项目结构">
-</div>
-
-```text
-MiniRAG
-├── backend/                   Python 源码根（sys.path 根）
-│   ├── api/                   HTTP 层：路由 / DTO / SSE 传输 / 启动自检
-│   ├── service/               业务编排：docs / import / query
-│   ├── graphs/                LangGraph 图
-│   │   ├── import_graph/      导入图：解析 → 图片 → 切分 → 入库
-│   │   └── query_graph/       查询图：改写 → 多路召回 → 融合精排 → 生成
-│   └── common/                唯一共享层
-│       ├── config/            运行参数 / 环境变量 / 路径
-│       ├── model/             LLM / VLM / Embedding / Reranker 访问器
-│       ├── client/            Milvus / MinIO / MongoDB / MinerU / WebSearch
-│       ├── events/            SSE 事件总线 / 任务表 / Token 计量
-│       ├── store/             会话历史 / 文档仓储 / 用量存储
-│       ├── prompt/            Prompt 模板
-│       ├── schema/            全局数据结构
-│       └── utils/             切分 / 图片 / Token 等工具
-├── frontend/                  React 19 + Vite 6
-│   └── src/                   pages / components / store / lib / hooks / types / styles
-├── docker/                    compose.infra / backend / frontend + 两个 Dockerfile
-├── tests/                     unit / contract / integration / live + support / fixtures
-├── evals/                     RAGAS 评估脚本与报告
-├── tools/                     check_layout / check_layers / reset_db 等维护脚本
-├── docs/                      architecture / setup / web-deploy / manual / notes / feat
-├── assets/                    架构图 / 流程图 / 演示 GIF
-├── var/                       运行时产物（gitignore）
-├── minirag.py                 一键 env_check / env_prepare / deploy / reset
-├── pyproject.toml             依赖与 pytest 配置
-└── uv.lock                    依赖锁定
-
-主调用方向：api → service → graphs → common → 外部服务
-
-```
+<table align="center" width="100%">
+  <tr>
+    <td width="65%" align="center" valign="top">
+      <img src="assets/architecture/minirag-architecture-v3.svg" width="100%" alt="项目结构">
+      <br><sub>项目整体架构</sub>
+    </td>
+    <td width="35%" align="center" valign="center">
+      <img src="assets/architecture/minirag-repository-structure.svg" width="100%" alt="项目仓库结构">
+      <br><sub>项目仓库结构</sub>
+    </td>
+  </tr>
+</table>
 
 ## 快速开始
 
@@ -138,6 +115,9 @@ uv run minirag.py env_prepare
 
 # 构建并依次拉起 infra → backend → frontend
 uv run minirag.py deploy
+
+# 重置数据库
+uv run minirag.py reset
 ```
 
 国内网络可加 `--mirror cn`（`env_prepare` / `deploy` 均支持）。
