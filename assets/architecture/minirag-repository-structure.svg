@@ -1,0 +1,238 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="920" height="1200" viewBox="0 0 920 1200" role="img" aria-labelledby="title description" lang="zh-CN">
+  <title id="title">MiniRAG 仓库结构</title>
+  <desc id="description">以目录树和逐行文字说明展示 MiniRAG 仓库结构，不表示系统架构关系。</desc>
+  <metadata>Embedded icon artwork from vscode-material-icon-theme by Material Extensions, Copyright (c) 2025 Material Extensions, licensed under the MIT License. Full license text is included in THIRD_PARTY_NOTICES.md.</metadata>
+  <defs>
+    <linearGradient id="background" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="var(--background-start)"/>
+      <stop offset="1" stop-color="var(--background-end)"/>
+    </linearGradient>
+    <linearGradient id="header-mark" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#59d3ba"/>
+      <stop offset="1" stop-color="#69aef7"/>
+    </linearGradient>
+    <style>
+      :root {
+        color-scheme: dark light;
+        --background-start: #111923;
+        --background-end: #182330;
+        --title: #f5f8fc;
+        --subtitle: #91a2b5;
+        --column: #73869b;
+        --tree: #a7b5c5;
+        --description: #8794a2;
+        --branch: #53677d;
+        --separator: #2a3949;
+        --footer: #ecf4fb;
+        --footer-label: #8ba1b7;
+        --arrow: #7dd9c6;
+        --path-backend: #72b8ff;
+        --path-flow: #c3a5ff;
+        --path-common: #ffc779;
+        --path-front: #62d7c2;
+        --path-docker: #f4bc62;
+        --path-tests: #8bd19d;
+        --path-evals: #c4a4ff;
+        --path-tools: #ff9e78;
+        --path-docs: #81b9ff;
+        --path-assets: #f08fb6;
+        --path-var: #9aa8b8;
+        --path-file: #d5deea;
+      }
+      @media (prefers-color-scheme: light) {
+        :root {
+          --background-start: #fbfcfe;
+          --background-end: #edf2f8;
+          --title: #17283b;
+          --subtitle: #64748b;
+          --column: #718096;
+          --tree: #62758a;
+          --description: #7b8795;
+          --branch: #aebdcb;
+          --separator: #dce4ed;
+          --footer: #2b3c50;
+          --footer-label: #6b7b8d;
+          --arrow: #168b79;
+          --path-backend: #1768a6;
+          --path-flow: #7251a8;
+          --path-common: #9b6209;
+          --path-front: #087c70;
+          --path-docker: #8b5a08;
+          --path-tests: #34794a;
+          --path-evals: #7251a8;
+          --path-tools: #a84c25;
+          --path-docs: #28679e;
+          --path-assets: #a83e69;
+          --path-var: #607080;
+          --path-file: #344659;
+        }
+      }
+      text { font-family: "JetBrains Mono", "SFMono-Regular", Consolas, "Noto Sans CJK SC", "Microsoft YaHei", monospace; }
+      .title { fill: var(--title); font-size: 34px; font-weight: 700; }
+      .subtitle { fill: var(--subtitle); font-size: 15px; }
+      .column { fill: var(--column); font-size: 12px; font-weight: 700; letter-spacing: 1.5px; }
+      .tree { fill: var(--tree); stroke: none; font-size: 23px; }
+      .root { font-weight: 700; }
+      .desc { fill: var(--description); font-size: 22px; }
+      .muted { fill: var(--subtitle); }
+      .path-backend { fill: var(--path-backend); }
+      .path-flow { fill: var(--path-flow); }
+      .path-common { fill: var(--path-common); }
+      .path-front { fill: var(--path-front); }
+      .path-docker { fill: var(--path-docker); }
+      .path-tests { fill: var(--path-tests); }
+      .path-evals { fill: var(--path-evals); }
+      .path-tools { fill: var(--path-tools); }
+      .path-docs { fill: var(--path-docs); }
+      .path-assets { fill: var(--path-assets); }
+      .path-var { fill: var(--path-var); }
+      .path-file { fill: var(--path-file); }
+      .branch { fill: none; stroke: var(--branch); stroke-width: 1.8; stroke-linecap: round; }
+      .separator { stroke: var(--separator); stroke-width: 1; }
+      .footer { fill: var(--footer); font-size: 21px; font-weight: 600; }
+      .footer-label { fill: var(--footer-label); font-size: 12px; font-weight: 700; letter-spacing: 1.5px; }
+    </style>
+  </defs>
+
+  <rect width="1700" height="1200" fill="url(#background)"/>
+  <circle cx="1580" cy="8" r="200" fill="#68b7dc" opacity=".035"/>
+  <circle cx="1520" cy="36" r="126" fill="#74d2b8" opacity=".035"/>
+  <rect x="0" y="0" width="8" height="1200" fill="url(#header-mark)"/>
+
+  <text class="title" x="56" y="64">MiniRAG</text>
+  <text class="subtitle" x="218" y="63">仓库结构 · 目录树与职责说明</text>
+  <text class="subtitle" x="862" y="62" text-anchor="end">REPOSITORY MAP</text>
+  <line class="separator" x1="56" y1="91" x2="888" y2="91"/>
+  <text class="column" x="68" y="121">目录树</text>
+  <text class="column" x="180" y="121">· 灰色文字为职责说明</text>
+
+  <g class="branch">
+    <path d="M56 145v910"/>
+    <path d="M56 145h20M56 670h20M56 740h20M56 775h20M56 810h20M56 845h20M56 880h20M56 915h20M56 950h20M56 985h20M56 1020h20M56 1055h20"/>
+    <path d="M112 180v455M112 180h20M112 215h20M112 250h20M112 355h20"/>
+    <path d="M168 285v35M168 285h20M168 320h20"/>
+    <path d="M168 390v245M168 390h20M168 425h20M168 460h20M168 495h20M168 530h20M168 565h20M168 600h20M168 635h20"/>
+    <path d="M112 670v35M112 705h20"/>
+  </g>
+  <g class="tree">
+    <svg x="80" y="133" width="24" height="24" viewBox="0 0 24 24" aria-hidden="true">
+      <path fill="#0288d1" d="M9.86 2A2.86 2.86 0 0 0 7 4.86v1.68h4.29c.39 0 .71.57.71.96H4.86A2.86 2.86 0 0 0 2 10.36v3.781a2.86 2.86 0 0 0 2.86 2.86h1.18v-2.68a2.85 2.85 0 0 1 2.85-2.86h5.25c1.58 0 2.86-1.271 2.86-2.851V4.86A2.86 2.86 0 0 0 14.14 2zm-.72 1.61c.4 0 .72.12.72.71s-.32.891-.72.891c-.39 0-.71-.3-.71-.89s.32-.711.71-.711"/>
+      <path fill="#fdd835" d="M17.959 7v2.68a2.85 2.85 0 0 1-2.85 2.859H9.86A2.85 2.85 0 0 0 7 15.389v3.75a2.86 2.86 0 0 0 2.86 2.86h4.28A2.86 2.86 0 0 0 17 19.14v-1.68h-4.291c-.39 0-.709-.57-.709-.96h7.14A2.86 2.86 0 0 0 22 13.64V9.86A2.86 2.86 0 0 0 19.14 7zM8.32 11.513l-.004.004.038-.004zm6.54 7.276c.39 0 .71.3.71.89a.71.71 0 0 1-.71.71c-.4 0-.72-.12-.72-.71s.32-.89.72-.89"/>
+    </svg>
+    <text class="path-backend root" x="112" y="152">backend/</text>
+    <text class="path-backend" x="136" y="187">api/</text>
+    <text class="path-backend" x="136" y="222">service/</text>
+    <text class="path-flow" x="136" y="257">graphs/</text>
+    <text class="path-flow" x="192" y="292">import_graph/</text>
+    <text class="path-flow" x="192" y="327">query_graph/</text>
+    <text class="path-common" x="136" y="362">common/</text>
+    <text class="path-common" x="192" y="397">config/</text>
+    <text class="path-common" x="192" y="432">model/</text>
+    <text class="path-common" x="192" y="467">client/</text>
+    <text class="path-common" x="192" y="502">events/</text>
+    <text class="path-common" x="192" y="537">store/</text>
+    <text class="path-common" x="192" y="572">prompt/</text>
+    <text class="path-common" x="192" y="607">schema/</text>
+    <text class="path-common" x="192" y="642">utils/</text>
+
+    <svg x="80" y="658" width="24" height="24" viewBox="0 0 32 32" aria-hidden="true">
+      <path fill="#00bcd4" d="M16 12c7.444 0 12 2.59 12 4s-4.556 4-12 4-12-2.59-12-4 4.556-4 12-4m0-2c-7.732 0-14 2.686-14 6s6.268 6 14 6 14-2.686 14-6-6.268-6-14-6"/>
+      <path fill="#00bcd4" d="M16 14a2 2 0 1 0 2 2 2 2 0 0 0-2-2"/>
+      <path fill="#00bcd4" d="M10.458 5.507c2.017 0 5.937 3.177 9.006 8.493 3.722 6.447 3.757 11.687 2.536 12.392a.9.9 0 0 1-.457.1c-2.017 0-5.938-3.176-9.007-8.492C8.814 11.553 8.779 6.313 10 5.608a.9.9 0 0 1 .458-.1m-.001-2A2.87 2.87 0 0 0 9 3.875C6.13 5.532 6.938 12.304 10.804 19c3.284 5.69 7.72 9.493 10.74 9.493A2.87 2.87 0 0 0 23 28.124c2.87-1.656 2.062-8.428-1.804-15.124-3.284-5.69-7.72-9.493-10.74-9.493Z"/>
+      <path fill="#00bcd4" d="M21.543 5.507a.9.9 0 0 1 .457.1c1.221.706 1.186 5.946-2.536 12.393-3.07 5.316-6.99 8.493-9.007 8.493a.9.9 0 0 1-.457-.1C8.779 25.686 8.814 20.446 12.536 14c3.07-5.316 6.99-8.493 9.007-8.493m0-2c-3.02 0-7.455 3.804-10.74 9.493C6.939 19.696 6.13 26.468 9 28.124a2.87 2.87 0 0 0 1.457.369c3.02 0 7.455-3.804 10.74-9.493C25.061 12.304 25.87 5.532 23 3.876a2.87 2.87 0 0 0-1.457-.369"/>
+    </svg>
+    <text class="path-front root" x="112" y="677">frontend/</text>
+    <svg x="136" y="681" width="24" height="24" viewBox="0 0 16 16" aria-hidden="true">
+      <path fill="#4caf50" d="m6.922 3.768-.644-.536A1 1 0 0 0 5.638 3H2a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V5a1 1 0 0 0-1-1H7.562a1 1 0 0 1-.64-.232"/>
+      <path fill="#c8e6c9" d="M9.225 15a.5.5 0 0 1-.12-.014.57.568 0 0 1-.414-.661l1.549-7.872a.566.565 0 0 1 .254-.372.53.53 0 0 1 .4-.067.57.57 0 0 1 .415.662l-1.552 7.872a.56.56 0 0 1-.253.371.53.53 0 0 1-.28.081m3.105-1h-.038a.54.54 0 0 1-.382-.206.583.583 0 0 1 .057-.774l2.664-2.483-2.653-2.312a.583.582 0 0 1-.08-.772.54.54 0 0 1 .377-.218.53.53 0 0 1 .406.129l3.126 2.727a.579.578 0 0 1 .002.862l-3.114 2.904a.536.535 0 0 1-.365.144zm-4.661 0a.536.535 0 0 1-.365-.146L4.186 10.95a.58.58 0 0 1-.005-.846l.01-.01 3.128-2.726a.516.515 0 0 1 .4-.13.54.54 0 0 1 .38.218.583.583 0 0 1-.08.773l-2.65 2.31 2.663 2.482a.579.578 0 0 1 .056.774.536.535 0 0 1-.381.206z"/>
+    </svg>
+    <text class="path-front" x="166" y="712">src/</text>
+    <svg x="80" y="725" width="24" height="24" viewBox="0 0 24 24" aria-hidden="true">
+      <path fill="#0288d1" d="M21.81 10.25c-.06-.04-.56-.43-1.64-.43-.28 0-.56.03-.84.08-.21-1.4-1.38-2.11-1.43-2.14l-.29-.17-.18.27c-.24.36-.43.77-.51 1.19-.2.8-.08 1.56.33 2.21-.49.28-1.29.35-1.46.35H2.62c-.34 0-.62.28-.62.63 0 1.15.18 2.3.58 3.38.45 1.19 1.13 2.07 2 2.61.98.6 2.59.94 4.42.94.79 0 1.61-.07 2.42-.22 1.12-.2 2.2-.59 3.19-1.16A8.3 8.3 0 0 0 16.78 16c1.05-1.17 1.67-2.5 2.12-3.65h.19c1.14 0 1.85-.46 2.24-.85.26-.24.45-.53.59-.87l.08-.24zm-17.96.99h1.76c.08 0 .16-.07.16-.16V9.5c0-.08-.07-.16-.16-.16H3.85c-.09 0-.16.06-.16.16v1.58c.01.09.07.16.16.16m2.43 0h1.76c.08 0 .16-.07.16-.16V9.5c0-.08-.07-.16-.16-.16H6.28c-.09 0-.16.06-.16.16v1.58c.01.09.07.16.16.16m2.47 0h1.75c.1 0 .17-.07.17-.16V9.5c0-.08-.06-.16-.17-.16H8.75c-.08 0-.15.07-.15.16v1.58c0 .09.06.16.15.16m2.44 0h1.77c.08 0 .15-.07.15-.16V9.5c0-.08-.06-.16-.15-.16h-1.77c-.08 0-.15.07-.15.16v1.58c0 .09.07.16.15.16M6.28 9h1.76c.08 0 .16-.09.16-.18V7.25c0-.09-.07-.16-.16-.16H6.28c-.09 0-.16.06-.16.16v1.57c.01.09.07.18.16.18m2.47 0h1.75c.1 0 .17-.09.17-.18V7.25c0-.09-.06-.16-.17-.16H8.75c-.08 0-.15.06-.15.16v1.57c0 .09.06.18.15.18m2.44 0h1.77c.08 0 .15-.09.15-.18V7.25c0-.09-.07-.16-.15-.16h-1.77c-.08 0-.15.06-.15.16v1.57c0 .09.07.18.15.18m0-2.28h1.77c.08 0 .15-.07.15-.16V5c0-.1-.07-.17-.15-.17h-1.77c-.08 0-.15.06-.15.17v1.56c0 .08.07.16.15.16m2.46 4.52h1.76c.09 0 .16-.07.16-.16V9.5c0-.08-.07-.16-.16-.16h-1.76c-.08 0-.15.07-.15.16v1.58c0 .09.07.16.15.16"/>
+    </svg>
+    <text class="path-docker root" x="112" y="747">docker/</text>
+    <svg x="80" y="760" width="24" height="24" viewBox="0 0 16 16" aria-hidden="true">
+      <path fill="#1e88e5" d="m6.922 3.768-.644-.536A1 1 0 0 0 5.638 3H2a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V5a1 1 0 0 0-1-1H7.562a1 1 0 0 1-.64-.232"/>
+      <path fill="#bbdefb" d="M12.182 9.506 6.682 15 6 14.319l5.494-5.5Zm2.182-1.408.287-.288-.385-.384.312-.312-.692-.691-.311.311-.385-.385-.287.288A10.3 10.3 0 0 0 10.078 5l-.405.872a12.3 12.3 0 0 1 2.368 1.627l-.244.244 1.461 1.461.244-.244a12.3 12.3 0 0 1 1.626 2.368l.872-.404a10.3 10.3 0 0 0-1.636-2.825"/>
+    </svg>
+    <text class="path-tests root" x="112" y="782">tests/</text>
+    <svg x="80" y="795" width="24" height="24" viewBox="0 0 16 16" aria-hidden="true">
+      <path fill="#1e88e5" d="m6.922 3.768-.644-.536A1 1 0 0 0 5.638 3H2a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V5a1 1 0 0 0-1-1H7.562a1 1 0 0 1-.64-.232"/>
+      <path fill="#bbdefb" d="M10 6a4.995 4.995 0 0 0-3.995 8H7.36A3.997 3.997 0 0 1 10 7a4 4 0 0 1 .846.09c.365-.22.754-.45 1.14-.676A4.9 4.9 0 0 0 10 6m4.242.758S9.366 8.804 8.585 9.586a2 2 0 0 0 2.829 2.828c.781-.78 2.828-5.656 2.828-5.656m.318 2.203c-.205.365-.43.759-.66 1.164A4 4 0 0 1 14 11a4 4 0 0 1-1.36 3h1.354A4.97 4.97 0 0 0 15 11a4.9 4.9 0 0 0-.44-2.04"/>
+    </svg>
+    <text class="path-evals root" x="112" y="817">evals/</text>
+    <svg x="80" y="830" width="24" height="24" viewBox="0 0 16 16" aria-hidden="true">
+      <path fill="#009688" d="m6.922 3.768-.644-.536A1 1 0 0 0 5.638 3H2a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V5a1 1 0 0 0-1-1H7.562a1 1 0 0 1-.64-.232"/>
+      <path fill="#b2dfdb" d="M12 5H8.5a.5.5 0 0 0-.5.5v8a.5.5 0 0 0 .5.5h6a.5.5 0 0 0 .5-.5V8Zm-2 3a1 1 0 1 1-1 1 1.005 1.005 0 0 1 1-1m4 5H9l2-2 1 1 2-2zm-2.414-4.586V6L14 8.414Z"/>
+    </svg>
+    <text class="path-tools root" x="112" y="852">tools/</text>
+    <svg x="80" y="865" width="24" height="24" viewBox="0 0 16 16" aria-hidden="true">
+      <path fill="#0277bd" d="m6.922 3.768-.644-.536A1 1 0 0 0 5.638 3H2a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V5a1 1 0 0 0-1-1H7.562a1 1 0 0 1-.64-.232"/>
+      <path fill="#b3e5fc" d="M12 5H8.5a.5.5 0 0 0-.5.5v8a.5.5 0 0 0 .5.5h6a.5.5 0 0 0 .5-.5V8Zm0 8H9v-1h3zm2-2H9v-1h5zm-2.414-2.586V6L14 8.414Z"/>
+    </svg>
+    <text class="path-docs root" x="112" y="887">docs/</text>
+    <svg x="80" y="900" width="24" height="24" viewBox="0 0 16 16" aria-hidden="true">
+      <path fill="#0277bd" d="m6.922 3.768-.644-.536A1 1 0 0 0 5.638 3H2a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V5a1 1 0 0 0-1-1H7.562a1 1 0 0 1-.64-.232"/>
+      <path fill="#b3e5fc" d="M12 5H8.5a.5.5 0 0 0-.5.5v8a.5.5 0 0 0 .5.5h6a.5.5 0 0 0 .5-.5V8Zm-2 3a1 1 0 1 1-1 1 1.005 1.005 0 0 1 1-1m4 5H9l2-2 1 1 2-2zm-2.414-4.586V6L14 8.414Z"/>
+    </svg>
+    <text class="path-assets root" x="112" y="922">assets/</text>
+    <svg x="80" y="935" width="24" height="24" viewBox="0 0 16 16" aria-hidden="true">
+      <path fill="#0097a7" d="m6.922 3.768-.644-.536A1 1 0 0 0 5.638 3H2a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V5a1 1 0 0 0-1-1H7.562a1 1 0 0 1-.64-.232"/>
+      <g fill="#b2ebf2">
+        <path d="M12.688 12.39 10 10.24V7h1v2.76l2.313 1.85z"/>
+        <path d="M11 15a5 5 0 1 1 5-5 5.005 5.005 0 0 1-5 5m0-9a4 4 0 1 0 4 4 4.005 4.005 0 0 0-4-4"/>
+      </g>
+    </svg>
+    <text class="path-var root" x="112" y="957">var/</text>
+    <svg x="80" y="970" width="24" height="24" viewBox="0 0 24 24" aria-hidden="true">
+      <path fill="#0288d1" d="M9.86 2A2.86 2.86 0 0 0 7 4.86v1.68h4.29c.39 0 .71.57.71.96H4.86A2.86 2.86 0 0 0 2 10.36v3.781a2.86 2.86 0 0 0 2.86 2.86h1.18v-2.68a2.85 2.85 0 0 1 2.85-2.86h5.25c1.58 0 2.86-1.271 2.86-2.851V4.86A2.86 2.86 0 0 0 14.14 2zm-.72 1.61c.4 0 .72.12.72.71s-.32.891-.72.891c-.39 0-.71-.3-.71-.89s.32-.711.71-.711"/>
+      <path fill="#fdd835" d="M17.959 7v2.68a2.85 2.85 0 0 1-2.85 2.859H9.86A2.85 2.85 0 0 0 7 15.389v3.75a2.86 2.86 0 0 0 2.86 2.86h4.28A2.86 2.86 0 0 0 17 19.14v-1.68h-4.291c-.39 0-.709-.57-.709-.96h7.14A2.86 2.86 0 0 0 22 13.64V9.86A2.86 2.86 0 0 0 19.14 7zM8.32 11.513l-.004.004.038-.004zm6.54 7.276c.39 0 .71.3.71.89a.71.71 0 0 1-.71.71c-.4 0-.72-.12-.72-.71s.32-.89.72-.89"/>
+    </svg>
+    <text class="path-file root" x="112" y="992">minirag.py</text>
+    <svg x="80" y="1005" width="24" height="24" viewBox="0 0 16 16" aria-hidden="true">
+      <path fill="#cfd8dc" d="M4 6V4h8v2H9v7H7V6z"/>
+      <path fill="#ef5350" d="M4 1v1H2v12h2v1H1V1zm8 0v1h2v12h-2v1h3V1z"/>
+    </svg>
+    <text class="path-file root" x="112" y="1027">pyproject.toml</text>
+    <svg x="80" y="1040" width="24" height="24" viewBox="0 0 32 32" aria-hidden="true">
+      <path fill="#ffd54f" d="M25 12h-3V8a6 6 0 0 0-12 0v4H7a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h18a1 1 0 0 0 1-1V13a1 1 0 0 0-1-1M14 8a2 2 0 0 1 4 0v4h-4Zm2 17a4 4 0 1 1 4-4 4 4 0 0 1-4 4"/>
+    </svg>
+    <text class="path-file root" x="112" y="1062">uv.lock</text>
+  </g>
+
+  <g class="desc">
+    <text x="234" y="152">Python 源码根（sys.path 根）</text>
+    <text x="203" y="187">HTTP 层：路由 / DTO / SSE 传输 / 启动自检</text>
+    <text x="259" y="222">业务编排：docs / import / query</text>
+    <text x="245" y="257">LangGraph 图</text>
+    <text x="382" y="292">导入图：解析 → 图片 → 切分 → 入库</text>
+    <text x="369" y="327">查询图：改写 → 多路召回 → 融合精排 → 生成</text>
+    <text x="245" y="362">唯一共享层</text>
+    <text x="301" y="397">运行参数 / 环境变量 / 路径</text>
+    <text x="287" y="432">LLM / VLM / Embedding / Reranker 访问器</text>
+    <text x="301" y="467">Milvus / MinIO / MongoDB / MinerU / WebSearch</text>
+    <text x="301" y="502">SSE 事件总线 / 任务表 / Token 计量</text>
+    <text x="287" y="537">会话历史 / 文档仓储 / 用量存储</text>
+    <text x="301" y="572">Prompt 模板</text>
+    <text x="301" y="607">全局数据结构</text>
+    <text x="287" y="642">切分 / 图片 / Token 等工具</text>
+    <text x="248" y="677">React 19 + Vite 6</text>
+    <text x="233" y="712">pages / components / store / lib / hooks / types / styles</text>
+    <text x="221" y="747">compose.infra / backend / frontend + 两个 Dockerfile</text>
+    <text x="207" y="782">unit / contract / integration / live + support / fixtures</text>
+    <text x="207" y="817">RAGAS 评估脚本与报告</text>
+    <text x="207" y="852">check_layout / check_layers / reset_db 等维护脚本</text>
+    <text x="193" y="887">architecture / setup / web-deploy / manual / notes / feat</text>
+    <text x="221" y="922">架构图 / 流程图 / 演示 GIF</text>
+    <text x="179" y="957">运行时产物（gitignore）</text>
+    <text x="262" y="992">一键 env_check / env_prepare / deploy / reset</text>
+    <text x="317" y="1027">依赖与 pytest 配置</text>
+    <text x="220" y="1062">依赖锁定</text>
+  </g>
+
+  <line class="separator" x1="56" y1="1100" x2="888" y2="1100"/>
+  <text class="footer-label" x="58" y="1133">主调用方向</text>
+  <text class="footer" x="58" y="1170">
+    api <tspan fill="var(--arrow)">→</tspan> service <tspan fill="var(--arrow)">→</tspan> graphs <tspan fill="var(--arrow)">→</tspan> common <tspan fill="var(--arrow)">→</tspan> 外部服务
+  </text>
+</svg>

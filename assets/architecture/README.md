@@ -10,7 +10,14 @@
 | `minirag-architecture.html`   | 交付产物：自包含交互式 HTML（内联 SVG）                    |
 | `minirag-architecture.json`   | Archify 规格源文件；改图后重新 `deliver` 即可              |
 | `minirag-architecture-v3.svg` | 双主题静态 SVG：保留 v2 布局，优化明暗配色与文字对比度     |
+| `minirag-repository-structure.svg` | 仓库目录与职责的文字版速览，不表示系统架构关系 |
 | `README.md`                   | 本说明                                                     |
+| `THIRD_PARTY_NOTICES.md`      | 仓库结构 SVG 所内嵌图标的版权与许可证声明                   |
+
+`minirag-repository-structure.svg` 的图标内嵌自
+[vscode-material-icon-theme](https://github.com/material-extensions/vscode-material-icon-theme)，
+固定来源为 commit `ced21b9b5241c1efa502a8c46ec7363a690a7058`；SVG 可离线独立显示。
+版权与完整 MIT 许可证见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
 
 `minirag-architecture-v3.svg` 随系统明暗模式自动切换，独立于交互式 HTML 维护；
 下方重新生成命令仅针对 HTML，不会更新该 SVG。
