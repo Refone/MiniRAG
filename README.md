@@ -67,18 +67,15 @@ $$
 
 ## 项目结构
 
-<table align="center" width="100%">
-  <tr>
-    <td width="65%" align="center" valign="top">
-      <img src="assets/architecture/minirag-architecture-v3.svg" width="100%" alt="项目结构">
-      <br><sub>项目整体架构</sub>
-    </td>
-    <td width="35%" align="center" valign="center">
-      <img src="assets/architecture/minirag-repository-structure.svg" width="100%" alt="项目仓库结构">
-      <br><sub>项目仓库结构</sub>
-    </td>
-  </tr>
-</table>
+<div align="center">
+
+<img src="assets/architecture/minirag-repository-structure.svg" width="50%" alt="项目仓库结构">
+<br><sub>项目仓库结构</sub></br><br/>
+
+<img src="assets/architecture/minirag-architecture-v3.svg" width="100%" alt="项目结构">
+<br><sub>项目整体架构</sub></br><br/>
+
+</div>
 
 ## 快速开始
 
@@ -178,7 +175,6 @@ cd frontend && npm run storybook
 | ---------------------------- | ------------------------------------------------------------------------- |
 | 分层、主链路、存储与外部依赖 | [docs/architecture.md](docs/architecture.md)                              |
 | 环境检查、一键部署、镜像源   | [docs/setup.md](docs/setup.md) · [docs/web-deploy.md](docs/web-deploy.md) |
-| 后端测试分层与写法           | [docs/manual/backend-testing.md](docs/manual/backend-testing.md)          |
 | 端到端测试（Playwright）     | [docs/manual/e2e-testing.md](docs/manual/e2e-testing.md)                  |
 | 自动部署与回滚               | [docs/notes/ci-cd.md](docs/notes/ci-cd.md)                                |
 | 需求过程与历史决策           | [docs/feat/README.md](docs/feat/README.md)                                |
