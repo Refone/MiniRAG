@@ -35,16 +35,16 @@ $$
 <img src="assets/workflow-graph/import-graph-flow.animated.svg" width="880" alt="文档导入流程"><br/>
 <sub><i>文档导入流程图</i></sub><br/><br/>
 
-| 节点名称                     | 节点功能说明                                                                                                        |
-| ---------------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| `node_entry`                 | 文档导入入口。<br>识别上传文件类型，路由到后续节点。                                                                |
-| `node_pdf_to_md`             | PDF 转 Markdown 节点。<br>调用 MinerU 把 PDF 解析为带图片的 Markdown。                                              |
-| `node_process_standalone_md` | 单文件 Markdown 处理节点。<br>下载外链图片保存至本地。                                                              |
-| `node_process_md_zip`        | Markdown zip 处理节点。<br>对压缩包内每个 Markdown 文件进行处理，下载外链图片保存至本地。                           |
-| `node_md_fork`               | 压缩包分发节点。<br>把 zip 里面的多个 Markdown 变成可并行的子任务。                                                 |
-| `node_md_img`                | 图片处理节点。<br>调用 VLM 生成每张图片摘要。<br>图片上传 MinIO、更新 Markdown 文件中的图片链接。                   |
-| `node_document_split`        | 文档切分节点。<br>根据标题层级递归切分 Markdown 文档，生成可向量化的文档切片。                                      |
-| `node_document_embedding`    | 信息入库节点。<br>三类制品（原始文档、处理后文档、切片文件）分别上传 MinIO。<br>文档摘要、切片、向量化入库 Milvus。 |
+| 节点名称                                                                                             | 节点功能说明                                                                                                        |
+| ---------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| [`node_entry`](backend/graphs/import_graph/nodes/node_entry.py#L13)                                  | 文档导入入口。<br>识别上传文件类型，路由到后续节点。                                                                |
+| [`node_pdf_to_md`](backend/graphs/import_graph/nodes/node_pdf_to_md.py#L45)                          | PDF 转 Markdown 节点。<br>调用 MinerU 把 PDF 解析为带图片的 Markdown。                                              |
+| [`node_process_standalone_md`](backend/graphs/import_graph/nodes/node_process_standalone_md.py#L170) | 单文件 Markdown 处理节点。<br>下载外链图片保存至本地。                                                              |
+| [`node_process_md_zip`](backend/graphs/import_graph/nodes/node_process_md_zip.py#L337)               | Markdown zip 处理节点。<br>对压缩包内每个 Markdown 文件进行处理，下载外链图片保存至本地。                           |
+| [`node_md_fork`](backend/graphs/import_graph/nodes/node_md_fork.py#L11)                              | 压缩包分发节点。<br>把 zip 里面的多个 Markdown 变成可并行的子任务。                                                 |
+| [`node_md_img`](backend/graphs/import_graph/nodes/node_md_img.py#L380)                               | 图片处理节点。<br>调用 VLM 生成每张图片摘要。<br>图片上传 MinIO、更新 Markdown 文件中的图片链接。                   |
+| [`node_document_split`](backend/graphs/import_graph/nodes/node_document_split.py#L83)                | 文档切分节点。<br>根据标题层级递归切分 Markdown 文档，生成可向量化的文档切片。                                      |
+| [`node_document_embedding`](backend/graphs/import_graph/nodes/node_document_embedding.py#L313)       | 信息入库节点。<br>三类制品（原始文档、处理后文档、切片文件）分别上传 MinIO。<br>文档摘要、切片、向量化入库 Milvus。 |
 
 </div>
 
@@ -54,14 +54,14 @@ $$
 <img src="assets/workflow-graph/query-graph-flow.animated.svg" width="880" alt="查询流程"><br/>
 <sub><i>信息查询流程图</i></sub><br/><br/>
 
-| 节点名称                | 节点功能说明                                                                          |
-| ----------------------- | ------------------------------------------------------------------------------------- |
-| `node_intent_recognize` | 意图识别节点。<br>意图识别 + 查询改写 + 文档级召回                                    |
-| `node_search_embedding` | 嵌入检索节点。<br>在确认文档范围内做切片级混合检索。                                  |
-| `node_search_hyde`      | HyDE 假设性答案召回。<br>让 LLM 先编一个答案，在根据答案中的线索进行向量检索。        |
-| `node_search_web`       | 联网搜索节点。<br>通过网络搜索 MCP 获取相关信息。                                     |
-| `node_rrf_and_rerank`   | RRF 融合与重排序节点。<br>对多源检索结果进行 RRF 融合，并调用 Reranker 模型进行精排。 |
-| `node_answer_output`    | 答案输出节点。<br>整合多源检索结果，让 LLM 进行总结归纳。生成最终答案并返回给前端。   |
+| 节点名称                                                                                  | 节点功能说明                                                                          |
+| ----------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| [`node_intent_recognize`](backend/graphs/query_graph/nodes/node_intent_recognize.py#L129) | 意图识别节点。<br>意图识别 + 查询改写 + 文档级召回                                    |
+| [`node_search_embedding`](backend/graphs/query_graph/nodes/node_search_embedding.py#L37)  | 嵌入检索节点。<br>在确认文档范围内做切片级混合检索。                                  |
+| [`node_search_hyde`](backend/graphs/query_graph/nodes/node_search_hyde.py#L53)            | HyDE 假设性答案召回。<br>让 LLM 先编一个答案，在根据答案中的线索进行向量检索。        |
+| [`node_search_web`](backend/graphs/query_graph/nodes/node_search_web.py#L22)              | 联网搜索节点。<br>通过网络搜索 MCP 获取相关信息。                                     |
+| [`node_rrf_and_rerank`](backend/graphs/query_graph/nodes/node_rrf_and_rerank.py#L247)     | RRF 融合与重排序节点。<br>对多源检索结果进行 RRF 融合，并调用 Reranker 模型进行精排。 |
+| [`node_answer_output`](backend/graphs/query_graph/nodes/node_answer_output.py#L102)       | 答案输出节点。<br>整合多源检索结果，让 LLM 进行总结归纳。生成最终答案并返回给前端。   |
 
 </div>
 
